@@ -5,8 +5,8 @@ import { LayoutDashboard, Users, LogOut, Terminal } from 'lucide-react';
 
 interface MainLayoutProps {
   children: React.ReactNode;
-  view: 'MESSAGES' | 'USERS';
-  setView: (view: 'MESSAGES' | 'USERS') => void;
+  view: 'MESSAGES' | 'USERS' | 'AGENTS';
+  setView: (view: 'MESSAGES' | 'USERS' | 'AGENTS') => void;
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children, view, setView }) => {
@@ -33,6 +33,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, view, setView }) => {
               >
                 <LayoutDashboard className="h-4 w-4" />
                 Dashboard
+              </Button>
+              <Button 
+                variant={view === 'AGENTS' ? 'secondary' : 'ghost'} 
+                size="sm"
+                className="gap-2"
+                onClick={() => setView('AGENTS')}
+              >
+                <Terminal className="h-4 w-4" />
+                Agents
               </Button>
               {isAdmin && (
                 <Button 

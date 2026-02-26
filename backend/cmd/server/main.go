@@ -8,11 +8,17 @@ import (
 	"github.com/lea/echocenter/backend/internal/auth"
 	"github.com/lea/echocenter/backend/internal/database"
 	"github.com/lea/echocenter/backend/internal/handlers"
+	"github.com/lea/echocenter/backend/internal/websocket"
 )
 
 func main() {
 	// Initialize Database and Load Env
 	database.InitDB()
+
+	// Initialize WebSocket Hub
+	hub := websocket.NewHub()
+	go hub.Run()
+	handlers.SetHub(hub)
 
 	// Gin configuration
 	gin.SetMode(gin.ReleaseMode)
@@ -33,9 +39,12 @@ func main() {
 			c.JSON(200, gin.H{"message": "pong"})
 		})
 		api.POST("/auth/login", handlers.Login)
+		
+		// WebSocket endpoint (T013)
+		api.GET("/ws", handlers.HandleWs)
 	}
 
-	// Protected routes (T015)
+	// Protected routes
 	protected := api.Group("/")
 	protected.Use(auth.AuthMiddleware())
 	{
@@ -47,7 +56,11 @@ func main() {
 		admin.Use(auth.AdminOnlyMiddleware())
 		{
 			admin.POST("", handlers.HandleCreateUser)
+			admin.POST("/agents", handlers.HandleRegisterAgent)
 		}
+		
+		// All authenticated users can see agents
+		protected.GET("/users/agents", handlers.HandleGetAgents)
 	}
 
 	log.Println("Starting server on :8080")
