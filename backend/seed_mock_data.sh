@@ -3,12 +3,14 @@
 # EchoCenter Mock Data Seeder
 # This script will:
 # 1. Login as admin to get a token
-# 2. Register 3 mock agents
-# 3. Send initial status reports and "chat-like" greetings to the dashboard
+# 2. Register mock agents
+# 3. Send initial status reports to the dashboard
+# 4. Insert initial chat history for EVERY agent dynamically
 
 API_URL="http://localhost:8080/api"
 ADMIN_USER="admin"
 ADMIN_PASS="admin123"
+DB_FILE="echocenter.db"
 
 echo "--- EchoCenter Seeder ---"
 
@@ -22,7 +24,6 @@ TOKEN=$(echo $LOGIN_RES | grep -o '"token":"[^"]*' | cut -d'"' -f4)
 
 if [ -z "$TOKEN" ]; then
     echo "Error: Could not get admin token. Response: $LOGIN_RES"
-    echo "Is the server running and admin initialized?"
     exit 1
 fi
 
@@ -32,20 +33,16 @@ echo "Login successful."
 declare -a AGENTS=("Weather-Sentinel" "Code-Reviewer-AI" "Security-Audit-Bot" "Echo-Bot")
 
 for agent in "${AGENTS[@]}"; do
-    echo "Registering agent: $agent..."
-    REG_RES=$(curl -s -X POST $API_URL/users/agents \
+    echo "Registering/Verifying agent: $agent..."
+    curl -s -X POST $API_URL/users/agents \
          -H "Content-Type: application/json" \
          -H "Authorization: Bearer $TOKEN" \
-         -d "{\"username\": \"$agent\"}")
-    
-    AGENT_TOKEN=$(echo $REG_RES | grep -o '"api_token":"[^"]*' | cut -d'"' -f4)
-    echo "  > $agent Token: $AGENT_TOKEN"
+         -d "{\"username\": \"$agent\"}" > /dev/null
 done
 
 # 3. Ingest Mock Status Messages (Dashboard)
 echo "Populating dashboard with initial records..."
 
-# Standard Status Reports
 curl -s -X POST $API_URL/messages \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer $TOKEN" \
@@ -56,26 +53,32 @@ curl -s -X POST $API_URL/messages \
      -H "Authorization: Bearer $TOKEN" \
      -d '{"agent_id": "Code-Reviewer-AI", "level": "WARNING", "content": "Found 3 deprecated imports in backend/go.mod. Optimization recommended."}'
 
-# Interactive-style messages from Agents
 curl -s -X POST $API_URL/messages \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer $TOKEN" \
      -d '{"agent_id": "Echo-Bot", "level": "INFO", "content": "[Handshake] Hello operator! I am connected via WebSocket and ready to reflect your commands."}'
 
-curl -s -X POST $API_URL/messages \
-     -H "Content-Type: application/json" \
-     -H "Authorization: Bearer $TOKEN" \
-     -d '{"agent_id": "Security-Audit-Bot", "level": "ERROR", "content": "[Alert] Unauthorized access attempt detected from 192.168.1.105. Blocking IP..."}'
+# 4. Mock Chat History (Dynamic IDs)
+echo "Seeding initial chat history for all agents..."
 
-curl -s -X POST $API_URL/messages \
-     -H "Content-Type: application/json" \
-     -H "Authorization: Bearer $TOKEN" \
-     -d '{"agent_id": "Weather-Sentinel", "level": "INFO", "content": "System Update: New satellite feed integrated. High-resolution imagery available."}'
+# Clear existing history first to avoid mess
+sqlite3 $DB_FILE "DELETE FROM chat_messages;"
 
-curl -s -X POST $API_URL/messages \
-     -H "Content-Type: application/json" \
-     -H "Authorization: Bearer $TOKEN" \
-     -d '{"agent_id": "Code-Reviewer-AI", "level": "INFO", "content": "Routine Check: All internal package dependencies are verified and up to date."}'
+ADMIN_ID=1
+
+for agent in "${AGENTS[@]}"; do
+    # Get ID for this agent
+    AGENT_ID=$(sqlite3 $DB_FILE "SELECT id FROM users WHERE username='$agent';")
+    
+    if [ ! -z "$AGENT_ID" ]; then
+        echo "  > Adding history for $agent (ID: $AGENT_ID)"
+        sqlite3 $DB_FILE <<EOF
+INSERT INTO chat_messages (sender_id, receiver_id, content) VALUES ($AGENT_ID, $ADMIN_ID, 'Initial link established with $agent.');
+INSERT INTO chat_messages (sender_id, receiver_id, content) VALUES ($ADMIN_ID, $AGENT_ID, 'Acknowledged. Report status.');
+INSERT INTO chat_messages (sender_id, receiver_id, content) VALUES ($AGENT_ID, $ADMIN_ID, 'Status: NOMINAL. Ready for commands.');
+EOF
+    fi
+done
 
 echo -e "\n--- Seeding Complete ---"
-echo "Refresh your dashboard to see the agents and new activity logs."
+echo "Refresh your dashboard. All agents now have history!"

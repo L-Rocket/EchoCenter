@@ -29,7 +29,7 @@ func InitDBPath(path string) {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Create messages table
+	// Create messages table (Status Logs)
 	createMessagesTableSQL := `CREATE TABLE IF NOT EXISTS messages (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		agent_id TEXT NOT NULL,
@@ -56,8 +56,24 @@ func InitDBPath(path string) {
 		log.Fatalf("Failed to create users table: %v", err)
 	}
 
-	// Index for performance
+	// Create chat_messages table (T001)
+	createChatTableSQL := `CREATE TABLE IF NOT EXISTS chat_messages (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		sender_id INTEGER NOT NULL,
+		receiver_id INTEGER NOT NULL,
+		content TEXT NOT NULL,
+		timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY(sender_id) REFERENCES users(id),
+		FOREIGN KEY(receiver_id) REFERENCES users(id)
+	);`
+	_, err = db.Exec(createChatTableSQL)
+	if err != nil {
+		log.Fatalf("Failed to create chat_messages table: %v", err)
+	}
+
+	// Indexes for performance
 	db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages (timestamp DESC, id DESC);`)
+	db.Exec(`CREATE INDEX IF NOT EXISTS idx_chat_pair_time ON chat_messages (sender_id, receiver_id, timestamp DESC);`)
 
 	log.Println("Database initialized and tables verified at", path)
 
@@ -193,4 +209,38 @@ func CreateUser(username, password, role string) error {
 	}
 	_, err = db.Exec("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", username, string(hashedPassword), role)
 	return err
+}
+
+// SaveChatMessage persists a chat message (T002)
+func SaveChatMessage(senderID, receiverID int, content string) error {
+	query := `INSERT INTO chat_messages (sender_id, receiver_id, content) VALUES (?, ?, ?)`
+	_, err := db.Exec(query, senderID, receiverID, content)
+	return err
+}
+
+// GetChatHistory retrieves the latest 50 messages between two users (T003)
+func GetChatHistory(user1ID, user2ID int, limit int) ([]models.ChatMessage, error) {
+	query := `
+		SELECT id, sender_id, receiver_id, content, timestamp 
+		FROM chat_messages 
+		WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
+		ORDER BY timestamp ASC 
+		LIMIT ?
+	`
+	rows, err := db.Query(query, user1ID, user2ID, user2ID, user1ID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	messages := []models.ChatMessage{}
+	for rows.Next() {
+		var m models.ChatMessage
+		err := rows.Scan(&m.ID, &m.SenderID, &m.ReceiverID, &m.Payload, &m.Timestamp)
+		if err != nil {
+			return nil, err
+		}
+		messages = append(messages, m)
+	}
+	return messages, nil
 }

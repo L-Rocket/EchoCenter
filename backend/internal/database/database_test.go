@@ -67,3 +67,27 @@ func TestGetLatestMessages(t *testing.T) {
 		t.Errorf("Expected reverse chronological order (by ID), but first ID %d is smaller than last ID %d", messages[0].ID, messages[49].ID)
 	}
 }
+
+func TestChatHistory(t *testing.T) {
+	senderID := 1
+	receiverID := 2
+	content := "Hello persistent world"
+
+	err := SaveChatMessage(senderID, receiverID, content)
+	if err != nil {
+		t.Fatalf("Failed to save chat message: %v", err)
+	}
+
+	history, err := GetChatHistory(senderID, receiverID, 10)
+	if err != nil {
+		t.Fatalf("Failed to get chat history: %v", err)
+	}
+
+	if len(history) == 0 {
+		t.Fatal("Expected history, got none")
+	}
+
+	if history[0].Payload != content {
+		t.Errorf("Expected content '%s', got '%s'", content, history[0].Payload)
+	}
+}

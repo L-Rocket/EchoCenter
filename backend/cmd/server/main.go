@@ -59,8 +59,9 @@ func main() {
 			admin.POST("/agents", handlers.HandleRegisterAgent)
 		}
 		
-		// All authenticated users can see agents
+		// All authenticated users can see agents and history
 		protected.GET("/users/agents", handlers.HandleGetAgents)
+		protected.GET("/chat/history/:peer_id", handlers.HandleGetChatHistory)
 	}
 
 	log.Println("Starting server on :8080")
