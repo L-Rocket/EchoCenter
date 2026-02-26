@@ -5,10 +5,11 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/lea/echocenter/backend/auth"
 )
 
 func main() {
-	// Initialize Database
+	// Initialize Database and Load Env
 	InitDB()
 
 	// Gin configuration
@@ -19,18 +20,33 @@ func main() {
 
 	// CORS configuration
 	config := cors.DefaultConfig()
-	config.AllowAllOrigins = true // For MVP simplicity. In production, restrict this.
+	config.AllowAllOrigins = true
 	config.AllowHeaders = []string{"Origin", "Content-Type", "Authorization"}
 	r.Use(cors.New(config))
 
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
+	// Public routes
+	api := r.Group("/api")
+	{
+		api.GET("/ping", func(c *gin.Context) {
+			c.JSON(200, gin.H{"message": "pong"})
 		})
-	})
+		api.POST("/auth/login", Login)
+	}
 
-	r.POST("/api/messages", IngestMessage)
-	r.GET("/api/messages", GetMessages)
+	// Protected routes (T015)
+	protected := api.Group("/")
+	protected.Use(auth.AuthMiddleware())
+	{
+		protected.GET("/messages", GetMessages)
+		protected.POST("/messages", IngestMessage)
+
+		// User Management (Admin only)
+		admin := protected.Group("/users")
+		admin.Use(auth.AdminOnlyMiddleware())
+		{
+			admin.POST("", HandleCreateUser)
+		}
+	}
 
 	log.Println("Starting server on :8080")
 	if err := r.Run(":8080"); err != nil {

@@ -1,4 +1,6 @@
 # Go
+backend/backend
+backend/echocenter
 *.exe
 *.exe~
 *.dll
