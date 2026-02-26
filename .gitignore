@@ -1,0 +1,26 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+echocenter.db
+echocenter.db-journal
+
+# Node.js
+node_modules/
+dist/
+build/
+*.log
+.env*
+.vscode/
+.idea/
+.DS_Store
+
+# Universal
+Thumbs.db
+*.tmp
+*.swp

@@ -9,11 +9,11 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 [P] Initialize backend Go module in backend/go.mod
-- [ ] T002 [P] Install backend dependencies (gin, gin-contrib/cors, modernc.org/sqlite) in backend/
-- [ ] T003 [P] Initialize frontend React project with Vite and TypeScript in frontend/
-- [ ] T004 [P] Install frontend dependencies (tailwindcss, postcss, autoprefixer, axios) in frontend/
-- [ ] T005 [P] Configure Tailwind CSS in frontend/tailwind.config.js and frontend/src/index.css
+- [X] T001 [P] Initialize backend Go module in backend/go.mod
+- [X] T002 [P] Install backend dependencies (gin, gin-contrib/cors, modernc.org/sqlite) in backend/
+- [X] T003 [P] Initialize frontend React project with Vite and TypeScript in frontend/
+- [X] T004 [P] Install frontend dependencies (tailwindcss, postcss, autoprefixer, axios) in frontend/
+- [X] T005 [P] Configure Tailwind CSS in frontend/tailwind.config.js and frontend/src/index.css
 
 ---
 
@@ -21,10 +21,10 @@
 
 **Purpose**: Core infrastructure required for all user stories
 
-- [ ] T006 Initialize SQLite database and create `messages` table in backend/db.go
-- [ ] T007 Define Message struct and JSON tags in backend/models.go
-- [ ] T008 Setup Gin router with basic CORS middleware and logging in backend/main.go
-- [ ] T009 Create basic error response utility in backend/handlers.go
+- [X] T006 Initialize SQLite database and create `messages` table in backend/db.go
+- [X] T007 Define Message struct and JSON tags in backend/models.go
+- [X] T008 Setup Gin router with basic CORS middleware and logging in backend/main.go
+- [X] T009 Create basic error response utility in backend/handlers.go
 
 **Checkpoint**: Foundation ready - backend can start, database is initialized.
 
@@ -38,15 +38,15 @@
 
 ### Tests for User Story 1
 
-- [ ] T010 [P] [US1] Implement unit tests for message validation logic in backend/handlers_test.go
-- [ ] T011 [P] [US1] Implement unit tests for database insertion logic in backend/db_test.go
+- [X] T010 [P] [US1] Implement unit tests for message validation logic in backend/handlers_test.go
+- [X] T011 [P] [US1] Implement unit tests for database insertion logic in backend/db_test.go
 
 ### Implementation for User Story 1
 
-- [ ] T012 [P] [US1] Implement CreateMessage database persistence logic in backend/db.go
-- [ ] T013 [US1] Implement IngestMessage Gin handler with validation in backend/handlers.go
-- [ ] T014 [US1] Register POST /api/messages route in backend/main.go
-- [ ] T015 [US1] Verify ingestion endpoint using curl with valid and invalid payloads
+- [X] T012 [P] [US1] Implement CreateMessage database persistence logic in backend/db.go
+- [X] T013 [US1] Implement IngestMessage Gin handler with validation in backend/handlers.go
+- [X] T014 [US1] Register POST /api/messages route in backend/main.go
+- [X] T015 [US1] Verify ingestion endpoint using curl with valid and invalid payloads
 
 **Checkpoint**: User Story 1 functional - agents can now report status.
 
@@ -60,19 +60,19 @@
 
 ### Tests for User Story 2
 
-- [ ] T016 [P] [US2] Implement unit tests for GetLatestMessages query logic in backend/db_test.go
-- [ ] T017 [P] [US2] Implement unit tests for dashboard polling logic in frontend/src/App.test.tsx
-- [ ] T018 [P] [US2] Implement unit tests for MessageRow visual styling in frontend/src/components/MessageRow.test.tsx
+- [X] T016 [P] [US2] Implement unit tests for GetLatestMessages query logic in backend/db_test.go
+- [ ] T017 [P] [US2] Implement unit tests for dashboard polling logic in frontend/src/App.test.tsx (Skipped due to Vitest mocking issues in current env)
+- [X] T018 [P] [US2] Implement unit tests for MessageRow visual styling in frontend/src/components/MessageRow.test.tsx
 
 ### Implementation for User Story 2
 
-- [ ] T019 [P] [US2] Implement GetLatestMessages (limit 50) database query in backend/db.go
-- [ ] T020 [US2] Implement GetMessages Gin handler in backend/handlers.go
-- [ ] T021 [US2] Register GET /api/messages route in backend/main.go
-- [ ] T022 [P] [US2] Create MessageRow component for status display in frontend/src/components/MessageRow.tsx
-- [ ] T023 [US2] Implement MessageList component with layout in frontend/src/components/MessageList.tsx
-- [ ] T024 [US2] Implement fetching logic and 2s polling in frontend/src/App.tsx
-- [ ] T025 [US2] Apply visual styling for INFO, WARNING, and ERROR levels in frontend/src/components/MessageRow.tsx
+- [X] T019 [P] [US2] Implement GetLatestMessages (limit 50) database query in backend/db.go
+- [X] T020 [US2] Implement GetMessages Gin handler in backend/handlers.go
+- [X] T021 [US2] Register GET /api/messages route in backend/main.go
+- [X] T022 [P] [US2] Create MessageRow component for status display in frontend/src/components/MessageRow.tsx
+- [X] T023 [US2] Implement MessageList component with layout in frontend/src/components/MessageList.tsx
+- [X] T024 [US2] Implement fetching logic and 2s polling in frontend/src/App.tsx
+- [X] T025 [US2] Apply visual styling for INFO, WARNING, and ERROR levels in frontend/src/components/MessageRow.tsx
 
 **Checkpoint**: User Story 2 functional - operators can monitor agents in real-time.
 
@@ -86,8 +86,8 @@
 
 ### Implementation for User Story 3
 
-- [ ] T026 [US3] Verify SQLite database file persistence across restarts in backend/db.go
-- [ ] T027 [US3] Add index on timestamp column in SQLite schema to optimize retrieval in backend/db.go
+- [X] T026 [US3] Verify SQLite database file persistence across restarts in backend/db.go
+- [X] T027 [US3] Add index on timestamp column in SQLite schema to optimize retrieval in backend/db.go
 
 **Checkpoint**: User Story 3 functional - data is durable and optimized.
 
@@ -97,9 +97,9 @@
 
 **Purpose**: Final refinements and documentation
 
-- [ ] T028 [P] Update backend/README.md with API documentation
-- [ ] T029 [P] Final code cleanup and Gin recovery middleware check in backend/main.go
-- [ ] T030 [P] Run quickstart.md validation steps
+- [X] T028 [P] Update backend/README.md with API documentation
+- [X] T029 [P] Final code cleanup and Gin recovery middleware check in backend/main.go
+- [X] T030 [P] Run quickstart.md validation steps
 
 ---
 
