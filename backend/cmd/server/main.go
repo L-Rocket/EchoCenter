@@ -5,12 +5,14 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/lea/echocenter/backend/auth"
+	"github.com/lea/echocenter/backend/internal/auth"
+	"github.com/lea/echocenter/backend/internal/database"
+	"github.com/lea/echocenter/backend/internal/handlers"
 )
 
 func main() {
 	// Initialize Database and Load Env
-	InitDB()
+	database.InitDB()
 
 	// Gin configuration
 	gin.SetMode(gin.ReleaseMode)
@@ -30,21 +32,21 @@ func main() {
 		api.GET("/ping", func(c *gin.Context) {
 			c.JSON(200, gin.H{"message": "pong"})
 		})
-		api.POST("/auth/login", Login)
+		api.POST("/auth/login", handlers.Login)
 	}
 
 	// Protected routes (T015)
 	protected := api.Group("/")
 	protected.Use(auth.AuthMiddleware())
 	{
-		protected.GET("/messages", GetMessages)
-		protected.POST("/messages", IngestMessage)
+		protected.GET("/messages", handlers.GetMessages)
+		protected.POST("/messages", handlers.IngestMessage)
 
 		// User Management (Admin only)
 		admin := protected.Group("/users")
 		admin.Use(auth.AdminOnlyMiddleware())
 		{
-			admin.POST("", HandleCreateUser)
+			admin.POST("", handlers.HandleCreateUser)
 		}
 	}
 

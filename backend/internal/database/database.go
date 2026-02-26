@@ -1,4 +1,4 @@
-package main
+package database
 
 import (
 	"database/sql"
@@ -8,6 +8,7 @@ import (
 	_ "modernc.org/sqlite"
 	"golang.org/x/crypto/bcrypt"
 	"github.com/joho/godotenv"
+	"github.com/lea/echocenter/backend/internal/models"
 )
 
 var db *sql.DB
@@ -63,6 +64,12 @@ func InitDBPath(path string) {
 	InitializeAdmin()
 }
 
+func CloseDB() {
+	if db != nil {
+		db.Close()
+	}
+}
+
 func InitializeAdmin() {
 	var count int
 	err := db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
@@ -93,7 +100,7 @@ func InitializeAdmin() {
 	}
 }
 
-func CreateMessage(m Message) (int64, error) {
+func CreateMessage(m models.Message) (int64, error) {
 	query := `INSERT INTO messages (agent_id, level, content) VALUES (?, ?, ?)`
 	res, err := db.Exec(query, m.AgentID, m.Level, m.Content)
 	if err != nil {
@@ -102,7 +109,7 @@ func CreateMessage(m Message) (int64, error) {
 	return res.LastInsertId()
 }
 
-func GetLatestMessages(limit int) ([]Message, error) {
+func GetLatestMessages(limit int) ([]models.Message, error) {
 	query := `SELECT id, agent_id, level, content, timestamp FROM messages ORDER BY timestamp DESC, id DESC LIMIT ?`
 	rows, err := db.Query(query, limit)
 	if err != nil {
@@ -110,9 +117,9 @@ func GetLatestMessages(limit int) ([]Message, error) {
 	}
 	defer rows.Close()
 
-	var messages []Message
+	var messages []models.Message
 	for rows.Next() {
-		var m Message
+		var m models.Message
 		err := rows.Scan(&m.ID, &m.AgentID, &m.Level, &m.Content, &m.Timestamp)
 		if err != nil {
 			return nil, err
@@ -122,8 +129,8 @@ func GetLatestMessages(limit int) ([]Message, error) {
 	return messages, nil
 }
 
-func GetUserByUsername(username string) (*User, error) {
-	var u User
+func GetUserByUsername(username string) (*models.User, error) {
+	var u models.User
 	query := "SELECT id, username, password_hash, role, created_at FROM users WHERE username = ?"
 	err := db.QueryRow(query, username).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.CreatedAt)
 	if err != nil {

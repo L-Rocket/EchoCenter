@@ -1,8 +1,9 @@
-package main
+package database
 
 import (
 	"os"
 	"testing"
+	"github.com/lea/echocenter/backend/internal/models"
 )
 
 func TestMain(m *testing.M) {
@@ -26,7 +27,7 @@ func InitDBWithFile(file string) {
 }
 
 func TestCreateMessage(t *testing.T) {
-	msg := Message{
+	msg := models.Message{
 		AgentID: "test-agent",
 		Level:   "INFO",
 		Content: "Test content",
@@ -45,7 +46,7 @@ func TestCreateMessage(t *testing.T) {
 func TestGetLatestMessages(t *testing.T) {
 	// Seed some messages
 	for i := 0; i < 60; i++ {
-		CreateMessage(Message{
+		CreateMessage(models.Message{
 			AgentID: "agent-1",
 			Level:   "INFO",
 			Content: "Content",

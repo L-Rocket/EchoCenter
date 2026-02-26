@@ -1,4 +1,4 @@
-package main
+package handlers
 
 import (
 	"bytes"
@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lea/echocenter/backend/internal/database"
+	"github.com/lea/echocenter/backend/internal/models"
 )
 
 func TestIngestMessageValidation(t *testing.T) {
@@ -23,7 +25,7 @@ func TestIngestMessageValidation(t *testing.T) {
 	}{
 		{
 			name: "valid payload",
-			payload: Message{
+			payload: models.Message{
 				AgentID: "agent-1",
 				Level:   "INFO",
 				Content: "Hello",
@@ -58,10 +60,11 @@ func TestIngestMessageValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			InitDBWithFile("./echocenter_handler_test.db")
+			dbFile := "./echocenter_handler_test.db"
+			database.InitDBPath(dbFile)
 			defer func() {
-				db.Close()
-				os.Remove("./echocenter_handler_test.db")
+				database.CloseDB()
+				os.Remove(dbFile)
 			}()
 
 			jsonValue, _ := json.Marshal(tt.payload)

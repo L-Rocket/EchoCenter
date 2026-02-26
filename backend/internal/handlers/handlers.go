@@ -1,11 +1,13 @@
-package main
+package handlers
 
 import (
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/lea/echocenter/backend/auth"
+	"github.com/lea/echocenter/backend/internal/auth"
+	"github.com/lea/echocenter/backend/internal/database"
+	"github.com/lea/echocenter/backend/internal/models"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -14,13 +16,13 @@ func RespondWithError(c *gin.Context, code int, message string) {
 }
 
 func IngestMessage(c *gin.Context) {
-	var msg Message
+	var msg models.Message
 	if err := c.ShouldBindJSON(&msg); err != nil {
 		RespondWithError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	id, err := CreateMessage(msg)
+	id, err := database.CreateMessage(msg)
 	if err != nil {
 		RespondWithError(c, http.StatusInternalServerError, "Failed to save message")
 		return
@@ -33,7 +35,7 @@ func IngestMessage(c *gin.Context) {
 }
 
 func GetMessages(c *gin.Context) {
-	messages, err := GetLatestMessages(50)
+	messages, err := database.GetLatestMessages(50)
 	if err != nil {
 		RespondWithError(c, http.StatusInternalServerError, "Failed to retrieve messages")
 		return
@@ -43,13 +45,13 @@ func GetMessages(c *gin.Context) {
 }
 
 func Login(c *gin.Context) {
-	var req LoginRequest
+	var req models.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		RespondWithError(c, http.StatusBadRequest, "Invalid request")
 		return
 	}
 
-	user, err := GetUserByUsername(req.Username)
+	user, err := database.GetUserByUsername(req.Username)
 	if err != nil {
 		RespondWithError(c, http.StatusInternalServerError, "Login failed")
 		return
@@ -72,7 +74,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, LoginResponse{
+	c.JSON(http.StatusOK, models.LoginResponse{
 		Token: token,
 		User:  *user,
 	})
@@ -90,7 +92,7 @@ func HandleCreateUser(c *gin.Context) {
 		return
 	}
 
-	err := CreateUser(input.Username, input.Password, input.Role)
+	err := database.CreateUser(input.Username, input.Password, input.Role)
 	if err != nil {
 		RespondWithError(c, http.StatusConflict, "Username already exists or creation failed")
 		return
