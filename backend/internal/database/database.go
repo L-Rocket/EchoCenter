@@ -47,6 +47,7 @@ func InitDBPath(path string) {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		username TEXT NOT NULL UNIQUE,
 		password_hash TEXT NOT NULL,
+		api_token TEXT UNIQUE,
 		role TEXT NOT NULL DEFAULT 'MEMBER',
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);`
@@ -117,7 +118,7 @@ func GetLatestMessages(limit int) ([]models.Message, error) {
 	}
 	defer rows.Close()
 
-	var messages []models.Message
+	messages := []models.Message{}
 	for rows.Next() {
 		var m models.Message
 		err := rows.Scan(&m.ID, &m.AgentID, &m.Level, &m.Content, &m.Timestamp)
@@ -131,15 +132,58 @@ func GetLatestMessages(limit int) ([]models.Message, error) {
 
 func GetUserByUsername(username string) (*models.User, error) {
 	var u models.User
-	query := "SELECT id, username, password_hash, role, created_at FROM users WHERE username = ?"
-	err := db.QueryRow(query, username).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.CreatedAt)
+	var apiToken sql.NullString
+	query := "SELECT id, username, password_hash, api_token, role, created_at FROM users WHERE username = ?"
+	err := db.QueryRow(query, username).Scan(&u.ID, &u.Username, &u.PasswordHash, &apiToken, &u.Role, &u.CreatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
+	if apiToken.Valid {
+		u.ApiToken = apiToken.String
+	}
 	return &u, nil
+}
+
+func GetAgentByToken(token string) (*models.User, error) {
+	var u models.User
+	query := "SELECT id, username, role, created_at FROM users WHERE api_token = ? AND role = 'AGENT'"
+	err := db.QueryRow(query, token).Scan(&u.ID, &u.Username, &u.Role, &u.CreatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	u.ApiToken = token
+	return &u, nil
+}
+
+func CreateAgent(username, token string) error {
+	_, err := db.Exec("INSERT INTO users (username, password_hash, api_token, role) VALUES (?, ?, ?, ?)", username, "AGENT_TOKEN_ONLY", token, "AGENT")
+	return err
+}
+
+func GetAgents() ([]models.User, error) {
+	query := "SELECT id, username, role, created_at FROM users WHERE role = 'AGENT'"
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	agents := []models.User{}
+	for rows.Next() {
+		var u models.User
+		err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		agents = append(agents, u)
+	}
+	return agents, nil
 }
 
 func CreateUser(username, password, role string) error {

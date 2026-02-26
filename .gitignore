@@ -1,6 +1,8 @@
 # Go
 backend/backend
 backend/echocenter
+backend/echocenter_server
+backend/server.log
 *.exe
 *.exe~
 *.dll

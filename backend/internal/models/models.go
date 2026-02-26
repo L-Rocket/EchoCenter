@@ -14,6 +14,7 @@ type User struct {
 	ID           int       `json:"id" db:"id"`
 	Username     string    `json:"username" db:"username" binding:"required"`
 	PasswordHash string    `json:"-" db:"password_hash"` // Never expose hash in JSON
+	ApiToken     string    `json:"api_token,omitempty" db:"api_token"`
 	Role         string    `json:"role" db:"role"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 }
