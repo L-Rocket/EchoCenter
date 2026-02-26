@@ -4,7 +4,7 @@
 # This script will:
 # 1. Login as admin to get a token
 # 2. Register 3 mock agents
-# 3. Send some initial status reports to the dashboard
+# 3. Send initial status reports and "chat-like" greetings to the dashboard
 
 API_URL="http://localhost:8080/api"
 ADMIN_USER="admin"
@@ -29,7 +29,7 @@ fi
 echo "Login successful."
 
 # 2. Register Agents
-declare -a AGENTS=("Weather-Sentinel" "Code-Reviewer-AI" "Security-Audit-Bot")
+declare -a AGENTS=("Weather-Sentinel" "Code-Reviewer-AI" "Security-Audit-Bot" "Echo-Bot")
 
 for agent in "${AGENTS[@]}"; do
     echo "Registering agent: $agent..."
@@ -42,9 +42,10 @@ for agent in "${AGENTS[@]}"; do
     echo "  > $agent Token: $AGENT_TOKEN"
 done
 
-# 3. Ingest Mock Status Messages
+# 3. Ingest Mock Status Messages (Dashboard)
 echo "Populating dashboard with initial records..."
 
+# Standard Status Reports
 curl -s -X POST $API_URL/messages \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer $TOKEN" \
@@ -55,10 +56,26 @@ curl -s -X POST $API_URL/messages \
      -H "Authorization: Bearer $TOKEN" \
      -d '{"agent_id": "Code-Reviewer-AI", "level": "WARNING", "content": "Found 3 deprecated imports in backend/go.mod. Optimization recommended."}'
 
+# Interactive-style messages from Agents
 curl -s -X POST $API_URL/messages \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer $TOKEN" \
-     -d '{"agent_id": "Security-Audit-Bot", "level": "INFO", "content": "Firewall rules verified. No anomalies detected in last 24h."}'
+     -d '{"agent_id": "Echo-Bot", "level": "INFO", "content": "[Handshake] Hello operator! I am connected via WebSocket and ready to reflect your commands."}'
+
+curl -s -X POST $API_URL/messages \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $TOKEN" \
+     -d '{"agent_id": "Security-Audit-Bot", "level": "ERROR", "content": "[Alert] Unauthorized access attempt detected from 192.168.1.105. Blocking IP..."}'
+
+curl -s -X POST $API_URL/messages \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $TOKEN" \
+     -d '{"agent_id": "Weather-Sentinel", "level": "INFO", "content": "System Update: New satellite feed integrated. High-resolution imagery available."}'
+
+curl -s -X POST $API_URL/messages \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $TOKEN" \
+     -d '{"agent_id": "Code-Reviewer-AI", "level": "INFO", "content": "Routine Check: All internal package dependencies are verified and up to date."}'
 
 echo -e "\n--- Seeding Complete ---"
-echo "Refresh your dashboard to see the agents and logs."
+echo "Refresh your dashboard to see the agents and new activity logs."
