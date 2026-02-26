@@ -3,6 +3,7 @@ package websocket
 import (
 	"log"
 	"sync"
+	"github.com/lea/echocenter/backend/internal/database"
 )
 
 // Message defines the structure of WebSocket messages
@@ -57,6 +58,20 @@ func (h *Hub) Run() {
 			h.mu.Unlock()
 
 		case message := <-h.broadcast:
+			// Persist CHAT messages asynchronously (T005)
+			if message.Type == "CHAT" && message.TargetID != 0 {
+				go func(m *Message) {
+					// We need to handle the payload as string
+					content, ok := m.Payload.(string)
+					if ok {
+						err := database.SaveChatMessage(m.SenderID, m.TargetID, content)
+						if err != nil {
+							log.Printf("Failed to save chat message: %v", err)
+						}
+					}
+				}(message)
+			}
+
 			// Route to specific target if present
 			if message.TargetID != 0 {
 				h.mu.RLock()

@@ -79,3 +79,45 @@ func TestIngestMessageValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestGetChatHistory(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	
+	// Mock middleware to set user_id
+	r.Use(func(c *gin.Context) {
+		c.Set("user_id", 1)
+		c.Next()
+	})
+	
+	r.GET("/api/chat/history/:peer_id", HandleGetChatHistory)
+
+	t.Run("valid history request", func(t *testing.T) {
+		dbFile := "./echocenter_history_test.db"
+		database.InitDBPath(dbFile)
+		defer func() {
+			database.CloseDB()
+			os.Remove(dbFile)
+		}()
+
+		// Seed a message
+		database.SaveChatMessage(1, 2, "Historical message")
+
+		req, _ := http.NewRequest("GET", "/api/chat/history/2", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected 200, got %d", w.Code)
+		}
+
+		var resp []models.ChatMessage
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		if len(resp) == 0 {
+			t.Fatal("Expected at least one message in response")
+		}
+		if resp[0].Payload != "Historical message" {
+			t.Errorf("Expected 'Historical message', got '%s'", resp[0].Payload)
+		}
+	})
+}

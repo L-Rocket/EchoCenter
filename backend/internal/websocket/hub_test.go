@@ -3,7 +3,55 @@ package websocket
 import (
 	"testing"
 	"time"
+	"os"
+	"github.com/lea/echocenter/backend/internal/database"
 )
+
+func TestHubPersistence(t *testing.T) {
+	// Setup test DB
+	dbFile := "./hub_test.db"
+	database.InitDBPath(dbFile)
+	defer func() {
+		database.CloseDB()
+		os.Remove(dbFile)
+	}()
+
+	hub := NewHub()
+	go hub.Run()
+
+	client1 := &Client{userID: 1, send: make(chan *Message, 1)}
+	hub.register <- client1
+	time.Sleep(100 * time.Millisecond)
+
+	content := "Persist this please"
+	msg := &Message{
+		Type:     "CHAT",
+		SenderID: 1,
+		TargetID: 2,
+		Payload:  content,
+	}
+	hub.broadcast <- msg
+
+	// Wait for async write
+	time.Sleep(500 * time.Millisecond)
+
+	history, err := database.GetChatHistory(1, 2, 10)
+	if err != nil {
+		t.Fatalf("Failed to get history: %v", err)
+	}
+
+	found := false
+	for _, m := range history {
+		if m.Payload == content {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Error("Message was not persisted to database")
+	}
+}
 
 func TestHubRouting(t *testing.T) {
 	hub := NewHub()

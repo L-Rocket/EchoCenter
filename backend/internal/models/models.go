@@ -28,3 +28,11 @@ type LoginResponse struct {
 	Token string `json:"token"`
 	User  User   `json:"user"`
 }
+
+type ChatMessage struct {
+	ID         int       `json:"id" db:"id"`
+	SenderID   int       `json:"sender_id" db:"sender_id"`
+	ReceiverID int       `json:"receiver_id" db:"receiver_id"`
+	Payload    string    `json:"payload" db:"content"`
+	Timestamp  time.Time `json:"timestamp" db:"timestamp"`
+}

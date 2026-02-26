@@ -193,3 +193,36 @@ func HandleWs(c *gin.Context) {
 
 	websocket.ServeWs(wsHub, c.Writer, c.Request, userID, username)
 }
+
+func HandleGetChatHistory(c *gin.Context) {
+	peerIDStr := c.Param("peer_id")
+	if peerIDStr == "" {
+		RespondWithError(c, http.StatusBadRequest, "peer_id is required")
+		return
+	}
+
+	// For MVP, we'll just parse it as int. 
+	// In production, use a more robust way if IDs aren't sequential.
+	var peerID int
+	_, err := fmt.Sscanf(peerIDStr, "%d", &peerID)
+	if err != nil {
+		RespondWithError(c, http.StatusBadRequest, "Invalid peer_id")
+		return
+	}
+
+	// Get current user ID from context (set by AuthMiddleware)
+	userIDVal, exists := c.Get("user_id")
+	if !exists {
+		RespondWithError(c, http.StatusUnauthorized, "User context not found")
+		return
+	}
+	userID := userIDVal.(int)
+
+	history, err := database.GetChatHistory(userID, peerID, 50)
+	if err != nil {
+		RespondWithError(c, http.StatusInternalServerError, "Failed to retrieve chat history")
+		return
+	}
+
+	c.JSON(http.StatusOK, history)
+}
