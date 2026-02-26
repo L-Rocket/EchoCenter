@@ -18,20 +18,20 @@ describe('MessageRow', () => {
     expect(screen.getByText('Hello world')).toBeInTheDocument();
   });
 
-  it('applies correct color for INFO level', () => {
+  it('applies correct background for INFO level', () => {
     const { container } = render(<MessageRow message={mockMessage} />);
-    expect(container.firstChild).toHaveClass('bg-blue-100');
+    expect(container.firstChild).toHaveClass('bg-blue-50/50');
   });
 
-  it('applies correct color for ERROR level', () => {
+  it('applies correct background for ERROR level', () => {
     const errorMsg = { ...mockMessage, level: 'ERROR' };
     const { container } = render(<MessageRow message={errorMsg} />);
-    expect(container.firstChild).toHaveClass('bg-red-100');
+    expect(container.firstChild).toHaveClass('bg-red-50/50');
   });
 
-  it('applies correct color for WARNING level', () => {
+  it('applies correct background for WARNING level', () => {
     const warnMsg = { ...mockMessage, level: 'WARNING' };
     const { container } = render(<MessageRow message={warnMsg} />);
-    expect(container.firstChild).toHaveClass('bg-yellow-100');
+    expect(container.firstChild).toHaveClass('bg-amber-50/50');
   });
 });

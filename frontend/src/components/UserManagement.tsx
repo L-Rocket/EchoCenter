@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { UserPlus, Shield, User, CheckCircle2, AlertCircle } from 'lucide-react';
 
 const API_BASE_URL = 'http://localhost:8080';
 
@@ -26,55 +31,92 @@ const UserManagement: React.FC = () => {
       setMessage(`User ${username} created successfully.`);
       setUsername('');
       setPassword('');
+      setRole('MEMBER');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to create user.');
     }
   };
 
   return (
-    <div className="max-w-md mx-auto bg-white p-6 rounded-lg shadow-sm border border-gray-200 mt-8">
-      <h3 className="text-lg font-bold mb-4">Create New User</h3>
-      <form onSubmit={handleCreateUser} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Username</label>
-          <input
-            type="text"
-            required
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Password</label>
-          <input
-            type="password"
-            required
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Role</label>
-          <select
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-          >
-            <option value="MEMBER">Member</option>
-            <option value="ADMIN">Admin</option>
-          </select>
-        </div>
-        {message && <div className="text-green-600 text-sm">{message}</div>}
-        {error && <div className="text-red-600 text-sm">{error}</div>}
-        <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
-        >
-          Create User
-        </button>
-      </form>
+    <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <Card className="shadow-lg border-slate-200">
+        <CardHeader>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
+              <UserPlus className="h-5 w-5" />
+            </div>
+            <CardTitle className="text-xl font-bold">Add Team Member</CardTitle>
+          </div>
+          <CardDescription>
+            Invite a new operator to monitor the agent swarm.
+          </CardDescription>
+        </CardHeader>
+        <form onSubmit={handleCreateUser}>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Username</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  <Input
+                    type="text"
+                    placeholder="jdoe"
+                    className="pl-10 bg-slate-50/50 border-slate-200"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Initial Password</label>
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  className="bg-slate-50/50 border-slate-200"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">Permission Level</label>
+              <Select value={role} onValueChange={setRole}>
+                <SelectTrigger className="bg-slate-50/50 border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-slate-400" />
+                    <SelectValue placeholder="Select a role" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MEMBER">Member (Read-only status)</SelectItem>
+                  <SelectItem value="ADMIN">Admin (User management)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {message && (
+              <div className="bg-green-50 text-green-700 p-4 rounded-lg border border-green-100 flex items-center gap-3 text-sm font-medium">
+                <CheckCircle2 className="h-5 w-5" />
+                {message}
+              </div>
+            )}
+            {error && (
+              <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-100 flex items-center gap-3 text-sm font-medium">
+                <AlertCircle className="h-5 w-5" />
+                {error}
+              </div>
+            )}
+          </CardContent>
+          <CardFooter className="bg-slate-50/50 border-t px-6 py-4 rounded-b-xl">
+            <Button type="submit" className="w-full md:w-auto ml-auto px-8 bg-indigo-600 hover:bg-indigo-700 shadow-md">
+              Create Account
+            </Button>
+          </CardFooter>
+        </form>
+      </Card>
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React from 'react';
 import MessageRow from './MessageRow';
 import type { Message } from './MessageRow';
+import EmptyState from './EmptyState';
 
 interface MessageListProps {
   messages: Message[];
@@ -8,15 +9,11 @@ interface MessageListProps {
 
 const MessageList: React.FC<MessageListProps> = ({ messages }) => {
   if (!messages || messages.length === 0) {
-    return (
-      <div className="p-8 text-center text-gray-500">
-        No messages yet. Monitoring agent status...
-      </div>
-    );
+    return <EmptyState />;
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
+    <div className="flex flex-col gap-1">
       {messages.map((msg) => (
         <MessageRow key={msg.id} message={msg} />
       ))}

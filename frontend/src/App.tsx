@@ -5,10 +5,13 @@ import type { Message } from './components/MessageRow'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import UserManagement from './components/UserManagement'
+import MainLayout from './components/MainLayout'
+import { Badge } from '@/components/ui/badge'
+import { Activity } from 'lucide-react'
 
 const API_BASE_URL = 'http://localhost:8080'
 
-// Axios interceptor for tokens (T019)
+// Axios interceptor for tokens
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -19,12 +22,12 @@ axios.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
-function Dashboard() {
+function DashboardContent() {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<'MESSAGES' | 'USERS'>('MESSAGES')
-  const { logout, isAdmin, user } = useAuth()
+  const { logout } = useAuth()
 
   const fetchMessages = async () => {
     try {
@@ -34,7 +37,7 @@ function Dashboard() {
       setError(null)
     } catch (err: any) {
       if (err.response?.status === 401) {
-        logout() // Auto logout on expiry (T030)
+        logout()
       }
       console.error("Failed to fetch messages:", err)
       setError("Failed to connect to backend.")
@@ -51,66 +54,40 @@ function Dashboard() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
-      <header className="bg-white border-b py-4 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 flex justify-between items-center">
-          <div className="flex items-center gap-6">
-            <h1 className="text-xl font-bold text-gray-800">EchoCenter</h1>
-            <nav className="flex gap-4">
-              <button 
-                onClick={() => setView('MESSAGES')}
-                className={`text-sm ${view === 'MESSAGES' ? 'text-blue-600 font-bold' : 'text-gray-500'}`}
-              >
-                Dashboard
-              </button>
-              {isAdmin && (
-                <button 
-                  onClick={() => setView('USERS')}
-                  className={`text-sm ${view === 'USERS' ? 'text-blue-600 font-bold' : 'text-gray-500'}`}
-                >
-                  Manage Users
-                </button>
-              )}
-            </nav>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-xs text-gray-400">Logged in as {user?.username}</span>
-            <button 
-              onClick={logout}
-              className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-gray-600"
-            >
-              Logout
-            </button>
+    <MainLayout view={view} setView={setView}>
+      {error && view === 'MESSAGES' && (
+        <div className="mb-6">
+          <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-100 flex items-center gap-3 text-sm font-medium">
+            <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+            {error}
           </div>
         </div>
-      </header>
-
-      <main className="py-6 flex-grow">
-        {error && view === 'MESSAGES' && (
-          <div className="max-w-4xl mx-auto px-4 mb-4">
-            <div className="bg-red-50 text-red-700 p-3 rounded border border-red-200">
-              {error}
+      )}
+      
+      {view === 'MESSAGES' ? (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900">Live Activity</h2>
+              <p className="text-sm text-slate-500">Real-time status feed from all registered agents.</p>
             </div>
+            <Badge variant="outline" className="h-7 gap-1 px-3 bg-white border-slate-200 text-slate-600 font-medium">
+              <Activity className="h-3 w-3 text-indigo-500" />
+              {loading ? "Syncing..." : `${messages.length} Active Reports`}
+            </Badge>
           </div>
-        )}
-        
-        {view === 'MESSAGES' ? (
-          <>
-            <div className="max-w-4xl mx-auto px-4 mb-2 flex justify-between items-end">
-               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Live Activity</h2>
-               <span className="text-xs text-gray-400">{loading ? "Connecting..." : `${messages.length} messages`}</span>
-            </div>
-            <MessageList messages={messages} />
-          </>
-        ) : (
+          <MessageList messages={messages} />
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="space-y-1 text-center md:text-left">
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900">Team Management</h2>
+            <p className="text-sm text-slate-500">Add and manage operators with access to the EchoCenter.</p>
+          </div>
           <UserManagement />
-        )}
-      </main>
-
-      <footer className="py-8 text-center text-xs text-gray-400 border-t mt-auto">
-        EchoCenter MVP | Secure Session Active
-      </footer>
-    </div>
+        </div>
+      )}
+    </MainLayout>
   )
 }
 
@@ -118,7 +95,7 @@ function App() {
   return (
     <AuthProvider>
       <ProtectedRoute>
-        <Dashboard />
+        <DashboardContent />
       </ProtectedRoute>
     </AuthProvider>
   )

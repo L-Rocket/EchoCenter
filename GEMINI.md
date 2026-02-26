@@ -4,6 +4,8 @@ Auto-generated from all feature plans. Last updated: 2026-02-26
 
 ## Active Technologies
 - SQLite (`users` table) (002-user-login)
+- TypeScript, Reac + `shadcn/ui`, `lucide-react`, `tailwindcss`, `radix-ui` (003-ui-ux-optimization)
+- N/A (Frontend only) (003-ui-ux-optimization)
 
 - Go 1.22+, TypeScript (Frontend) + Gin (Backend), React, Vite, Tailwind CSS (Frontend) (001-mvp-message-center)
 
@@ -23,6 +25,7 @@ npm test && npm run lint
 Go 1.22+, TypeScript (Frontend): Follow standard conventions
 
 ## Recent Changes
+- 003-ui-ux-optimization: Added TypeScript, Reac + `shadcn/ui`, `lucide-react`, `tailwindcss`, `radix-ui`
 - 002-user-login: Added Go 1.22+, TypeScrip
 
 - 001-mvp-message-center: Added Go 1.22+, TypeScript (Frontend) + Gin (Backend), React, Vite, Tailwind CSS (Frontend)
