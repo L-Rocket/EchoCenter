@@ -36,6 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const socketRef = useRef<WebSocket | null>(null);
   const addChatMessage = useChatStore((state) => state.addMessage);
   const appendStreamChunk = useChatStore((state) => state.appendStreamChunk);
+  const setThinking = useChatStore((state) => state.setThinking);
 
   // Sync ref with state
   useEffect(() => {
@@ -76,6 +77,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (peerId) {
             addChatMessage(peerId, msg);
           }
+          // Stop thinking when a full chat message arrives (not a stream)
+          setThinking(false);
         } else if (msg.type === 'CHAT_STREAM') {
           const peerId = msg.sender_id === currentUser?.id ? msg.target_id : msg.sender_id;
           if (peerId) {
@@ -88,10 +91,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
           }
         } else if (msg.type === 'CHAT_STREAM_END') {
-          // Stream finished, could optionally trigger a history sync here to get DB ID
+          setThinking(false);
           console.log('Stream finished:', msg.stream_id);
         } else if (msg.type === 'AUTH_REQUEST') {
-          // Add auth request as a special system-type chat message from the Butler
+          setThinking(false); // Stop when waiting for user input
           addChatMessage(msg.sender_id, {
             ...msg,
             type: 'SYSTEM', // Marked as SYSTEM so ChatView can render it specially
@@ -146,6 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const sendMessage = (targetId: number, payload: string) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
+      setThinking(true);
       socketRef.current.send(JSON.stringify({
         type: 'CHAT',
         target_id: targetId,
@@ -155,16 +159,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const sendAuthResponse = (actionId: string, approved: boolean) => {
-    // We send this via API since it requires more complex handling and DB updates
-    // Actually, T018 says WebSocket transmission, but FR-004 says support AUTH_RESPONSE type.
-    // I'll stick to the plan's HandleAuthResponse API for reliability, but also support WS if needed.
-    // Wait, the handler is already implemented in handlers.go as HandleAuthResponse (POST /api/chat/auth/response).
-    // I'll use the API for now as it's more standard for "actions".
-    
+    if (approved) setThinking(true);
     import('axios').then(axios => {
       axios.default.post('http://localhost:8080/api/chat/auth/response', {
         action_id: actionId,
         approved
+      }).then(() => {
+        // Optimistic UI update: Find and update the specific auth request in store
+        // The Butler is ID 2
+        const butlerId = 2;
+        const currentMessages = useChatStore.getState().messages[butlerId] || [];
+        const updatedMessages = currentMessages.map(msg => {
+          if (msg.type === 'SYSTEM') {
+            try {
+              const payload = typeof msg.payload === 'string' ? JSON.parse(msg.payload) : msg.payload;
+              if (payload.action_id === actionId) {
+                payload.status = approved ? 'APPROVED' : 'REJECTED';
+                return { ...msg, payload: JSON.stringify(payload) };
+              }
+            } catch (e) {}
+          }
+          return msg;
+        });
+        useChatStore.getState().setHistory(butlerId, updatedMessages);
       }).catch(err => console.error('Failed to send auth response:', err));
     });
   };

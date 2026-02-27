@@ -190,11 +190,19 @@ func SaveAuthorization(actionID string, butlerID, targetID int, command, reasoni
 		return err
 	}
 
+	// Fetch name for history
+	targetName := "Unknown Agent"
+	var uname string
+	err = db.QueryRow("SELECT username FROM users WHERE id = ?", targetID).Scan(&uname)
+	if err == nil {
+		targetName = uname
+	}
+
 	// Also save to chat_messages so it persists in history
 	payloadObj := map[string]interface{}{
 		"action_id":         actionID,
 		"target_agent_id":   targetID,
-		"target_agent_name": "Target Agent", // placeholder
+		"target_agent_name": targetName,
 		"command":           command,
 		"reason":            reasoning,
 		"status":            "PENDING",

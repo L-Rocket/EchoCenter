@@ -8,12 +8,13 @@ export interface ChatMessage {
   target_id?: number
   payload: string
   timestamp: string
-  stream_id?: string // For grouping chunks
+  stream_id?: string 
 }
 
 interface ChatState {
-  // Messages keyed by Agent/User ID
   messages: Record<number, ChatMessage[]>
+  isThinking: boolean
+  setThinking: (val: boolean) => void
   addMessage: (peerId: number, message: ChatMessage) => void
   appendStreamChunk: (peerId: number, chunk: { stream_id: string, payload: string, sender_id: number, sender_name: string, timestamp: string }) => void
   setHistory: (peerId: number, messages: ChatMessage[]) => void
@@ -22,14 +23,39 @@ interface ChatState {
 
 export const useChatStore = create<ChatState>((set) => ({
   messages: {},
+  isThinking: false,
+  setThinking: (val) => set({ isThinking: val }),
+  
   addMessage: (peerId, message) =>
     set((state) => {
       const existing = state.messages[peerId] || []
       
-      // Simple de-duplication
-      if (message.id && existing.some(m => m.id === message.id)) {
-        return state
+      // 1. SYSTEM message deduplication by action_id
+      if (message.type === 'SYSTEM') {
+        try {
+          const newPayload = typeof message.payload === 'string' ? JSON.parse(message.payload) : message.payload
+          const duplicateIndex = existing.findIndex(m => {
+            if (m.type !== 'SYSTEM') return false
+            const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : m.payload
+            return p.action_id === newPayload.action_id
+          })
+
+          if (duplicateIndex > -1) {
+            const updated = [...existing]
+            updated[duplicateIndex] = message
+            return { messages: { ...state.messages, [peerId]: updated } }
+          }
+        } catch (e) {}
       }
+
+      // 2. CHAT message deduplication by ID or exact content+timestamp (for volatile)
+      const isDuplicate = existing.some(m => {
+        if (message.id && m.id === message.id) return true
+        if (!message.id && !m.id && m.payload === message.payload && m.timestamp === message.timestamp) return true
+        return false
+      })
+
+      if (isDuplicate) return state
 
       return {
         messages: {
@@ -38,13 +64,13 @@ export const useChatStore = create<ChatState>((set) => ({
         },
       }
     }),
+
   appendStreamChunk: (peerId, chunk) =>
     set((state) => {
       const existing = state.messages[peerId] || []
       const messageIndex = existing.findIndex(m => m.stream_id === chunk.stream_id)
 
       if (messageIndex > -1) {
-        // Append to existing stream
         const updatedMessages = [...existing]
         updatedMessages[messageIndex] = {
           ...updatedMessages[messageIndex],
@@ -55,7 +81,6 @@ export const useChatStore = create<ChatState>((set) => ({
           messages: { ...state.messages, [peerId]: updatedMessages }
         }
       } else {
-        // Start new stream
         const newMessage: ChatMessage = {
           type: 'CHAT',
           sender_id: chunk.sender_id,
@@ -72,21 +97,46 @@ export const useChatStore = create<ChatState>((set) => ({
         }
       }
     }),
+
   setHistory: (peerId, history) =>
     set((state) => {
       const current = state.messages[peerId] || []
       
-      // Merge history with current volatile messages
-      // Filter out messages from history that are already in 'current' by ID
-      const newMessages = [...history]
+      // Use a Map to deduplicate by ID or complex key
+      const merged = new Map<string, ChatMessage>()
       
-      current.forEach(msg => {
-        if (!msg.id || !newMessages.some(m => m.id === msg.id)) {
-          newMessages.push(msg)
+      // Add history first (authoritative)
+      history.forEach(m => {
+        const key = m.id ? `id_${m.id}` : `vol_${m.timestamp}_${m.payload.substring(0, 20)}`
+        // Special key for SYSTEM requests to ensure they merge correctly
+        if (m.type === 'SYSTEM') {
+          try {
+            const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : m.payload
+            merged.set(`sys_${p.action_id}`, m)
+            return
+          } catch(e) {}
+        }
+        merged.set(key, m)
+      })
+
+      // Merge current volatile messages
+      current.forEach(m => {
+        if (m.type === 'SYSTEM') {
+          try {
+            const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : m.payload
+            const key = `sys_${p.action_id}`
+            if (!merged.has(key)) merged.set(key, m)
+            return
+          } catch(e) {}
+        }
+        
+        const key = m.id ? `id_${m.id}` : `vol_${m.timestamp}_${m.payload.substring(0, 20)}`
+        if (!merged.has(key)) {
+          merged.set(key, m)
         }
       })
 
-      // Sort by timestamp just in case
+      const newMessages = Array.from(merged.values())
       newMessages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 
       return {
@@ -96,6 +146,7 @@ export const useChatStore = create<ChatState>((set) => ({
         },
       }
     }),
+
   clearMessages: (peerId) =>
     set((state) => {
       const newMessages = { ...state.messages }

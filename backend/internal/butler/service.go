@@ -90,9 +90,17 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
 		return
 	}
 
-	// We need to fetch target agent name
+	// Fetch actual target agent name from database (Fix: Unknown Agent)
 	targetName := "Unknown Agent"
-	// For simplicity, we skip name lookup here or assume frontend handles it.
+	agents, err := database.GetAgents()
+	if err == nil {
+		for _, a := range agents {
+			if a.ID == targetID {
+				targetName = a.Username
+				break
+			}
+		}
+	}
 	
 	// Create a generic message that the Hub can understand
 	// We'll use a map to simulate the Message struct without importing websocket
@@ -147,6 +155,12 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 			"stream_id":   streamID,
 		}
 		s.hub.BroadcastGeneric(msg)
+
+		// RELAY: If this message is from an Agent to Butler, also send to Admin (ID 1)
+		if senderID != 1 {
+			msg["target_id"] = 1
+			s.hub.BroadcastGeneric(msg)
+		}
 		return nil
 	})
 
@@ -171,4 +185,9 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 		"stream_id":   streamID,
 	}
 	s.hub.BroadcastGeneric(msg)
+
+	if senderID != 1 {
+		msg["target_id"] = 1
+		s.hub.BroadcastGeneric(msg)
+	}
 }

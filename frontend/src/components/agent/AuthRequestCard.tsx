@@ -1,7 +1,8 @@
-import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import React, { useState } from 'react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ShieldAlert, CheckCircle2, XCircle } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface AuthRequestCardProps {
   actionId: string;
@@ -16,57 +17,110 @@ interface AuthRequestCardProps {
 const AuthRequestCard: React.FC<AuthRequestCardProps> = ({ 
   actionId, targetAgentName, command, reason, onApprove, onReject, status = 'PENDING' 
 }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleAction = (type: 'approve' | 'reject') => {
+    setIsProcessing(true);
+    if (type === 'approve') onApprove(actionId);
+    else onReject(actionId);
+    
+    // Safety timeout: if no state change happens from parent, reset loading
+    // In a real app, the parent would update 'status' via WebSocket/API history
+    setTimeout(() => setIsProcessing(false), 5000);
+  };
+
+  const isPending = status === 'PENDING';
+
   return (
-    <Card className="w-full max-w-sm border-indigo-100 bg-indigo-50/30 shadow-sm overflow-hidden animate-in fade-in zoom-in-95 duration-300">
-      <CardHeader className="p-4 bg-indigo-600 text-white flex flex-row items-center gap-3 space-y-0">
-        <ShieldAlert className="h-5 w-5" />
-        <CardTitle className="text-sm font-bold tracking-tight">Authorization Required</CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 space-y-3">
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Target Agent</label>
-          <p className="text-sm font-semibold text-slate-900">{targetAgentName}</p>
+    <Card className={cn(
+      "w-72 border shadow-lg overflow-hidden animate-in fade-in slide-in-from-left-4 duration-500",
+      isPending ? "border-amber-200 bg-slate-50" : "border-slate-200 bg-slate-50/50"
+    )}>
+      {/* Mini Header */}
+      <div className={cn(
+        "px-3 py-2 flex items-center justify-between border-b",
+        isPending ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"
+      )}>
+        <div className="flex items-center gap-2">
+          <ShieldAlert className="h-3.5 w-3.5" />
+          <span className="text-[10px] font-bold uppercase tracking-widest">Directive Auth</span>
         </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proposed Command</label>
-          <code className="text-xs bg-white px-2 py-1 rounded border border-slate-200 block text-indigo-600 font-mono">
-            {command}
-          </code>
-        </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Butler Reasoning</label>
-          <p className="text-xs text-slate-600 leading-relaxed italic">"{reason}"</p>
-        </div>
-      </CardContent>
-      <CardFooter className="p-3 bg-white border-t flex gap-2">
-        {status === 'PENDING' ? (
-          <>
-            <Button 
-              size="sm" 
-              className="flex-1 bg-indigo-600 hover:bg-indigo-700 h-9"
-              onClick={() => onApprove(actionId)}
-            >
-              <CheckCircle2 className="h-3.5 w-3.5 mr-2" />
-              Approve
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="flex-1 text-slate-600 h-9"
-              onClick={() => onReject(actionId)}
-            >
-              <XCircle className="h-3.5 w-3.5 mr-2" />
-              Reject
-            </Button>
-          </>
-        ) : (
-          <div className={`w-full text-center py-1 rounded text-[10px] font-bold uppercase tracking-tighter ${
-            status === 'APPROVED' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-          }`}>
-            {status === 'APPROVED' ? 'Action Authorized' : 'Action Denied'}
-          </div>
+        {!isPending && (
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/20">
+            {status}
+          </span>
         )}
-      </CardFooter>
+      </div>
+
+      <div className="p-3 space-y-3">
+        {/* Target & Command Row */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase">
+            <span>Target Agent</span>
+            <span className="text-slate-900">{targetAgentName}</span>
+          </div>
+          <div className="mt-1">
+            <code className="text-[11px] bg-slate-900 text-amber-400 px-2 py-1.5 rounded block font-mono border border-slate-800 shadow-inner truncate">
+              {command}
+            </code>
+          </div>
+        </div>
+
+        {/* Reasoning */}
+        <div className="bg-white/50 p-2 rounded border border-slate-100">
+          <p className="text-[11px] text-slate-600 leading-snug italic">
+            "{reason}"
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-2">
+          {isPending ? (
+            <>
+              <Button 
+                size="sm" 
+                disabled={isProcessing}
+                className="h-8 flex-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-sm transition-all active:scale-95"
+                onClick={() => handleAction('approve')}
+              >
+                {isProcessing ? <Loader2 className="h-3 w-3 animate-spin" /> : (
+                  <>
+                    <CheckCircle2 className="h-3 w-3 mr-1.5" />
+                    <span className="text-[11px] font-bold">Approve</span>
+                  </>
+                )}
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                disabled={isProcessing}
+                className="h-8 flex-1 bg-white text-slate-600 border-slate-200 hover:bg-slate-50 text-[11px] font-bold transition-all active:scale-95"
+                onClick={() => handleAction('reject')}
+              >
+                <XCircle className="h-3 w-3 mr-1.5" />
+                Reject
+              </Button>
+            </>
+          ) : (
+            <div className={cn(
+              "w-full flex items-center justify-center gap-1.5 py-1.5 rounded border text-[10px] font-bold uppercase tracking-tight",
+              status === 'APPROVED' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-slate-100 text-slate-500 border-slate-200"
+            )}>
+              {status === 'APPROVED' ? (
+                <>
+                  <CheckCircle2 className="h-3 w-3" />
+                  Execution Authorized
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-3 w-3" />
+                  Execution Denied
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </Card>
   );
 };

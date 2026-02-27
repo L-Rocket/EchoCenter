@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Bot, Terminal, Shield } from 'lucide-react';
+import { Send, Bot, Terminal, Shield, Loader2, XCircle } from 'lucide-react';
 import { useChatStore } from '@/store/useChatStore';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
@@ -30,6 +30,8 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
   const setHistory = useChatStore((state) => state.setHistory);
   
   const { user, sendMessage, sendAuthResponse } = useAuth();
+  const isThinking = useChatStore((state) => state.isThinking);
+  const setThinking = useChatStore((state) => state.setThinking);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Fetch History on mount or agent change
@@ -111,8 +113,8 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
       </header>
 
       {/* Messages */}
-      <div className="flex-grow overflow-y-auto bg-slate-50/30 p-6">
-        <div className="max-w-3xl mx-auto space-y-6">
+      <div className="flex-grow overflow-y-auto bg-slate-50/20 p-4">
+        <div className="flex flex-col space-y-4">
           {isHistoryLoading && messages.length === 0 && (
             <div className="flex justify-center py-10">
               <div className="flex flex-col items-center gap-2">
@@ -148,19 +150,21 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
             return (
               <div key={msg.id || i} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
                 <div className={cn(
-                  "flex flex-col max-w-[80%] md:max-w-[70%]",
+                  "flex flex-col max-w-[85%] md:max-w-[80%]",
                   isMe ? "items-end" : "items-start"
                 )}>
                   {isSystem && typeof payload === 'object' ? (
-                    <AuthRequestCard
-                      actionId={(payload as any).action_id}
-                      targetAgentName={(payload as any).target_agent_name}
-                      command={(payload as any).command}
-                      reason={(payload as any).reason}
-                      onApprove={(id) => sendAuthResponse(id, true)}
-                      onReject={(id) => sendAuthResponse(id, false)}
-                      status={(payload as any).status || 'PENDING'}
-                    />
+                    <div className="my-1">
+                      <AuthRequestCard
+                        actionId={(payload as any).action_id}
+                        targetAgentName={(payload as any).target_agent_name}
+                        command={(payload as any).command}
+                        reason={(payload as any).reason}
+                        onApprove={(id) => sendAuthResponse(id, true)}
+                        onReject={(id) => sendAuthResponse(id, false)}
+                        status={(payload as any).status || 'PENDING'}
+                      />
+                    </div>
                   ) : (
                     <div className={cn(
                       "rounded-2xl px-4 py-2.5 text-sm shadow-sm border",
@@ -178,6 +182,30 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
               </div>
             );
           })}
+
+          {isThinking && (
+            <div className="flex justify-start pt-2 animate-in fade-in slide-in-from-bottom-3 duration-500">
+              <div className="flex flex-col gap-2 w-full max-w-[240px]">
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-3 w-3 animate-spin text-indigo-600" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Processing</span>
+                  </div>
+                  <button 
+                    onClick={() => setThinking(false)}
+                    className="group flex items-center gap-1 hover:bg-red-50 px-1.5 py-0.5 rounded transition-colors"
+                  >
+                    <span className="text-[8px] font-bold text-slate-400 group-hover:text-red-500 uppercase">Abort</span>
+                    <XCircle className="h-2.5 w-2.5 text-slate-300 group-hover:text-red-400" />
+                  </button>
+                </div>
+                <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-indigo-600 w-1/3 animate-[progress_2s_ease-in-out_infinite] rounded-full shadow-[0_0_8px_rgba(79,70,229,0.4)]" />
+                </div>
+              </div>
+            </div>
+          )}
+
           <div ref={scrollRef} />
         </div>
       </div>

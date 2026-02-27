@@ -30,7 +30,7 @@ fi
 echo "Login successful."
 
 # 2. Register Agents
-declare -a AGENTS=("Weather-Sentinel" "Code-Reviewer-AI" "Security-Audit-Bot" "Echo-Bot")
+declare -a AGENTS=("Weather-Sentinel" "Code-Reviewer-AI" "Security-Audit-Bot" "Echo-Bot" "Storage-Custodian")
 
 for agent in "${AGENTS[@]}"; do
     echo "Registering/Verifying agent: $agent..."
