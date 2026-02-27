@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"os"
 
@@ -71,9 +72,26 @@ func InitDBPath(path string) {
 		log.Fatalf("Failed to create chat_messages table: %v", err)
 	}
 
+	// Create butler_authorizations table (T004)
+	createButlerTableSQL := `CREATE TABLE IF NOT EXISTS butler_authorizations (
+		id TEXT PRIMARY KEY,
+		target_agent_id INTEGER NOT NULL,
+		proposed_command TEXT NOT NULL,
+		reasoning TEXT NOT NULL,
+		status TEXT NOT NULL DEFAULT 'PENDING',
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		responded_at DATETIME,
+		FOREIGN KEY(target_agent_id) REFERENCES users(id)
+	);`
+	_, err = db.Exec(createButlerTableSQL)
+	if err != nil {
+		log.Fatalf("Failed to create butler_authorizations table: %v", err)
+	}
+
 	// Indexes for performance
 	db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages (timestamp DESC, id DESC);`)
 	db.Exec(`CREATE INDEX IF NOT EXISTS idx_chat_pair_time ON chat_messages (sender_id, receiver_id, timestamp DESC);`)
+	db.Exec(`CREATE INDEX IF NOT EXISTS idx_butler_status ON butler_authorizations (status);`)
 
 	log.Println("Database initialized and tables verified at", path)
 
@@ -164,6 +182,50 @@ func GetLatestMessages(agentID, level, query string, offset, limit int) ([]model
 	return messages, nil
 }
 
+// SaveAuthorization records a new Butler action request (T005)
+func SaveAuthorization(actionID string, butlerID, targetID int, command, reasoning string) error {
+	query := `INSERT INTO butler_authorizations (id, target_agent_id, proposed_command, reasoning) VALUES (?, ?, ?, ?)`
+	_, err := db.Exec(query, actionID, targetID, command, reasoning)
+	if err != nil {
+		return err
+	}
+
+	// Also save to chat_messages so it persists in history
+	payloadObj := map[string]interface{}{
+		"action_id":         actionID,
+		"target_agent_id":   targetID,
+		"target_agent_name": "Target Agent", // placeholder
+		"command":           command,
+		"reason":            reasoning,
+		"status":            "PENDING",
+	}
+	payloadJSON, _ := json.Marshal(payloadObj)
+	
+	// Admin ID is 1
+	return SaveChatMessage(butlerID, 1, string(payloadJSON))
+}
+
+// UpdateAuthorizationStatus updates the status of a Butler request (T005)
+func UpdateAuthorizationStatus(id string, status string) error {
+	query := `UPDATE butler_authorizations SET status = ?, responded_at = CURRENT_TIMESTAMP WHERE id = ?`
+	_, err := db.Exec(query, status, id)
+	return err
+}
+
+// GetAuthorization retrieves a single request by ID
+func GetAuthorization(id string) (*models.ButlerAuthorization, error) {
+	var auth models.ButlerAuthorization
+	query := `SELECT id, target_agent_id, proposed_command, reasoning, status, created_at FROM butler_authorizations WHERE id = ?`
+	err := db.QueryRow(query, id).Scan(&auth.ID, &auth.TargetAgentID, &auth.ProposedCommand, &auth.Reasoning, &auth.Status, &auth.CreatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &auth, nil
+}
+
 func GetUserByUsername(username string) (*models.User, error) {
 	var u models.User
 	var apiToken sql.NullString
@@ -231,6 +293,9 @@ func CreateUser(username, password, role string) error {
 
 // SaveChatMessage persists a chat message (T002)
 func SaveChatMessage(senderID, receiverID int, content string) error {
+	if db == nil {
+		return nil // Gracefully handle uninitialized DB (e.g. in unit tests)
+	}
 	query := `INSERT INTO chat_messages (sender_id, receiver_id, content) VALUES (?, ?, ?)`
 	_, err := db.Exec(query, senderID, receiverID, content)
 	return err

@@ -7,6 +7,7 @@ import { useChatStore } from '@/store/useChatStore';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import type { Agent } from './AgentList';
+import AuthRequestCard from './AuthRequestCard';
 
 interface ChatViewProps {
   agent: Agent;
@@ -28,7 +29,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
 
   const setHistory = useChatStore((state) => state.setHistory);
   
-  const { user, sendMessage } = useAuth();
+  const { user, sendMessage, sendAuthResponse } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Fetch History on mount or agent change
@@ -132,20 +133,44 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
 
           {messages.map((msg, i) => {
             const isMe = msg.sender_id === user?.id;
+            const isSystem = msg.type === 'SYSTEM';
+            
+            // Parse payload if it's a string (from API history)
+            let payload = msg.payload;
+            if (isSystem && typeof payload === 'string') {
+              try {
+                payload = JSON.parse(payload);
+              } catch (e) {
+                console.error("Failed to parse system message payload", e);
+              }
+            }
+
             return (
               <div key={msg.id || i} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
                 <div className={cn(
                   "flex flex-col max-w-[80%] md:max-w-[70%]",
                   isMe ? "items-end" : "items-start"
                 )}>
-                  <div className={cn(
-                    "rounded-2xl px-4 py-2.5 text-sm shadow-sm border",
-                    isMe 
-                      ? "bg-indigo-600 text-white border-indigo-500 rounded-tr-none" 
-                      : "bg-white text-slate-700 border-slate-100 rounded-tl-none"
-                  )}>
-                    {typeof msg.payload === 'string' ? msg.payload : JSON.stringify(msg.payload)}
-                  </div>
+                  {isSystem && typeof payload === 'object' ? (
+                    <AuthRequestCard
+                      actionId={(payload as any).action_id}
+                      targetAgentName={(payload as any).target_agent_name}
+                      command={(payload as any).command}
+                      reason={(payload as any).reason}
+                      onApprove={(id) => sendAuthResponse(id, true)}
+                      onReject={(id) => sendAuthResponse(id, false)}
+                      status={(payload as any).status || 'PENDING'}
+                    />
+                  ) : (
+                    <div className={cn(
+                      "rounded-2xl px-4 py-2.5 text-sm shadow-sm border",
+                      isMe 
+                        ? "bg-indigo-600 text-white border-indigo-500 rounded-tr-none" 
+                        : "bg-white text-slate-700 border-slate-100 rounded-tl-none"
+                    )}>
+                      {typeof payload === 'string' ? payload : JSON.stringify(payload)}
+                    </div>
+                  )}
                   <span className="text-[9px] text-slate-400 mt-1 px-1 font-bold uppercase tracking-tighter">
                     {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending'}
                   </span>

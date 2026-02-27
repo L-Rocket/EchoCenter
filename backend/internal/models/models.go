@@ -36,3 +36,13 @@ type ChatMessage struct {
 	Payload    string    `json:"payload" db:"content"`
 	Timestamp  time.Time `json:"timestamp" db:"timestamp"`
 }
+
+type ButlerAuthorization struct {
+	ID              string    `json:"id" db:"id"`
+	TargetAgentID   int       `json:"target_agent_id" db:"target_agent_id"`
+	ProposedCommand string    `json:"proposed_command" db:"proposed_command"`
+	Reasoning       string    `json:"reasoning" db:"reasoning"`
+	Status          string    `json:"status" db:"status"`
+	CreatedAt       time.Time `json:"created_at" db:"created_at"`
+	RespondedAt     *time.Time `json:"responded_at,omitempty" db:"responded_at"`
+}
