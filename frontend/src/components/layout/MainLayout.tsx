@@ -3,18 +3,20 @@ import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/s
 import { AppSidebar } from "./AppSidebar"
 import { Outlet } from "react-router-dom"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { ModeToggle } from "../mode-toggle"
 
 export const MainLayout: React.FC = () => {
   return (
     <TooltipProvider>
       <SidebarProvider>
         <AppSidebar />
-        <SidebarInset className="bg-slate-50">
-          <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 px-4 shadow-sm">
+        <SidebarInset className="bg-slate-50 dark:bg-slate-950">
+          <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 px-4 shadow-sm dark:bg-slate-900/95 dark:border-slate-800">
             <SidebarTrigger className="-ml-1" />
-            <div className="h-4 w-px bg-slate-200 mx-2" />
+            <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-2" />
             <div className="flex-1 flex items-center justify-between">
                <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Autonomous Swarm Monitor</span>
+               <ModeToggle />
             </div>
           </header>
           <main className="flex-1 overflow-auto">
