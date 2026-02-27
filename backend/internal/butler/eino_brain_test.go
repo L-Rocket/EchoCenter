@@ -43,7 +43,7 @@ func TestButlerIngestion(t *testing.T) {
 	})
 
 	t.Run("direct chat safe-mode", func(t *testing.T) {
-		reply, err := brain.Chat(ctx, "session-1", "Hello")
+		reply, err := brain.Chat(ctx, "session-1", "Hello", "Test State")
 		if err != nil {
 			t.Fatalf("Chat failed: %v", err)
 		}

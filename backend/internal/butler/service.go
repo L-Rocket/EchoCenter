@@ -122,7 +122,19 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 	sessionID := fmt.Sprintf("user_%d", senderID)
 	streamID := uuid.New().String()
 
-	fullReply, err := s.brain.ChatStream(ctx, sessionID, payload, func(chunk string) error {
+	// 1. Fetch current system state (Agents list)
+	agents, err := database.GetAgents()
+	systemState := "Active Agents in the hive:\n"
+	if err == nil {
+		for _, a := range agents {
+			systemState += fmt.Sprintf("- %s (ID: %d, Role: %s)\n", a.Username, a.ID, a.Role)
+		}
+	} else {
+		systemState = "System error: Unable to retrieve agent list."
+	}
+
+	// 2. Chat with stream and awareness
+	fullReply, err := s.brain.ChatStream(ctx, sessionID, payload, systemState, func(chunk string) error {
 		msg := map[string]interface{}{
 			"type":        "CHAT_STREAM",
 			"sender_id":   s.butlerID,
