@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
@@ -60,12 +61,12 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 	if b := GetButler(); b != nil {
 		b.RequestAuthorization(actionID, input.TargetAgentID, input.Command, input.Reasoning)
 	}
-	
+
 	log.Printf("[Butler Tool] Action %s is now PENDING user approval.", actionID)
 
 	// 4. WAIT for approval
 	approved := <-resumeChan
-	
+
 	actionsMu.Lock()
 	delete(pendingActions, actionID)
 	actionsMu.Unlock()
@@ -88,7 +89,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 
 	// 5. Execute actual command
 	log.Printf("[Butler Tool] Action %s APPROVED. Executing command to Agent %d...", actionID, input.TargetAgentID)
-	
+
 	// Prepare to receive response (Buffered to prevent deadlock)
 	respChan := make(chan string, 1)
 	actionsMu.Lock()
@@ -125,7 +126,9 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 }
 
 func min(a, b int) int {
-	if a < b { return a }
+	if a < b {
+		return a
+	}
 	return b
 }
 
