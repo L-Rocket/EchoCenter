@@ -124,9 +124,12 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 
 	// 1. Fetch current system state (Agents list)
 	agents, err := database.GetAgents()
-	systemState := "Active Agents in the hive:\n"
+	systemState := "Active Agents in the hive (excluding myself):\n"
 	if err == nil {
 		for _, a := range agents {
+			if a.ID == s.butlerID {
+				continue // Don't list myself as a managed agent
+			}
 			systemState += fmt.Sprintf("- %s (ID: %d, Role: %s)\n", a.Username, a.ID, a.Role)
 		}
 	} else {
