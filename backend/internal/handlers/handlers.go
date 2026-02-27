@@ -56,7 +56,18 @@ func IngestMessage(c *gin.Context) {
 }
 
 func GetMessages(c *gin.Context) {
-	messages, err := database.GetLatestMessages(50)
+	agentID := c.Query("agent_id")
+	level := c.Query("level")
+	query := c.Query("q")
+	
+	offsetStr := c.DefaultQuery("offset", "0")
+	limitStr := c.DefaultQuery("limit", "50")
+
+	var offset, limit int
+	fmt.Sscanf(offsetStr, "%d", &offset)
+	fmt.Sscanf(limitStr, "%d", &limit)
+
+	messages, err := database.GetLatestMessages(agentID, level, query, offset, limit)
 	if err != nil {
 		RespondWithError(c, http.StatusInternalServerError, "Failed to retrieve messages")
 		return

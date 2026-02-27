@@ -1,24 +1,68 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import MessageList from '@/components/MessageList'
 import type { Message } from '@/components/MessageRow'
 import { useAuth } from '@/context/AuthContext'
 import { Badge } from '@/components/ui/badge'
-import { Terminal, Activity } from 'lucide-react'
+import { Terminal, Activity, ChevronDown } from 'lucide-react'
+import { useDebounce } from '@/hooks/useDebounce'
+import { Button } from '@/components/ui/button'
+import LogFilterBar from '@/components/LogFilterBar'
 
 const API_BASE_URL = 'http://localhost:8080'
 
+export interface LogFilterState {
+  agentID: string;
+  level: string;
+  query: string;
+}
+
 const DashboardPage = () => {
-  const [dbMessages, setDbMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [filters, setFilters] = useState<LogFilterState>({
+    agentID: '',
+    level: '',
+    query: '',
+  })
+  const [offset, setOffset] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+  
+  const debouncedQuery = useDebounce(filters.query, 500)
   const { logout, wsLogs, isWsConnected } = useAuth()
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async (isLoadMore = false) => {
     try {
-      const response = await axios.get<Message[]>(`${API_BASE_URL}/api/messages`)
-      setDbMessages(Array.isArray(response.data) ? response.data : [])
+      if (isLoadMore) setLoadingMore(true);
+      else setLoading(true);
+
+      const currentOffset = isLoadMore ? offset : 0;
+      
+      const response = await axios.get<Message[]>(`${API_BASE_URL}/api/messages`, {
+        params: {
+          agent_id: filters.agentID,
+          level: filters.level,
+          q: debouncedQuery,
+          offset: currentOffset,
+          limit: 50
+        }
+      })
+
+      const newMessages = Array.isArray(response.data) ? response.data : []
+      
+      if (isLoadMore) {
+        setMessages(prev => [...prev, ...newMessages])
+        setOffset(prev => prev + newMessages.length)
+      } else {
+        setMessages(newMessages)
+        setOffset(newMessages.length)
+      }
+
+      setHasMore(newMessages.length === 50)
       setLoading(false)
+      setLoadingMore(false)
       setError(null)
     } catch (err: any) {
       if (err.response?.status === 401) {
@@ -27,19 +71,43 @@ const DashboardPage = () => {
       console.error("Failed to fetch messages:", err)
       setError("Failed to connect to backend.")
       setLoading(false)
+      setLoadingMore(false)
+    }
+  }, [filters.agentID, filters.level, debouncedQuery, offset, logout])
+
+  // Trigger fetch on filter change
+  useEffect(() => {
+    fetchMessages(false)
+  }, [filters.agentID, filters.level, debouncedQuery])
+
+  // Handle real-time WebSocket logs
+  useEffect(() => {
+    // Only prepend if no filters are active (FR-005)
+    const isFiltering = filters.agentID || filters.level || debouncedQuery;
+    if (!isFiltering && wsLogs.length > 0) {
+      // Since wsLogs is a global array of latest logs from AuthContext, 
+      // we might want to just sync with it if we aren't filtering.
+      // But for simplicity, if not filtering, we can just show latest.
+      setMessages(prev => {
+        const latest = wsLogs[0];
+        if (latest && !prev.some(m => m.id === latest.id)) {
+          return [latest, ...prev].slice(0, 50);
+        }
+        return prev;
+      });
+    }
+  }, [wsLogs, filters.agentID, filters.level, debouncedQuery])
+
+  const handleLoadMore = () => {
+    if (!loadingMore && hasMore) {
+      fetchMessages(true)
     }
   }
 
-  useEffect(() => {
-    fetchMessages()
-  }, [])
-
-  // Combine initial DB messages with real-time WS logs
-  // For MVP, we'll prioritize real-time logs once they arrive
-  const messages = wsLogs.length > 0 ? wsLogs : dbMessages;
-
   return (
     <div className="space-y-6">
+      <LogFilterBar filters={filters} onFilterChange={setFilters} />
+      
       {!isWsConnected && (
         <div className="bg-amber-50 text-amber-700 px-4 py-2 rounded-lg border border-amber-100 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider animate-in fade-in duration-300">
           <Activity className="h-3 w-3 animate-pulse" />
@@ -61,10 +129,29 @@ const DashboardPage = () => {
         </div>
         <Badge variant="outline" className="h-7 gap-1 px-3 bg-white border-slate-200 text-slate-600 font-medium">
           <Terminal className="h-3 w-3 text-indigo-500" />
-          {loading ? "Syncing..." : `${(messages || []).length} Active Records`}
+          {loading ? "Syncing..." : `${messages.length} Records Loaded`}
         </Badge>
       </div>
+
       <MessageList messages={messages} />
+
+      {hasMore && (
+        <div className="flex justify-center pt-4">
+          <Button 
+            variant="outline" 
+            onClick={handleLoadMore} 
+            disabled={loadingMore}
+            className="w-full max-w-xs gap-2"
+          >
+            {loadingMore ? (
+              <div className="h-4 w-4 border-2 border-indigo-600 border-t-transparent animate-spin rounded-full" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+            Load More History
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

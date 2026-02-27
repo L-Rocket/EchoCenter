@@ -121,3 +121,56 @@ func TestGetChatHistory(t *testing.T) {
 		}
 	})
 }
+
+func TestGetMessagesFiltering(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/api/messages", GetMessages)
+
+	t.Run("filter by agent query param", func(t *testing.T) {
+		dbFile := "./echocenter_filter_test.db"
+		database.InitDBPath(dbFile)
+		defer func() {
+			database.CloseDB()
+			os.Remove(dbFile)
+		}()
+
+		database.CreateMessage(models.Message{AgentID: "agent-X", Level: "INFO", Content: "X message"})
+		database.CreateMessage(models.Message{AgentID: "agent-Y", Level: "INFO", Content: "Y message"})
+
+		req, _ := http.NewRequest("GET", "/api/messages?agent_id=agent-X", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected 200, got %d", w.Code)
+		}
+
+		var resp []models.Message
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		if len(resp) != 1 || resp[0].AgentID != "agent-X" {
+			t.Errorf("Expected 1 message from agent-X, got %d", len(resp))
+		}
+	})
+
+	t.Run("search query param", func(t *testing.T) {
+		dbFile := "./echocenter_search_test.db"
+		database.InitDBPath(dbFile)
+		defer func() {
+			database.CloseDB()
+			os.Remove(dbFile)
+		}()
+
+		database.CreateMessage(models.Message{AgentID: "bot", Level: "INFO", Content: "Finding needle in haystack"})
+
+		req, _ := http.NewRequest("GET", "/api/messages?q=needle", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		var resp []models.Message
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		if len(resp) != 1 {
+			t.Errorf("Expected 1 result for search 'needle', got %d", len(resp))
+		}
+	})
+}

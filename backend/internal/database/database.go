@@ -126,9 +126,27 @@ func CreateMessage(m models.Message) (int64, error) {
 	return res.LastInsertId()
 }
 
-func GetLatestMessages(limit int) ([]models.Message, error) {
-	query := `SELECT id, agent_id, level, content, timestamp FROM messages ORDER BY timestamp DESC, id DESC LIMIT ?`
-	rows, err := db.Query(query, limit)
+func GetLatestMessages(agentID, level, query string, offset, limit int) ([]models.Message, error) {
+	sqlQuery := `SELECT id, agent_id, level, content, timestamp FROM messages WHERE 1=1`
+	var args []interface{}
+
+	if agentID != "" {
+		sqlQuery += ` AND agent_id = ?`
+		args = append(args, agentID)
+	}
+	if level != "" {
+		sqlQuery += ` AND level = ?`
+		args = append(args, level)
+	}
+	if query != "" {
+		sqlQuery += ` AND LOWER(content) LIKE LOWER(?)`
+		args = append(args, "%"+query+"%")
+	}
+
+	sqlQuery += ` ORDER BY timestamp DESC, id DESC LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+
+	rows, err := db.Query(sqlQuery, args...)
 	if err != nil {
 		return nil, err
 	}
