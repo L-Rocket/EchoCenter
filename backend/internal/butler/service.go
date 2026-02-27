@@ -8,15 +8,24 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/lea/echocenter/backend/internal/database"
 	"github.com/lea/echocenter/backend/internal/models"
+	"github.com/lea/echocenter/backend/internal/repository"
 )
 
-// HubInterface to avoid circular dependency
+// HubInterface defines the interface for WebSocket hub
 type HubInterface interface {
 	BroadcastGeneric(msg interface{})
 }
 
+// Service defines the butler service interface
+type Service interface {
+	GetButlerID() int
+	ProcessLog(ctx context.Context, msg models.Message)
+	RequestAuthorization(actionID string, targetID int, command, reasoning string)
+	HandleUserMessage(ctx context.Context, senderID int, payload string)
+}
+
+// ButlerService implements the Service interface
 type ButlerService struct {
 	butlerID   int
 	butlerName string
@@ -26,6 +35,7 @@ type ButlerService struct {
 	mu         sync.RWMutex
 	brain      *EinoBrain
 	hub        HubInterface
+	repo       repository.Repository
 }
 
 var (
@@ -33,10 +43,9 @@ var (
 	once     sync.Once
 )
 
-// InitButler initializes the Butler singleton (T006)
-func InitButler(id int, name string, hub HubInterface) {
+// InitButler initializes the Butler singleton
+func InitButler(id int, name string, hub HubInterface, repo repository.Repository) {
 	once.Do(func() {
-		// Load from System Environment or .env
 		baseURL := os.Getenv("BUTLER_BASE_URL")
 		apiToken := os.Getenv("BUTLER_API_TOKEN")
 		model := os.Getenv("BUTLER_MODEL")
@@ -53,6 +62,7 @@ func InitButler(id int, name string, hub HubInterface) {
 			model:      model,
 			brain:      NewEinoBrain(baseURL, apiToken, model),
 			hub:        hub,
+			repo:       repo,
 		}
 		log.Printf("Butler service initialized for agent: %s (ID: %d)", name, id)
 		if baseURL != "" {
@@ -61,38 +71,39 @@ func InitButler(id int, name string, hub HubInterface) {
 	})
 }
 
+// GetButler returns the singleton instance
 func GetButler() *ButlerService {
 	return instance
 }
 
+// GetButlerID returns the butler's user ID
 func (s *ButlerService) GetButlerID() int {
 	return s.butlerID
 }
 
-// ProcessLog entry point for situational awareness (US1)
+// ProcessLog processes log messages for situational awareness
 func (s *ButlerService) ProcessLog(ctx context.Context, msg models.Message) {
 	if s.brain == nil {
 		return
 	}
-	
+
 	thought, err := s.brain.ObserveLog(ctx, msg)
 	if err != nil {
 		log.Printf("[Butler] Brain error processing log: %v", err)
 		return
 	}
-	
+
 	log.Printf("[Butler] Thought: %s", thought)
 }
 
-// RequestAuthorization emits an AUTH_REQUEST WebSocket frame (T013)
+// RequestAuthorization emits an AUTH_REQUEST WebSocket frame
 func (s *ButlerService) RequestAuthorization(actionID string, targetID int, command, reasoning string) {
 	if s.hub == nil {
 		return
 	}
 
-	// Fetch actual target agent name from database (Fix: Unknown Agent)
 	targetName := "Unknown Agent"
-	agents, err := database.GetAgents()
+	agents, err := s.repo.GetAgents(context.Background())
 	if err == nil {
 		for _, a := range agents {
 			if a.ID == targetID {
@@ -101,9 +112,7 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
 			}
 		}
 	}
-	
-	// Create a generic message that the Hub can understand
-	// We'll use a map to simulate the Message struct without importing websocket
+
 	msg := map[string]interface{}{
 		"type":        "AUTH_REQUEST",
 		"sender_id":   s.butlerID,
@@ -116,9 +125,7 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
 			"reason":            reasoning,
 		},
 	}
-	
-	// Since BroadcastGeneric expects *websocket.Message, we need a way to wrap it.
-	// Actually, I'll update hub.go to wrap it if it's not already a *Message.
+
 	s.hub.BroadcastGeneric(msg)
 }
 
@@ -131,13 +138,12 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 	sessionID := fmt.Sprintf("user_%d", senderID)
 	streamID := uuid.New().String()
 
-	// 1. Fetch current system state (Agents list)
-	agents, err := database.GetAgents()
+	agents, err := s.repo.GetAgents(ctx)
 	systemState := "Active Agents in the hive (excluding myself):\n"
 	if err == nil {
 		for _, a := range agents {
 			if a.ID == s.butlerID {
-				continue // Don't list myself as a managed agent
+				continue
 			}
 			systemState += fmt.Sprintf("- %s (ID: %d, Role: %s)\n", a.Username, a.ID, a.Role)
 		}
@@ -145,7 +151,6 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 		systemState = "System error: Unable to retrieve agent list."
 	}
 
-	// 2. Chat with stream and awareness
 	fullReply, err := s.brain.ChatStream(ctx, sessionID, payload, systemState, func(chunk string) error {
 		msg := map[string]interface{}{
 			"type":        "CHAT_STREAM",
@@ -165,13 +170,15 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 		return
 	}
 
-	// Persist the complete message to DB
-	err = database.SaveChatMessage(s.butlerID, senderID, fullReply)
+	err = s.repo.SaveChatMessage(ctx, &models.ChatMessage{
+		SenderID:   s.butlerID,
+		ReceiverID: senderID,
+		Payload:    fullReply,
+	})
 	if err != nil {
 		log.Printf("[Butler] Failed to persist chat: %v", err)
 	}
 
-	// Final message to signal completion
 	s.hub.BroadcastGeneric(map[string]interface{}{
 		"type":        "CHAT_STREAM_END",
 		"sender_id":   s.butlerID,

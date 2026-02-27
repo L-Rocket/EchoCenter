@@ -23,7 +23,7 @@ var (
 type EinoBrain struct {
 	logChain  compose.Runnable[models.Message, string]
 	chatModel *openai.ChatModel
-	
+
 	// Simple in-memory history management
 	historyMu sync.RWMutex
 	history   map[string][]*schema.Message
@@ -74,12 +74,12 @@ func (b *EinoBrain) ObserveLog(ctx context.Context, msg models.Message) (string,
 
 func (b *EinoBrain) Chat(ctx context.Context, sessionID string, input string, systemState string) (string, error) {
 	if b.chatModel == nil {
-		return "Safe-mode active.", nil
+		return "I am currently operating in safe-mode. My intelligence core is offline, but I can still assist with basic system monitoring.", nil
 	}
 
 	b.historyMu.Lock()
 	msgs := b.history[sessionID]
-	
+
 	systemPrompt := `You are the EchoCenter Butler, the commander of an AI Agent hive.
 If you need to ask another agent a question or give it a command, you MUST output a special line:
 COMMAND_AGENT: {"target_agent_id": ID, "command": "instruction", "reasoning": "why"}
@@ -99,7 +99,7 @@ RULES:
 	} else if msgs[0].Role == schema.System {
 		msgs[0].Content = systemPrompt
 	}
-	
+
 	msgs = append(msgs, schema.UserMessage(input))
 	b.history[sessionID] = msgs
 	b.historyMu.Unlock()
@@ -111,7 +111,7 @@ RULES:
 	}
 
 	content := resp.Content
-	
+
 	// 2. Intercept manual tool calls
 	match := commandRegex.FindStringSubmatch(content)
 	if len(match) > 1 {
@@ -122,9 +122,9 @@ RULES:
 			log.Printf("[Butler Brain] Invalid command JSON: %v", err)
 			return content, nil
 		}
-		
+
 		log.Printf("[Butler Brain] Intercepted manual command: %s", jsonParams)
-		
+
 		// Execute Go tool logic
 		tool := NewCommandAgentTool()
 		result, err := tool.InvokableRun(ctx, jsonParams)
@@ -136,14 +136,14 @@ RULES:
 		b.historyMu.Lock()
 		b.history[sessionID] = append(b.history[sessionID], resp)
 		b.history[sessionID] = append(b.history[sessionID], schema.UserMessage("SYSTEM: Tool result was: "+result))
-		
+
 		// Get final summary
 		finalResp, _ := b.chatModel.Generate(ctx, b.history[sessionID])
 		content = finalResp.Content
-		
+
 		// SAFETY: Remove any accidental new command lines from the summary to prevent loops
 		content = commandRegex.ReplaceAllString(content, "")
-		
+
 		b.history[sessionID] = append(b.history[sessionID], finalResp)
 		b.trimHistory(sessionID)
 		b.historyMu.Unlock()
@@ -159,7 +159,7 @@ RULES:
 func (b *EinoBrain) ChatStream(ctx context.Context, sessionID string, input string, systemState string, onChunk func(chunk string) error) (string, error) {
 	// Call Chat internally but trigger intermediate feedback via onChunk
 	// This gives the "Gemini CLI" style execution feedback
-	
+
 	// Pre-reasoning feedback
 	_ = onChunk("Butler is analyzing request...")
 
@@ -173,7 +173,7 @@ func (b *EinoBrain) ChatStream(ctx context.Context, sessionID string, input stri
 	if reply != "" {
 		_ = onChunk("\n\n" + reply)
 	}
-	
+
 	return reply, nil
 }
 
@@ -188,6 +188,9 @@ func (b *EinoBrain) trimHistory(sessionID string) {
 func newMockBrain() *EinoBrain {
 	logBuilder := compose.NewChain[models.Message, string]()
 	logBuilder.AppendLambda(compose.InvokableLambda(func(ctx context.Context, msg models.Message) (string, error) {
+		if msg.Level == "ERROR" {
+			return "I should probably check this error. (Safe-mode)", nil
+		}
 		return "Log noted. (Safe-mode)", nil
 	}))
 	lChain, _ := logBuilder.Compile(context.Background())
