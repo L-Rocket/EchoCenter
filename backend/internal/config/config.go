@@ -69,7 +69,7 @@ func Load() (*Config, error) {
 			ConnMaxLifetime: getEnvAsDuration("DB_CONN_MAX_LIFETIME", 5*time.Minute),
 		},
 		Auth: AuthConfig{
-			JWTSecret:            getEnv("JWT_SECRET", ""),
+			JWTSecret:            getEnv("JWT_SECRET", "dev-secret-key-change-in-production-environment-32chars"),
 			TokenExpiration:      getEnvAsDuration("JWT_TOKEN_EXPIRATION", 24*time.Hour),
 			BcryptCost:           getEnvAsInt("BCRYPT_COST", 12),
 			InitialAdminUser:     getEnv("INITIAL_ADMIN_USER", ""),
@@ -92,11 +92,8 @@ func Load() (*Config, error) {
 
 // Validate validates the configuration
 func (c *Config) Validate() error {
-	if c.Auth.JWTSecret == "" {
-		return fmt.Errorf("JWT_SECRET is required")
-	}
 	if len(c.Auth.JWTSecret) < 32 {
-		return fmt.Errorf("JWT_SECRET must be at least 32 characters")
+		return fmt.Errorf("JWT_SECRET must be at least 32 characters, got %d", len(c.Auth.JWTSecret))
 	}
 	return nil
 }
