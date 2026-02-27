@@ -75,19 +75,13 @@ const DashboardPage = () => {
     }
   }, [filters.agentID, filters.level, debouncedQuery, offset, logout])
 
-  // Trigger fetch on filter change
   useEffect(() => {
     fetchMessages(false)
   }, [filters.agentID, filters.level, debouncedQuery])
 
-  // Handle real-time WebSocket logs
   useEffect(() => {
-    // Only prepend if no filters are active (FR-005)
     const isFiltering = filters.agentID || filters.level || debouncedQuery;
     if (!isFiltering && wsLogs.length > 0) {
-      // Since wsLogs is a global array of latest logs from AuthContext, 
-      // we might want to just sync with it if we aren't filtering.
-      // But for simplicity, if not filtering, we can just show latest.
       setMessages(prev => {
         const latest = wsLogs[0];
         if (latest && !prev.some(m => m.id === latest.id)) {
@@ -109,26 +103,26 @@ const DashboardPage = () => {
       <LogFilterBar filters={filters} onFilterChange={setFilters} />
       
       {!isWsConnected && (
-        <div className="bg-amber-50 text-amber-700 px-4 py-2 rounded-lg border border-amber-100 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider animate-in fade-in duration-300">
+        <div className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-4 py-2 rounded-lg border border-amber-500/20 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider animate-in fade-in duration-300">
           <Activity className="h-3 w-3 animate-pulse" />
           Link unstable: Reconnecting to hive...
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-100 flex items-center gap-3 text-sm font-medium">
-          <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+        <div className="bg-destructive/10 text-destructive p-4 rounded-lg border border-destructive/20 flex items-center gap-3 text-sm font-medium">
+          <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
           {error}
         </div>
       )}
 
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900">System Logs</h2>
-          <p className="text-sm text-slate-500">Autonomous status feed from the Echo hive.</p>
+          <h2 className="text-2xl font-bold tracking-tight">System Logs</h2>
+          <p className="text-sm text-muted-foreground">Autonomous status feed from the Echo hive.</p>
         </div>
-        <Badge variant="outline" className="h-7 gap-1 px-3 bg-white border-slate-200 text-slate-600 font-medium">
-          <Terminal className="h-3 w-3 text-indigo-500" />
+        <Badge variant="outline" className="h-7 gap-1 px-3 font-medium">
+          <Terminal className="h-3 w-3 text-primary" />
           {loading ? "Syncing..." : `${messages.length} Records Loaded`}
         </Badge>
       </div>
@@ -144,7 +138,7 @@ const DashboardPage = () => {
             className="w-full max-w-xs gap-2"
           >
             {loadingMore ? (
-              <div className="h-4 w-4 border-2 border-indigo-600 border-t-transparent animate-spin rounded-full" />
+              <div className="h-4 w-4 border-2 border-primary border-t-transparent animate-spin rounded-full" />
             ) : (
               <ChevronDown className="h-4 w-4" />
             )}

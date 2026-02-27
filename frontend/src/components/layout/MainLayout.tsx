@@ -3,18 +3,20 @@ import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/s
 import { AppSidebar } from "./AppSidebar"
 import { Outlet } from "react-router-dom"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { ModeToggle } from "../mode-toggle"
 
 export const MainLayout: React.FC = () => {
   return (
     <TooltipProvider>
       <SidebarProvider>
         <AppSidebar />
-        <SidebarInset className="bg-slate-50">
-          <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 px-4 shadow-sm">
+        <SidebarInset>
+          <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 shadow-sm">
             <SidebarTrigger className="-ml-1" />
-            <div className="h-4 w-px bg-slate-200 mx-2" />
+            <div className="h-4 w-px bg-border mx-2" />
             <div className="flex-1 flex items-center justify-between">
-               <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Autonomous Swarm Monitor</span>
+               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Autonomous Swarm Monitor</span>
+               <ModeToggle />
             </div>
           </header>
           <main className="flex-1 overflow-auto">
@@ -22,9 +24,9 @@ export const MainLayout: React.FC = () => {
               <Outlet />
             </div>
           </main>
-          <footer className="border-t bg-white py-6">
+          <footer className="border-t bg-card py-6">
             <div className="container max-w-5xl mx-auto px-4 text-center">
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-muted-foreground">
                 &copy; {new Date().getFullYear()} EchoCenter &bull; Intelligence Monitoring Hub
               </p>
             </div>

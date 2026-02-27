@@ -48,31 +48,29 @@ const LogFilterBar: React.FC<LogFilterBarProps> = ({ filters, onFilterChange }) 
   };
 
   return (
-    <div className="flex flex-col lg:flex-row items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm animate-in fade-in slide-in-from-top-4 duration-500">
-      {/* Search Input */}
+    <div className="flex flex-col lg:flex-row items-center gap-4 bg-card p-4 rounded-xl border shadow-sm animate-in fade-in slide-in-from-top-4 duration-500">
       <div className="relative w-full lg:w-72">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search logs..."
-          className="pl-10 h-10 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
+          className="pl-10 h-10 bg-muted/50 border focus:bg-background transition-all"
           value={filters.query}
           onChange={(e) => onFilterChange({ ...filters, query: e.target.value })}
         />
       </div>
 
       <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">
+        <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider mr-1">
           <Filter className="h-3 w-3" />
           Refine
         </div>
 
-        {/* Agent Filter */}
         <Select
           value={filters.agentID || "all"}
           onValueChange={(val) => onFilterChange({ ...filters, agentID: val === "all" ? "" : val })}
         >
-          <SelectTrigger className="w-[160px] h-10 bg-slate-50/50 border-slate-200">
-            <Bot className="h-3.5 w-3.5 text-indigo-500 mr-2" />
+          <SelectTrigger className="w-[160px] h-10 bg-muted/50 border">
+            <Bot className="h-3.5 w-3.5 text-primary mr-2" />
             <SelectValue placeholder="All Agents" />
           </SelectTrigger>
           <SelectContent>
@@ -85,12 +83,11 @@ const LogFilterBar: React.FC<LogFilterBarProps> = ({ filters, onFilterChange }) 
           </SelectContent>
         </Select>
 
-        {/* Level Filter */}
         <Select
           value={filters.level || "all"}
           onValueChange={(val) => onFilterChange({ ...filters, level: val === "all" ? "" : val })}
         >
-          <SelectTrigger className="w-[140px] h-10 bg-slate-50/50 border-slate-200">
+          <SelectTrigger className="w-[140px] h-10 bg-muted/50 border">
             <AlertCircle className="h-3.5 w-3.5 text-amber-500 mr-2" />
             <SelectValue placeholder="All Levels" />
           </SelectTrigger>
@@ -102,13 +99,12 @@ const LogFilterBar: React.FC<LogFilterBarProps> = ({ filters, onFilterChange }) 
           </SelectContent>
         </Select>
 
-        {/* Reset Button */}
         {(filters.agentID || filters.level || filters.query) && (
           <Button
             variant="ghost"
             size="sm"
             onClick={handleReset}
-            className="text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 gap-2 h-10 px-3"
+            className="text-muted-foreground hover:text-primary gap-2 h-10 px-3"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Reset
