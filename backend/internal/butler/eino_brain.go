@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
@@ -157,20 +159,146 @@ RULES:
 }
 
 func (b *EinoBrain) ChatStream(ctx context.Context, sessionID string, input string, systemState string, onChunk func(chunk string) error) (string, error) {
-	// Call Chat internally but trigger intermediate feedback via onChunk
-	// Only send the final reply, no intermediate status messages
+	if b.chatModel == nil {
+		reply := "I am currently operating in safe-mode. My intelligence core is offline, but I can still assist with basic system monitoring."
+		_ = onChunk(reply)
+		return reply, nil
+	}
 
-	reply, err := b.Chat(ctx, sessionID, input, systemState)
+	b.historyMu.Lock()
+	msgs := b.history[sessionID]
+
+	systemPrompt := `You are the EchoCenter Butler, the commander of an AI Agent hive.
+If you need to ask another agent a question or give it a command, you MUST output a special line:
+COMMAND_AGENT: {"target_agent_id": ID, "command": "instruction", "reasoning": "why"}
+
+RULES:
+1. NEVER say "I cannot check status". Instead, use the COMMAND_AGENT format above.
+2. After receiving a tool result (labeled as SYSTEM: Tool result was...), SIMPLY SUMMARIZE the result for the user.
+3. DO NOT initiate a new COMMAND_AGENT call immediately after receiving a tool result. Wait for the user's next instruction.
+4. Be professional.`
+
+	if systemState != "" {
+		systemPrompt += "\n\nCURRENT SYSTEM STATE:\n" + systemState
+	}
+
+	if len(msgs) == 0 {
+		msgs = append(msgs, schema.SystemMessage(systemPrompt))
+	} else if msgs[0].Role == schema.System {
+		msgs[0].Content = systemPrompt
+	}
+
+	msgs = append(msgs, schema.UserMessage(input))
+	b.history[sessionID] = msgs
+	b.historyMu.Unlock()
+
+	// Stream the response with command detection
+	streamReader, err := b.chatModel.Stream(ctx, msgs)
 	if err != nil {
 		return "", err
 	}
 
-	// Send the final reply directly
-	if reply != "" {
-		_ = onChunk(reply)
+	var fullReply strings.Builder
+	var commandBuffer strings.Builder
+	inCommand := false
+	defer streamReader.Close()
+
+	for {
+		chunk, err := streamReader.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fullReply.String(), err
+		}
+		if chunk != nil && chunk.Content != "" {
+			// Check if we're entering a command block
+			if !inCommand && strings.Contains(chunk.Content, "COMMAND_AGENT:") {
+				inCommand = true
+				// Send any content before the command
+				parts := strings.Split(chunk.Content, "COMMAND_AGENT:")
+				if len(parts) > 0 && parts[0] != "" {
+					fullReply.WriteString(parts[0])
+					_ = onChunk(parts[0])
+				}
+				commandBuffer.WriteString("COMMAND_AGENT:")
+				if len(parts) > 1 {
+					commandBuffer.WriteString(parts[1])
+				}
+				continue
+			}
+
+			if inCommand {
+				commandBuffer.WriteString(chunk.Content)
+				// Check if command is complete (has closing brace)
+				cmdStr := commandBuffer.String()
+				if strings.Count(cmdStr, "{") > 0 && strings.Count(cmdStr, "{") == strings.Count(cmdStr, "}") {
+					// Command is complete, stop streaming to user
+					break
+				}
+			} else {
+				fullReply.WriteString(chunk.Content)
+				_ = onChunk(chunk.Content)
+			}
+		}
 	}
 
-	return reply, nil
+	content := fullReply.String()
+
+	// Check for command in the complete response
+	cmdStr := commandBuffer.String()
+	match := commandRegex.FindStringSubmatch(cmdStr)
+	if len(match) > 1 {
+		jsonParams := match[1]
+		var tmp map[string]interface{}
+		if err := json.Unmarshal([]byte(jsonParams), &tmp); err == nil {
+			log.Printf("[Butler Brain] Intercepted manual command: %s", jsonParams)
+
+			// Execute Go tool logic
+			tool := NewCommandAgentTool()
+			result, err := tool.InvokableRun(ctx, jsonParams)
+			if err != nil {
+				result = fmt.Sprintf("Tool error: %v", err)
+			}
+
+			// Inject result back into history and get final summary
+			b.historyMu.Lock()
+			b.history[sessionID] = append(b.history[sessionID], &schema.Message{Role: schema.Assistant, Content: content + cmdStr})
+			b.history[sessionID] = append(b.history[sessionID], schema.UserMessage("SYSTEM: Tool result was: "+result))
+
+			// Stream the final summary
+			finalStream, _ := b.chatModel.Stream(ctx, b.history[sessionID])
+			if finalStream != nil {
+				var finalReply strings.Builder
+				for {
+					chunk, err := finalStream.Recv()
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						break
+					}
+					if chunk != nil && chunk.Content != "" {
+						finalReply.WriteString(chunk.Content)
+						_ = onChunk(chunk.Content)
+					}
+				}
+				finalStream.Close()
+				content = content + finalReply.String()
+				// Remove any accidental new command lines
+				content = commandRegex.ReplaceAllString(content, "")
+				b.history[sessionID] = append(b.history[sessionID], &schema.Message{Role: schema.Assistant, Content: content})
+			}
+			b.trimHistory(sessionID)
+			b.historyMu.Unlock()
+		}
+	} else {
+		b.historyMu.Lock()
+		b.history[sessionID] = append(b.history[sessionID], &schema.Message{Role: schema.Assistant, Content: content})
+		b.historyMu.Unlock()
+	}
+
+	return content, nil
 }
 
 func (b *EinoBrain) trimHistory(sessionID string) {

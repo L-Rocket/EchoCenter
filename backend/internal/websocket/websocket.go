@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -136,13 +137,25 @@ func (h *hub) routeToTarget(message *Message) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
+	log.Printf("[WebSocket Route] Routing message type=%s from=%d to=%d", message.Type, message.SenderID, message.TargetID)
+
 	// Send to target
 	if target, ok := h.clients[message.TargetID]; ok {
+		log.Printf("[WebSocket Route] Found target client %d, sending message", message.TargetID)
 		select {
 		case target.send <- message:
+			log.Printf("[WebSocket Route] Message sent to target %d", message.TargetID)
 		default:
+			log.Printf("[WebSocket Route] Target %d send channel blocked, unregistering", message.TargetID)
 			go h.Unregister(target)
 		}
+	} else {
+		// Log available client IDs for debugging
+		ids := make([]int, 0, len(h.clients))
+		for id := range h.clients {
+			ids = append(ids, id)
+		}
+		log.Printf("[WebSocket Route] Target client %d not found. Available clients: %v", message.TargetID, ids)
 	}
 
 	// Echo back to sender for chat messages
@@ -213,11 +226,16 @@ func (h *hub) BroadcastGeneric(msg interface{}) {
 		if t, ok := data["type"].(string); ok {
 			m.Type = MessageType(t)
 		}
+		// Handle both int and float64 for numeric fields (JSON numbers are float64)
 		if sid, ok := data["sender_id"].(int); ok {
 			m.SenderID = sid
+		} else if sid, ok := data["sender_id"].(float64); ok {
+			m.SenderID = int(sid)
 		}
 		if tid, ok := data["target_id"].(int); ok {
 			m.TargetID = tid
+		} else if tid, ok := data["target_id"].(float64); ok {
+			m.TargetID = int(tid)
 		}
 		if sname, ok := data["sender_name"].(string); ok {
 			m.SenderName = sname
@@ -317,6 +335,7 @@ func (c *Client) ReadPump() {
 		msg.SenderRole = c.Role()
 		msg.Timestamp = time.Now().Format(time.RFC3339)
 
+		log.Printf("[ReadPump] Received message from %d (role=%s) to %d: %s", msg.SenderID, msg.SenderRole, msg.TargetID, msg.Type)
 		c.hub.Broadcast(&msg)
 	}
 }

@@ -2,6 +2,7 @@ package butler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -98,12 +99,10 @@ func (s *ButlerService) ProcessLog(ctx context.Context, msg models.Message) {
 
 // RequestAuthorization emits an AUTH_REQUEST WebSocket frame
 func (s *ButlerService) RequestAuthorization(actionID string, targetID int, command, reasoning string) {
-	if s.hub == nil {
-		return
-	}
+	ctx := context.Background()
 
 	targetName := "Unknown Agent"
-	agents, err := s.repo.GetAgents(context.Background())
+	agents, err := s.repo.GetAgents(ctx)
 	if err == nil {
 		for _, a := range agents {
 			if a.ID == targetID {
@@ -113,20 +112,53 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
 		}
 	}
 
-	msg := map[string]interface{}{
-		"type":        "AUTH_REQUEST",
-		"sender_id":   s.butlerID,
-		"sender_role": "BUTLER",
-		"payload": map[string]interface{}{
-			"action_id":         actionID,
-			"target_agent_id":   targetID,
-			"target_agent_name": targetName,
-			"command":           command,
-			"reason":            reasoning,
-		},
+	// Persist AUTH_REQUEST to database
+	payloadMap := map[string]interface{}{
+		"action_id":         actionID,
+		"target_agent_id":   targetID,
+		"target_agent_name": targetName,
+		"command":           command,
+		"reason":            reasoning,
+		"status":            "PENDING",
+	}
+	payloadBytes, _ := json.Marshal(payloadMap)
+
+	// Find admin user (target of the auth request)
+	users, _ := s.repo.GetUsers(ctx)
+	var adminID int
+	for _, u := range users {
+		if u.Role == "ADMIN" {
+			adminID = u.ID
+			break
+		}
+	}
+	if adminID == 0 {
+		adminID = 1 // fallback
 	}
 
-	s.hub.BroadcastGeneric(msg)
+	chatMsg := &models.ChatMessage{
+		SenderID:   s.butlerID,
+		ReceiverID: adminID,
+		Type:       "AUTH_REQUEST",
+		Payload:    string(payloadBytes),
+	}
+
+	if err := s.repo.SaveChatMessage(ctx, chatMsg); err != nil {
+		log.Printf("[Butler] Failed to persist auth request: %v", err)
+	}
+
+	// Broadcast via WebSocket
+	if s.hub != nil {
+		msg := map[string]interface{}{
+			"type":        "AUTH_REQUEST",
+			"sender_id":   s.butlerID,
+			"sender_name": s.butlerName,
+			"sender_role": "BUTLER",
+			"target_id":   adminID,
+			"payload":     payloadMap,
+		}
+		s.hub.BroadcastGeneric(msg)
+	}
 }
 
 // HandleUserMessage processes direct instructions to the butler
