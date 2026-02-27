@@ -15,6 +15,7 @@ type Message struct {
 	Type       string      `json:"type"`
 	SenderID   int         `json:"sender_id"`
 	SenderName string      `json:"sender_name"`
+	SenderRole string      `json:"sender_role"` // USER, BUTLER, or AGENT
 	TargetID   int         `json:"target_id,omitempty"`
 	Payload    interface{} `json:"payload"`
 	Timestamp  string      `json:"timestamp"`
@@ -72,19 +73,20 @@ func (h *Hub) Run() {
 				}
 			}
 
-			// Direct Chat to Butler (Handle both plain and stream inputs)
+			// Direct Chat to Butler
 			if message.Type == "CHAT" || message.Type == "CHAT_STREAM" {
 				if b := butler.GetButler(); b != nil && message.TargetID == b.GetButlerID() {
-					// 1. Check if there's a tool waiting for this agent's response (US2 loop)
 					payload, ok := message.Payload.(string)
-					if ok && butler.RegisterAgentResponse(message.SenderID, payload) {
-						log.Printf("Relayed agent %d response back to butler tool", message.SenderID)
-						continue // Handled by tool, stop normal processing
-					}
-
-					// 2. Otherwise, treat as new user/agent message
 					if ok {
-						go b.HandleUserMessage(context.Background(), message.SenderID, payload)
+											// 1. Try to feed to a waiting tool first (Registry)
+											if butler.RegisterAgentResponse(message.SenderID, payload) {
+												log.Printf("Relayed agent %d response to butler tool", message.SenderID)
+											} else if message.SenderRole == "USER" && message.SenderID != b.GetButlerID() {
+												// 2. Only start a NEW reasoning session if the sender is an actual human USER
+												// and it's NOT the butler sending to itself.
+												go b.HandleUserMessage(context.Background(), message.SenderID, payload)
+											}
+						
 					}
 				}
 			}
@@ -168,6 +170,9 @@ func (h *Hub) BroadcastGeneric(msg interface{}) {
 		}
 		if sname, ok := data["sender_name"].(string); ok {
 			m.SenderName = sname
+		}
+		if srole, ok := data["sender_role"].(string); ok {
+			m.SenderRole = srole
 		}
 		if stid, ok := data["stream_id"].(string); ok {
 			m.StreamID = stid

@@ -82,8 +82,9 @@ async def agent_loop(token):
             data = json.loads(message)
             if data.get("type") == "CHAT":
                 sender_id = data.get("sender_id")
+                sender_role = data.get("sender_role", "USER")
                 payload = data.get("payload")
-                print(f"[Storage-Custodian] Received instruction: {payload}")
+                print(f"[Storage-Custodian] Received instruction from {sender_role}: {payload}")
 
                 # Gather REAL data
                 current_stats = get_storage_stats()
@@ -111,32 +112,36 @@ User Instruction: {payload}"""
                             content = chunk.choices[0].delta.content
                             full_reply += content
                             
-                            # Only stream if sender is NOT the Butler (ID 2)
-                            if sender_id != 2:
+                            # Only stream if sender is a human USER
+                            if sender_role == "USER":
                                 await ws.send(json.dumps({
                                     "type": "CHAT_STREAM",
                                     "target_id": sender_id,
                                     "payload": content,
                                     "stream_id": stream_id,
-                                    "sender_id": 7, # Storage-Custodian
-                                    "sender_name": "Storage-Custodian"
+                                    "sender_id": 7,
+                                    "sender_name": "Storage-Custodian",
+                                    "sender_role": "AGENT"
                                 }))
                     
-                    if sender_id == 2:
-                        # Direct full reply to Butler
+                    if sender_role == "BUTLER":
+                        # Direct full reply to Butler for better efficiency
                         await ws.send(json.dumps({
                             "type": "CHAT",
                             "target_id": sender_id,
                             "payload": full_reply,
                             "sender_id": 7,
-                            "sender_name": "Storage-Custodian"
+                            "sender_name": "Storage-Custodian",
+                            "sender_role": "AGENT"
                         }))
                     else:
                         # End of stream for human users
                         await ws.send(json.dumps({
                             "type": "CHAT_STREAM_END",
                             "target_id": sender_id,
-                            "stream_id": stream_id
+                            "stream_id": stream_id,
+                            "sender_id": 7,
+                            "sender_role": "AGENT"
                         }))
 
                 except Exception as e:
