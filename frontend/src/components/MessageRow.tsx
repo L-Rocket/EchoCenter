@@ -25,17 +25,17 @@ const MessageRow: React.FC<MessageRowProps> = ({ message }) => {
           variant: 'error' as const,
           badgeVariant: 'destructive' as const,
           icon: <AlertCircle className="h-4 w-4" />,
-          bgColor: 'bg-red-50/50',
-          borderColor: 'border-red-100',
+          bgColor: 'bg-destructive/5',
+          borderColor: 'border-destructive/20',
         };
       case 'WARNING':
         return {
           variant: 'warning' as const,
-          badgeVariant: 'outline' as const, // We'll style warning custom
+          badgeVariant: 'outline' as const,
           icon: <AlertTriangle className="h-4 w-4" />,
-          bgColor: 'bg-amber-50/50',
-          borderColor: 'border-amber-100',
-          badgeClass: 'border-amber-200 text-amber-700 bg-amber-50',
+          bgColor: 'bg-amber-500/5 dark:bg-amber-500/10',
+          borderColor: 'border-amber-500/20',
+          badgeClass: 'border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10',
         };
       case 'INFO':
       default:
@@ -43,8 +43,8 @@ const MessageRow: React.FC<MessageRowProps> = ({ message }) => {
           variant: 'info' as const,
           badgeVariant: 'secondary' as const,
           icon: <Info className="h-4 w-4" />,
-          bgColor: 'bg-blue-50/50',
-          borderColor: 'border-blue-100',
+          bgColor: 'bg-primary/5',
+          borderColor: 'border-primary/20',
         };
     }
   };
@@ -63,7 +63,7 @@ const MessageRow: React.FC<MessageRowProps> = ({ message }) => {
           <div className="flex-grow min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="font-semibold text-slate-900 truncate tracking-tight">{message.agent_id}</span>
+                <span className="font-semibold truncate tracking-tight">{message.agent_id}</span>
                 <Badge 
                   variant={config.badgeVariant} 
                   className={cn("text-[10px] px-1.5 py-0 uppercase font-bold", config.badgeClass)}
@@ -75,13 +75,13 @@ const MessageRow: React.FC<MessageRowProps> = ({ message }) => {
                 </Badge>
               </div>
               
-              <div className="flex items-center gap-1.5 text-slate-400 whitespace-nowrap">
+              <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap">
                 <Clock className="h-3.5 w-3.5" />
                 <span className="text-xs font-medium">{formattedTime}</span>
               </div>
             </div>
             
-            <p className="text-sm text-slate-600 leading-relaxed break-words">
+            <p className="text-sm text-muted-foreground leading-relaxed break-words">
               {message.content}
             </p>
           </div>
