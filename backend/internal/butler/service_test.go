@@ -18,7 +18,7 @@ func TestHITLLoop(t *testing.T) {
 	defer database.CloseDB()
 
 	hub := &MockHub{}
-	InitButler(1, "my-agent", hub)
+	InitButler(1, "Butler", hub)
 	
 	tool := NewCommandAgentTool()
 	input := CommandAgentInput{

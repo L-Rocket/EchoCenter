@@ -21,7 +21,7 @@ To enable the Butler's intelligence, you must fill in the placeholders in `backe
 4. **Expectation**: You should see the Eino Butler instance receiving and processing the log.
 
 ### 2. Test Authorization Gate
-1. Interact with `my-agent` in the chat.
+1. Interact with `Butler` in the chat.
 2. Ask it to perform an action on another agent (e.g., "Reset the Weather-Sentinel").
 3. **Expectation**: Instead of an instant confirmation, an **Authorization Card** appears in the chat.
 4. Click **"Approve"**.

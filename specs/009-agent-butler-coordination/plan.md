@@ -1,10 +1,10 @@
-# Implementation Plan: Agent Butler Coordination (my-agent)
+# Implementation Plan: Agent Butler Coordination (Butler)
 
 **Branch**: `009-agent-butler-coordination` | **Date**: 2026-02-25 | **Spec**: `/specs/009-agent-butler-coordination/spec.md`
-**Input**: Implement `my-agent` as a Butler using ByteDance's Eino framework with Human-in-the-Loop (HITL) authorization gates.
+**Input**: Implement `Butler` as a Butler using ByteDance's Eino framework with Human-in-the-Loop (HITL) authorization gates.
 
 ## Summary
-Transform `my-agent` into a system coordinator powered by the Eino framework. The Butler will ingest all system logs and orchestrate commands to other agents. Crucially, all agent-to-agent commands will be intercepted by a mandatory authorization gate, requiring explicit human approval via the UI before execution.
+Transform `Butler` into a system coordinator powered by the Eino framework. The Butler will ingest all system logs and orchestrate commands to other agents. Crucially, all agent-to-agent commands will be intercepted by a mandatory authorization gate, requiring explicit human approval via the UI before execution.
 
 ## Technical Context
 

@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Agent Butler Coordination (my-agent)
+# Specification Quality Checklist: Agent Butler Coordination (Butler)
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-02-25

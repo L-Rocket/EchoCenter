@@ -18,6 +18,7 @@ type Message struct {
 	TargetID   int         `json:"target_id,omitempty"`
 	Payload    interface{} `json:"payload"`
 	Timestamp  string      `json:"timestamp"`
+	StreamID   string      `json:"stream_id,omitempty"`
 }
 
 // Hub maintains the set of active clients and broadcasts messages
@@ -161,6 +162,9 @@ func (h *Hub) BroadcastGeneric(msg interface{}) {
 		}
 		if sname, ok := data["sender_name"].(string); ok {
 			m.SenderName = sname
+		}
+		if stid, ok := data["stream_id"].(string); ok {
+			m.StreamID = stid
 		}
 		h.broadcast <- m
 	}
