@@ -41,4 +41,14 @@ func TestButlerIngestion(t *testing.T) {
 			t.Errorf("Expected intervention thought in safe-mode, got '%s'", thought)
 		}
 	})
+
+	t.Run("direct chat safe-mode", func(t *testing.T) {
+		reply, err := brain.Chat(ctx, "session-1", "Hello")
+		if err != nil {
+			t.Fatalf("Chat failed: %v", err)
+		}
+		if reply != "I am currently operating in safe-mode. My intelligence core is offline, but I can still assist with basic system monitoring." {
+			t.Errorf("Unexpected safe-mode reply: %s", reply)
+		}
+	})
 }
