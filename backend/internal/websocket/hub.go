@@ -72,11 +72,17 @@ func (h *Hub) Run() {
 				}
 			}
 
-			// Direct Chat to Butler
-			if message.Type == "CHAT" {
+			// Direct Chat to Butler (Handle both plain and stream inputs)
+			if message.Type == "CHAT" || message.Type == "CHAT_STREAM" {
 				if b := butler.GetButler(); b != nil && message.TargetID == b.GetButlerID() {
-					// Route to butler logic
+					// 1. Check if there's a tool waiting for this agent's response (US2 loop)
 					payload, ok := message.Payload.(string)
+					if ok && butler.RegisterAgentResponse(message.SenderID, payload) {
+						log.Printf("Relayed agent %d response back to butler tool", message.SenderID)
+						continue // Handled by tool, stop normal processing
+					}
+
+					// 2. Otherwise, treat as new user/agent message
 					if ok {
 						go b.HandleUserMessage(context.Background(), message.SenderID, payload)
 					}

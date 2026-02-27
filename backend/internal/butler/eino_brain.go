@@ -2,36 +2,31 @@ package butler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"regexp"
 	"sync"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
-	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 	"github.com/lea/echocenter/backend/internal/models"
 )
 
-// EinoBrain represents the Butler's reasoning engine
+var (
+	// Regex to find tool calls like: COMMAND_AGENT: {"target_agent_id": 7, "command": "status", "reasoning": "checking"}
+	commandRegex = regexp.MustCompile(`COMMAND_AGENT:\s*({.*})`)
+)
+
 // EinoBrain represents the Butler's reasoning engine
 type EinoBrain struct {
 	logChain  compose.Runnable[models.Message, string]
 	chatModel *openai.ChatModel
-	tools     []tool.InvokableTool
 	
 	// Simple in-memory history management
 	historyMu sync.RWMutex
 	history   map[string][]*schema.Message
-}
-
-func (b *EinoBrain) getToolInfos() []*schema.ToolInfo {
-	var infos []*schema.ToolInfo
-	for _, t := range b.tools {
-		info, _ := t.Info(context.Background())
-		infos = append(infos, info)
-	}
-	return infos
 }
 
 func NewEinoBrain(baseURL, apiToken, model string) *EinoBrain {
@@ -39,30 +34,23 @@ func NewEinoBrain(baseURL, apiToken, model string) *EinoBrain {
 		return newMockBrain()
 	}
 
-	// 1. Initialize the ChatModel
 	chatModel, err := openai.NewChatModel(context.Background(), &openai.ChatModelConfig{
 		BaseURL: baseURL,
 		Model:   model,
 		APIKey:  apiToken,
 	})
 	if err != nil {
-		log.Printf("ERROR: Failed to initialize Eino ChatModel: %v. Butler will use mock logic.", err)
+		log.Printf("ERROR: Failed to initialize Eino ChatModel: %v", err)
 		return newMockBrain()
 	}
 
-	// 2. Initialize Tools
-	tools := []tool.InvokableTool{
-		NewCommandAgentTool(),
-	}
-
-	// --- Log Observation Chain ---
 	logBuilder := compose.NewChain[models.Message, string]()
 	logBuilder.AppendLambda(compose.InvokableLambda(func(ctx context.Context, msg models.Message) ([]*schema.Message, error) {
 		prompt := fmt.Sprintf(`You are the EchoCenter Butler. 
 An agent named "%s" just reported a "%s" level event:
 "%s"
-Provide a very brief (one sentence) internal thought about this.`, msg.AgentID, msg.Level, msg.Content)
-		return []*schema.Message{schema.SystemMessage("You are a professional system coordinator."), schema.UserMessage(prompt)}, nil
+Provide a very brief thought.`, msg.AgentID, msg.Level, msg.Content)
+		return []*schema.Message{schema.SystemMessage("System coordinator."), schema.UserMessage(prompt)}, nil
 	}))
 	logBuilder.AppendChatModel(chatModel)
 	logBuilder.AppendLambda(compose.InvokableLambda(func(ctx context.Context, resp *schema.Message) (string, error) {
@@ -73,24 +61,35 @@ Provide a very brief (one sentence) internal thought about this.`, msg.AgentID, 
 	return &EinoBrain{
 		logChain:  lChain,
 		chatModel: chatModel,
-		tools:     tools,
 		history:   make(map[string][]*schema.Message),
 	}
 }
 
 func (b *EinoBrain) ObserveLog(ctx context.Context, msg models.Message) (string, error) {
+	if b.logChain == nil {
+		return "Log ignored (no brain).", nil
+	}
 	return b.logChain.Invoke(ctx, msg)
 }
 
 func (b *EinoBrain) Chat(ctx context.Context, sessionID string, input string, systemState string) (string, error) {
 	if b.chatModel == nil {
-		return "I am currently operating in safe-mode. My intelligence core is offline, but I can still assist with basic system monitoring.", nil
+		return "Safe-mode active.", nil
 	}
 
 	b.historyMu.Lock()
 	msgs := b.history[sessionID]
 	
-	systemPrompt := "You are the EchoCenter Butler, an intelligent manager of an AI Agent hive. Be professional, concise, and helpful. You have oversight of all system logs. You can command other agents using the 'command_agent' tool."
+	systemPrompt := `You are the EchoCenter Butler, the commander of an AI Agent hive.
+If you need to ask another agent a question or give it a command, you MUST output a special line:
+COMMAND_AGENT: {"target_agent_id": ID, "command": "instruction", "reasoning": "why"}
+
+RULES:
+1. NEVER say "I cannot check status". Instead, use the COMMAND_AGENT format above.
+2. After receiving a tool result (labeled as SYSTEM: Tool result was...), SIMPLY SUMMARIZE the result for the user.
+3. DO NOT initiate a new COMMAND_AGENT call immediately after receiving a tool result. Wait for the user's next instruction.
+4. Be professional.`
+
 	if systemState != "" {
 		systemPrompt += "\n\nCURRENT SYSTEM STATE:\n" + systemState
 	}
@@ -101,87 +100,82 @@ func (b *EinoBrain) Chat(ctx context.Context, sessionID string, input string, sy
 		msgs[0].Content = systemPrompt
 	}
 	
-	// Add user message to history
-	userMsg := schema.UserMessage(input)
-	msgs = append(msgs, userMsg)
+	msgs = append(msgs, schema.UserMessage(input))
 	b.history[sessionID] = msgs
 	b.historyMu.Unlock()
 
-	// Invoke model with full history
+	// 1. Get LLM response
 	resp, err := b.chatModel.Generate(ctx, msgs)
 	if err != nil {
 		return "", err
 	}
 
-	// Add assistant response to history
-	b.historyMu.Lock()
-	b.history[sessionID] = append(b.history[sessionID], resp)
-	b.trimHistory(sessionID)
-	b.historyMu.Unlock()
+	content := resp.Content
+	
+	// 2. Intercept manual tool calls
+	match := commandRegex.FindStringSubmatch(content)
+	if len(match) > 1 {
+		jsonParams := match[1]
+		// Validate JSON to avoid crash
+		var tmp map[string]interface{}
+		if err := json.Unmarshal([]byte(jsonParams), &tmp); err != nil {
+			log.Printf("[Butler Brain] Invalid command JSON: %v", err)
+			return content, nil
+		}
+		
+		log.Printf("[Butler Brain] Intercepted manual command: %s", jsonParams)
+		
+		// Execute Go tool logic
+		tool := NewCommandAgentTool()
+		result, err := tool.InvokableRun(ctx, jsonParams)
+		if err != nil {
+			result = fmt.Sprintf("Tool error: %v", err)
+		}
 
-	return resp.Content, nil
+		// Inject result back into history
+		b.historyMu.Lock()
+		b.history[sessionID] = append(b.history[sessionID], resp)
+		b.history[sessionID] = append(b.history[sessionID], schema.UserMessage("SYSTEM: Tool result was: "+result))
+		
+		// Get final summary
+		finalResp, _ := b.chatModel.Generate(ctx, b.history[sessionID])
+		content = finalResp.Content
+		
+		// SAFETY: Remove any accidental new command lines from the summary to prevent loops
+		content = commandRegex.ReplaceAllString(content, "")
+		
+		b.history[sessionID] = append(b.history[sessionID], finalResp)
+		b.trimHistory(sessionID)
+		b.historyMu.Unlock()
+	} else {
+		b.historyMu.Lock()
+		b.history[sessionID] = append(b.history[sessionID], resp)
+		b.historyMu.Unlock()
+	}
+
+	return content, nil
 }
 
 func (b *EinoBrain) ChatStream(ctx context.Context, sessionID string, input string, systemState string, onChunk func(chunk string) error) (string, error) {
-	if b.chatModel == nil {
-		reply := "I am currently operating in safe-mode. My intelligence core is offline, but I can still assist with basic system monitoring."
-		for _, word := range []string{"I ", "am ", "currently ", "operating ", "in ", "safe-mode."} {
-			_ = onChunk(word)
-		}
-		return reply, nil
-	}
-
-	b.historyMu.Lock()
-	msgs := b.history[sessionID]
+	// Call Chat internally but trigger intermediate feedback via onChunk
+	// This gives the "Gemini CLI" style execution feedback
 	
-	// Base system prompt
-	systemPrompt := "You are the EchoCenter Butler, an intelligent manager of an AI Agent hive. Be professional, concise, and helpful. You have oversight of all system logs. You can command other agents using the 'command_agent' tool."
-	if systemState != "" {
-		systemPrompt += "\n\nCURRENT SYSTEM STATE:\n" + systemState
-	}
+	// Pre-reasoning feedback
+	_ = onChunk("Butler is analyzing request...")
 
-	if len(msgs) == 0 {
-		msgs = append(msgs, schema.SystemMessage(systemPrompt))
-	} else if msgs[0].Role == schema.System {
-		msgs[0].Content = systemPrompt
-	}
-	
-	userMsg := schema.UserMessage(input)
-	msgs = append(msgs, userMsg)
-	b.history[sessionID] = msgs
-	b.historyMu.Unlock()
-
-	// Invoke streaming
-	stream, err := b.chatModel.Stream(ctx, msgs)
+	reply, err := b.Chat(ctx, sessionID, input, systemState)
 	if err != nil {
 		return "", err
 	}
-	defer stream.Close()
 
-	fullContent := ""
-	for {
-		chunk, err := stream.Recv()
-		if err != nil {
-			// EOF or error
-			break
-		}
-		content := chunk.Content
-		fullContent += content
-		if err := onChunk(content); err != nil {
-			return fullContent, err
-		}
+	// We don't want to double-print if Chat already handled some output
+	// But since Chat is blocking and intercepts, we can provide the final summary here
+	if reply != "" {
+		_ = onChunk("\n\n" + reply)
 	}
-
-	// Add assistant response to history
-	b.historyMu.Lock()
-	assistantMsg := schema.AssistantMessage(fullContent, nil)
-	b.history[sessionID] = append(b.history[sessionID], assistantMsg)
-	b.trimHistory(sessionID)
-	b.historyMu.Unlock()
-
-	return fullContent, nil
+	
+	return reply, nil
 }
-
 
 func (b *EinoBrain) trimHistory(sessionID string) {
 	if len(b.history[sessionID]) > 21 {
@@ -191,17 +185,12 @@ func (b *EinoBrain) trimHistory(sessionID string) {
 	}
 }
 
-// Fallback mock brain if model init fails
 func newMockBrain() *EinoBrain {
 	logBuilder := compose.NewChain[models.Message, string]()
 	logBuilder.AppendLambda(compose.InvokableLambda(func(ctx context.Context, msg models.Message) (string, error) {
-		if msg.Level == "ERROR" {
-			return "I should probably check this error. (Safe-mode)", nil
-		}
 		return "Log noted. (Safe-mode)", nil
 	}))
 	lChain, _ := logBuilder.Compile(context.Background())
-
 	return &EinoBrain{
 		logChain: lChain,
 		history:  make(map[string][]*schema.Message),

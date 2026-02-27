@@ -15,8 +15,9 @@ import (
 
 // PendingActions stores channels to resume Eino tool execution
 var (
-	pendingActions = make(map[string]chan bool)
-	actionsMu      sync.Mutex
+	pendingActions   = make(map[string]chan bool)
+	pendingResponses = make(map[int]chan string) // targetAgentID -> response channel
+	actionsMu        sync.Mutex
 )
 
 type CommandAgentInput struct {
@@ -30,7 +31,7 @@ type CommandAgentTool struct{}
 func (t *CommandAgentTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: "command_agent",
-		Desc: "Sends a command to another agent. Requires user approval.",
+		Desc: "Sends a command to another agent. Parameters: target_agent_id (int), command (string), reasoning (string).",
 	}, nil
 }
 
@@ -73,17 +74,32 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 		return "Action REJECTED by user.", nil
 	}
 
+	// 4.5 Immediate feedback to UI
+	if b := GetButler(); b != nil {
+		b.hub.BroadcastGeneric(map[string]interface{}{
+			"type":        "CHAT_STREAM",
+			"sender_id":   b.butlerID,
+			"sender_name": b.butlerName,
+			"target_id":   1, // To Admin
+			"payload":     "\n\n> ⚡ **Execution started...** Connecting to target agent.",
+			"stream_id":   "exec_" + actionID,
+		})
+	}
+
 	// 5. Execute actual command
-	log.Printf("[Butler Tool] Action %s APPROVED. Executing command...", actionID)
+	log.Printf("[Butler Tool] Action %s APPROVED. Executing command to Agent %d...", actionID, input.TargetAgentID)
 	
-	// Deliver message to target agent via Hub and persist to DB
+	// Prepare to receive response (Buffered to prevent deadlock)
+	respChan := make(chan string, 1)
+	actionsMu.Lock()
+	pendingResponses[input.TargetAgentID] = respChan
+	log.Printf("[Butler Tool] Registered listener for Agent %d response", input.TargetAgentID)
+	actionsMu.Unlock()
+
+	// Deliver message to target agent
 	if b := GetButler(); b != nil {
 		commandMsg := fmt.Sprintf("[DIRECTIVE] %s", input.Command)
-		
-		// Save to target agent's chat history (so user can see it there)
 		_ = database.SaveChatMessage(b.butlerID, input.TargetAgentID, commandMsg)
-		
-		// Broadcast via WebSocket
 		b.hub.BroadcastGeneric(map[string]interface{}{
 			"type":        "CHAT",
 			"sender_id":   b.butlerID,
@@ -93,7 +109,47 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 		})
 	}
 
-	return fmt.Sprintf("Command '%s' successfully delivered to agent %d.", input.Command, input.TargetAgentID), nil
+	// 6. WAIT for the agent to report back (max 30s)
+	log.Printf("[Butler Tool] Waiting for Agent %d to reply...", input.TargetAgentID)
+	select {
+	case realResult := <-respChan:
+		log.Printf("[Butler Tool] Received REAL response from Agent %d: %s", input.TargetAgentID, realResult[:min(len(realResult), 20)]+"...")
+		return realResult, nil
+	case <-time.After(30 * time.Second):
+		actionsMu.Lock()
+		delete(pendingResponses, input.TargetAgentID)
+		actionsMu.Unlock()
+		log.Printf("[Butler Tool] TIMEOUT waiting for Agent %d", input.TargetAgentID)
+		return "Timeout: Target agent did not respond within 30 seconds.", nil
+	}
+}
+
+func min(a, b int) int {
+	if a < b { return a }
+	return b
+}
+
+// RegisterAgentResponse allows the Hub to feed agent replies back to the tool (T014)
+func RegisterAgentResponse(agentID int, payload string) bool {
+	actionsMu.Lock()
+	ch, ok := pendingResponses[agentID]
+	log.Printf("[Butler Registry] Checking for listener ID %d... Found: %v", agentID, ok)
+	if ok {
+		delete(pendingResponses, agentID)
+	}
+	actionsMu.Unlock()
+
+	if ok {
+		select {
+		case ch <- payload:
+			log.Printf("[Butler Registry] Successfully fed payload to listener ID %d", agentID)
+			return true
+		default:
+			log.Printf("[Butler Registry] Listener ID %d was not ready or buffer full", agentID)
+			return false
+		}
+	}
+	return false
 }
 
 // NewCommandAgentTool creates a tool that requires human approval (T011, T012)
