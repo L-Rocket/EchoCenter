@@ -148,8 +148,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const sendMessage = (targetId: number, payload: string) => {
-    if (socketRef.current?.readyState === WebSocket.OPEN) {
+    if (socketRef.current?.readyState === WebSocket.OPEN && user) {
       setThinking(true);
+      
+      // Add message to local store immediately for better UX
+      const now = new Date();
+      addChatMessage(targetId, {
+        type: 'CHAT',
+        sender_id: user.id,
+        sender_name: user.username,
+        target_id: targetId,
+        payload: payload,
+        timestamp: now.toISOString(),
+      });
+      
       socketRef.current.send(JSON.stringify({
         type: 'CHAT',
         target_id: targetId,

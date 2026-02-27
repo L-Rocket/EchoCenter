@@ -44,8 +44,10 @@ func main() {
 	// Initialize authentication service
 	authSvc := auth.NewService(&cfg.Auth, repo)
 
-	// Initialize WebSocket hub with Butler message handler
-	hub := websocket.NewHub(butler.NewMessageHandler())
+	// Initialize WebSocket hub with Butler and persistence handlers
+	persistHandler := websocket.NewPersistingMessageHandler(repo)
+	butlerHandler := butler.NewMessageHandler()
+	hub := websocket.NewHub(websocket.NewCompositeHandler(persistHandler, butlerHandler))
 
 	// Initialize Butler Service
 	butler.SetRepository(repo)

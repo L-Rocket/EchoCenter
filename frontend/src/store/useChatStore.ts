@@ -48,10 +48,17 @@ export const useChatStore = create<ChatState>((set) => ({
         } catch (e) {}
       }
 
-      // 2. CHAT message deduplication by ID or exact content+timestamp (for volatile)
+      // 2. CHAT message deduplication by ID or content+sender+time proximity (within 5 seconds)
       const isDuplicate = existing.some(m => {
         if (message.id && m.id === message.id) return true
-        if (!message.id && !m.id && m.payload === message.payload && m.timestamp === message.timestamp) return true
+        // Check for same content from same sender within 5 seconds (handles local+server echo)
+        if (m.payload === message.payload && 
+            m.sender_id === message.sender_id &&
+            m.type === message.type) {
+          const existingTime = new Date(m.timestamp).getTime()
+          const newTime = new Date(message.timestamp).getTime()
+          if (Math.abs(existingTime - newTime) < 5000) return true
+        }
         return false
       })
 
