@@ -75,6 +75,24 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 
 	// 5. Execute actual command
 	log.Printf("[Butler Tool] Action %s APPROVED. Executing command...", actionID)
+	
+	// Deliver message to target agent via Hub and persist to DB
+	if b := GetButler(); b != nil {
+		commandMsg := fmt.Sprintf("[DIRECTIVE] %s", input.Command)
+		
+		// Save to target agent's chat history (so user can see it there)
+		_ = database.SaveChatMessage(b.butlerID, input.TargetAgentID, commandMsg)
+		
+		// Broadcast via WebSocket
+		b.hub.BroadcastGeneric(map[string]interface{}{
+			"type":        "CHAT",
+			"sender_id":   b.butlerID,
+			"sender_name": b.butlerName,
+			"target_id":   input.TargetAgentID,
+			"payload":     commandMsg,
+		})
+	}
+
 	return fmt.Sprintf("Command '%s' successfully delivered to agent %d.", input.Command, input.TargetAgentID), nil
 }
 
