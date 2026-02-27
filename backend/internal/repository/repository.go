@@ -18,27 +18,28 @@ type Repository interface {
 	// Messages
 	CreateMessage(ctx context.Context, msg *models.Message) error
 	GetMessages(ctx context.Context, filter MessageFilter) ([]models.Message, error)
-	
+
 	// Users
 	CreateUser(ctx context.Context, user *models.User) error
 	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
 	GetUserByID(ctx context.Context, id int) (*models.User, error)
+	GetUsers(ctx context.Context) ([]models.User, error)
 	GetAgentByToken(ctx context.Context, token string) (*models.User, error)
 	GetAgents(ctx context.Context) ([]models.User, error)
 	CreateAgent(ctx context.Context, username, token string) error
-	
+
 	// Chat
 	SaveChatMessage(ctx context.Context, msg *models.ChatMessage) error
 	GetChatHistory(ctx context.Context, user1ID, user2ID int, limit int) ([]models.ChatMessage, error)
-	
+
 	// Butler
 	SaveAuthorization(ctx context.Context, auth *models.ButlerAuthorization) error
 	UpdateAuthorizationStatus(ctx context.Context, id string, status string) error
 	GetAuthorization(ctx context.Context, id string) (*models.ButlerAuthorization, error)
-	
+
 	// Admin
 	InitializeAdmin(ctx context.Context, username, password string, bcryptCost int) error
-	
+
 	// Close
 	Close() error
 }
@@ -59,14 +60,16 @@ type sqliteRepository struct {
 
 // New creates a new repository instance
 func New(cfg *config.DatabaseConfig) (Repository, error) {
-	db, err := sql.Open("sqlite", cfg.Path)
+	// Add busy timeout and journal mode parameters to avoid SQLITE_BUSY errors
+	dsn := cfg.Path + "?_busy_timeout=5000&_journal_mode=WAL"
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to open database", err)
 	}
 
-	// Configure connection pool
-	db.SetMaxOpenConns(cfg.MaxOpenConns)
-	db.SetMaxIdleConns(cfg.MaxIdleConns)
+	// Configure connection pool - SQLite works best with single connection
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
 	db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
 
 	// Test connection
@@ -75,7 +78,7 @@ func New(cfg *config.DatabaseConfig) (Repository, error) {
 	}
 
 	repo := &sqliteRepository{db: db}
-	
+
 	if err := repo.migrate(); err != nil {
 		return nil, err
 	}
@@ -116,12 +119,14 @@ func (r *sqliteRepository) migrate() error {
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				sender_id INTEGER NOT NULL,
 				receiver_id INTEGER NOT NULL,
+				type TEXT DEFAULT 'CHAT',
 				content TEXT NOT NULL,
 				timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
 				FOREIGN KEY(sender_id) REFERENCES users(id),
 				FOREIGN KEY(receiver_id) REFERENCES users(id)
 			);`,
 		},
+
 		{
 			name: "create_butler_authorizations_table",
 			sql: `CREATE TABLE IF NOT EXISTS butler_authorizations (
@@ -230,19 +235,19 @@ func (r *sqliteRepository) CreateUser(ctx context.Context, user *models.User) er
 func (r *sqliteRepository) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	var user models.User
 	var apiToken sql.NullString
-	
+
 	query := `SELECT id, username, password_hash, api_token, role, created_at FROM users WHERE username = ?`
 	err := r.db.QueryRowContext(ctx, query, username).Scan(
 		&user.ID, &user.Username, &user.PasswordHash, &apiToken, &user.Role, &user.CreatedAt,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to get user by username", err)
 	}
-	
+
 	if apiToken.Valid {
 		user.ApiToken = apiToken.String
 	}
@@ -253,19 +258,19 @@ func (r *sqliteRepository) GetUserByUsername(ctx context.Context, username strin
 func (r *sqliteRepository) GetUserByID(ctx context.Context, id int) (*models.User, error) {
 	var user models.User
 	var apiToken sql.NullString
-	
+
 	query := `SELECT id, username, password_hash, api_token, role, created_at FROM users WHERE id = ?`
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&user.ID, &user.Username, &user.PasswordHash, &apiToken, &user.Role, &user.CreatedAt,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to get user by id", err)
 	}
-	
+
 	if apiToken.Valid {
 		user.ApiToken = apiToken.String
 	}
@@ -275,19 +280,19 @@ func (r *sqliteRepository) GetUserByID(ctx context.Context, id int) (*models.Use
 // GetAgentByToken retrieves an agent by API token
 func (r *sqliteRepository) GetAgentByToken(ctx context.Context, token string) (*models.User, error) {
 	var user models.User
-	
+
 	query := `SELECT id, username, role, created_at FROM users WHERE api_token = ? AND role = 'AGENT'`
 	err := r.db.QueryRowContext(ctx, query, token).Scan(
 		&user.ID, &user.Username, &user.Role, &user.CreatedAt,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to get agent by token", err)
 	}
-	
+
 	user.ApiToken = token
 	return &user, nil
 }
@@ -317,6 +322,31 @@ func (r *sqliteRepository) GetAgents(ctx context.Context) ([]models.User, error)
 	return agents, nil
 }
 
+// GetUsers retrieves all users
+func (r *sqliteRepository) GetUsers(ctx context.Context) ([]models.User, error) {
+	query := `SELECT id, username, role, created_at FROM users`
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to query users", err)
+	}
+	defer rows.Close()
+
+	var users []models.User
+	for rows.Next() {
+		var u models.User
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.CreatedAt); err != nil {
+			return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to scan user", err)
+		}
+		users = append(users, u)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, apperrors.Wrap(apperrors.ErrDatabase, "error iterating users", err)
+	}
+
+	return users, nil
+}
+
 // CreateAgent creates a new agent
 func (r *sqliteRepository) CreateAgent(ctx context.Context, username, token string) error {
 	query := `INSERT INTO users (username, password_hash, api_token, role) VALUES (?, ?, ?, ?)`
@@ -332,8 +362,12 @@ func (r *sqliteRepository) CreateAgent(ctx context.Context, username, token stri
 
 // SaveChatMessage saves a chat message
 func (r *sqliteRepository) SaveChatMessage(ctx context.Context, msg *models.ChatMessage) error {
-	query := `INSERT INTO chat_messages (sender_id, receiver_id, content) VALUES (?, ?, ?)`
-	_, err := r.db.ExecContext(ctx, query, msg.SenderID, msg.ReceiverID, msg.Payload)
+	query := `INSERT INTO chat_messages (sender_id, receiver_id, type, content) VALUES (?, ?, ?, ?)`
+	msgType := msg.Type
+	if msgType == "" {
+		msgType = "CHAT"
+	}
+	_, err := r.db.ExecContext(ctx, query, msg.SenderID, msg.ReceiverID, msgType, msg.Payload)
 	if err != nil {
 		return apperrors.Wrap(apperrors.ErrDatabase, "failed to save chat message", err)
 	}
@@ -343,7 +377,7 @@ func (r *sqliteRepository) SaveChatMessage(ctx context.Context, msg *models.Chat
 // GetChatHistory retrieves chat history between two users
 func (r *sqliteRepository) GetChatHistory(ctx context.Context, user1ID, user2ID int, limit int) ([]models.ChatMessage, error) {
 	query := `
-		SELECT id, sender_id, receiver_id, content, timestamp 
+		SELECT id, sender_id, receiver_id, type, content, timestamp 
 		FROM chat_messages 
 		WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
 		ORDER BY timestamp ASC 
@@ -358,8 +392,14 @@ func (r *sqliteRepository) GetChatHistory(ctx context.Context, user1ID, user2ID 
 	var messages []models.ChatMessage
 	for rows.Next() {
 		var m models.ChatMessage
-		if err := rows.Scan(&m.ID, &m.SenderID, &m.ReceiverID, &m.Payload, &m.Timestamp); err != nil {
+		var msgType sql.NullString
+		if err := rows.Scan(&m.ID, &m.SenderID, &m.ReceiverID, &msgType, &m.Payload, &m.Timestamp); err != nil {
 			return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to scan chat message", err)
+		}
+		if msgType.Valid {
+			m.Type = msgType.String
+		} else {
+			m.Type = "CHAT"
 		}
 		messages = append(messages, m)
 	}
@@ -405,20 +445,20 @@ func (r *sqliteRepository) UpdateAuthorizationStatus(ctx context.Context, id str
 func (r *sqliteRepository) GetAuthorization(ctx context.Context, id string) (*models.ButlerAuthorization, error) {
 	var auth models.ButlerAuthorization
 	var respondedAt sql.NullTime
-	
+
 	query := `SELECT id, target_agent_id, proposed_command, reasoning, status, created_at, responded_at FROM butler_authorizations WHERE id = ?`
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&auth.ID, &auth.TargetAgentID, &auth.ProposedCommand, &auth.Reasoning, 
+		&auth.ID, &auth.TargetAgentID, &auth.ProposedCommand, &auth.Reasoning,
 		&auth.Status, &auth.CreatedAt, &respondedAt,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to get authorization", err)
 	}
-	
+
 	if respondedAt.Valid {
 		auth.RespondedAt = &respondedAt.Time
 	}
@@ -446,8 +486,8 @@ func (r *sqliteRepository) InitializeAdmin(ctx context.Context, username, passwo
 		return apperrors.Wrap(apperrors.ErrInternal, "failed to hash password", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, 
-		"INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", 
+	_, err = r.db.ExecContext(ctx,
+		"INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
 		username, string(hashedPassword), "ADMIN",
 	)
 	if err != nil {
@@ -471,6 +511,6 @@ func isUniqueConstraintError(err error) bool {
 		return false
 	}
 	// SQLite unique constraint error contains "UNIQUE constraint failed"
-	return err.Error() != "" && len(err.Error()) > 0 && 
+	return err.Error() != "" && len(err.Error()) > 0 &&
 		(err.Error()[0:5] == "UNIQUE" || err.Error()[0:5] == "uniqu")
 }

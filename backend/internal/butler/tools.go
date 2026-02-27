@@ -130,6 +130,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 			"type":        "CHAT",
 			"sender_id":   b.butlerID,
 			"sender_name": b.butlerName,
+			"sender_role": "BUTLER",
 			"target_id":   input.TargetAgentID,
 			"payload":     commandMsg,
 		})
@@ -190,11 +191,19 @@ func NewCommandAgentTool() tool.InvokableTool {
 func ResolveAction(actionID string, approved bool) bool {
 	actionsMu.Lock()
 	ch, ok := pendingActions[actionID]
+	log.Printf("[Butler ResolveAction] Looking for action %s. Found: %v, Pending actions count: %d", actionID, ok, len(pendingActions))
 	actionsMu.Unlock()
 
 	if ok {
-		ch <- approved
-		return true
+		select {
+		case ch <- approved:
+			log.Printf("[Butler ResolveAction] Successfully sent approval=%v for action %s", approved, actionID)
+			return true
+		default:
+			log.Printf("[Butler ResolveAction] Channel blocked for action %s", actionID)
+			return false
+		}
 	}
+	log.Printf("[Butler ResolveAction] Action %s not found in pending actions", actionID)
 	return false
 }

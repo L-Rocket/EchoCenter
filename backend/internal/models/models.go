@@ -33,6 +33,7 @@ type ChatMessage struct {
 	ID         int       `json:"id" db:"id"`
 	SenderID   int       `json:"sender_id" db:"sender_id"`
 	ReceiverID int       `json:"receiver_id" db:"receiver_id"`
+	Type       string    `json:"type" db:"type"` // CHAT, AUTH_REQUEST, AUTH_RESPONSE
 	Payload    string    `json:"payload" db:"content"`
 	Timestamp  time.Time `json:"timestamp" db:"timestamp"`
 }

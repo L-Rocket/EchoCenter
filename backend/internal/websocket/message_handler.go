@@ -31,6 +31,18 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 		return
 	}
 
+	// Only persist messages involving User (ID 1)
+	// This includes User <-> Butler and User <-> Agent conversations
+	// Skip messages between Butler and other Agents (Butler <-> Agent)
+	const userID = 1
+	const butlerID = 2
+	if msg.SenderID != userID && msg.TargetID != userID {
+		log.Printf("[PersistingMessageHandler] Skipping message from %d to %d (not involving User)", msg.SenderID, msg.TargetID)
+		return
+	}
+
+	log.Printf("[PersistingMessageHandler] Persisting CHAT message from %d to %d", msg.SenderID, msg.TargetID)
+
 	// Convert payload to string
 	var payloadStr string
 	switch p := msg.Payload.(type) {
@@ -50,6 +62,8 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 
 	if err := h.repo.SaveChatMessage(ctx, chatMsg); err != nil {
 		log.Printf("[PersistingMessageHandler] Failed to save message: %v", err)
+	} else {
+		log.Printf("[PersistingMessageHandler] Successfully saved message from %d to %d", msg.SenderID, msg.TargetID)
 	}
 }
 

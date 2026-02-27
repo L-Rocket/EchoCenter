@@ -4,12 +4,14 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lea/echocenter/backend/internal/auth"
+	"github.com/lea/echocenter/backend/internal/butler"
 	"github.com/lea/echocenter/backend/internal/models"
 	"github.com/lea/echocenter/backend/internal/repository"
 	"github.com/lea/echocenter/backend/internal/websocket"
@@ -417,6 +419,11 @@ func (h *Handler) AuthResponse(c *gin.Context) {
 	if err := h.repo.UpdateAuthorizationStatus(c.Request.Context(), req.ActionID, status); err != nil {
 		h.respondWithError(c, http.StatusInternalServerError, err)
 		return
+	}
+
+	// Notify Butler to resume the pending action
+	if resolved := butler.ResolveAction(req.ActionID, req.Approved); !resolved {
+		log.Printf("[AuthResponse] Warning: Action %s was not found in pending actions", req.ActionID)
 	}
 
 	c.JSON(http.StatusOK, gin.H{

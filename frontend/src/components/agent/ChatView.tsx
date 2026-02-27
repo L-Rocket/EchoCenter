@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import type { Agent } from './AgentList';
 import AuthRequestCard from './AuthRequestCard';
+import ProcessMessage from './ProcessMessage';
 
 interface ChatViewProps {
   agent: Agent;
@@ -40,9 +41,10 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
       setIsHistoryLoading(true);
       try {
         const response = await axios.get(`${API_BASE_URL}/api/chat/history/${agent.id}`);
-        const history = response.data.map((m: any) => ({
+        const historyData = response.data || [];
+        const history = historyData.map((m: any) => ({
           ...m,
-          type: 'CHAT',
+          type: m.type || 'CHAT',
           sender_name: m.sender_id === agent.id ? agent.username : (user?.username || 'Me')
         }));
         setHistory(agent.id, history);
@@ -127,44 +129,78 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
           {messages.map((msg, i) => {
             const isMe = msg.sender_id === user?.id;
             const isSystem = msg.type === 'SYSTEM';
+            const isAuthRequest = msg.type === 'AUTH_REQUEST';
+            const isAuthResponse = msg.type === 'AUTH_RESPONSE';
             
             let payload = msg.payload;
-            if (isSystem && typeof payload === 'string') {
+            if ((isSystem || isAuthRequest || isAuthResponse) && typeof payload === 'string') {
               try {
                 payload = JSON.parse(payload);
               } catch (e) {
-                console.error("Failed to parse system message payload", e);
+                console.error("Failed to parse message payload", e);
               }
             }
 
+            // Render AUTH_REQUEST card for pending approvals
+            if (isAuthRequest && typeof payload === 'object' && payload.action_id) {
+              // If already approved/rejected, show as collapsible process message
+              if (payload.status === 'APPROVED' || payload.status === 'REJECTED') {
+                return (
+                  <ProcessMessage
+                    key={msg.id || i}
+                    type={msg.type}
+                    payload={payload}
+                    timestamp={msg.timestamp}
+                    status={payload.status}
+                  />
+                );
+              }
+              // If pending, show interactive auth card
+              return (
+                <div key={msg.id || i} className="flex justify-start">
+                  <div className="my-1">
+                    <AuthRequestCard
+                      actionId={payload.action_id}
+                      targetAgentName={payload.target_agent_name}
+                      command={payload.command}
+                      reason={payload.reason}
+                      onApprove={(id) => sendAuthResponse(id, true)}
+                      onReject={(id) => sendAuthResponse(id, false)}
+                      status={payload.status || 'PENDING'}
+                    />
+                  </div>
+                </div>
+              );
+            }
+
+            // Render other process messages (AUTH_RESPONSE, SYSTEM) as collapsible
+            if (isAuthResponse || isSystem) {
+              return (
+                <ProcessMessage
+                  key={msg.id || i}
+                  type={msg.type}
+                  payload={payload}
+                  timestamp={msg.timestamp}
+                  status={payload?.status}
+                />
+              );
+            }
+
+            // Regular chat messages
             return (
               <div key={msg.id || i} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
                 <div className={cn(
                   "flex flex-col max-w-[85%] md:max-w-[80%]",
                   isMe ? "items-end" : "items-start"
                 )}>
-                  {isSystem && typeof payload === 'object' ? (
-                    <div className="my-1">
-                      <AuthRequestCard
-                        actionId={(payload as any).action_id}
-                        targetAgentName={(payload as any).target_agent_name}
-                        command={(payload as any).command}
-                        reason={(payload as any).reason}
-                        onApprove={(id) => sendAuthResponse(id, true)}
-                        onReject={(id) => sendAuthResponse(id, false)}
-                        status={(payload as any).status || 'PENDING'}
-                      />
-                    </div>
-                  ) : (
-                    <div className={cn(
-                      "rounded-2xl px-4 py-2.5 text-sm shadow-sm border",
-                      isMe 
-                        ? "bg-indigo-600 text-white border-indigo-500 rounded-tr-none" 
-                        : "bg-card text-card-foreground border rounded-tl-none"
-                    )}>
-                      {typeof payload === 'string' ? payload : JSON.stringify(payload)}
-                    </div>
-                  )}
+                  <div className={cn(
+                    "rounded-2xl px-4 py-2.5 text-sm shadow-sm border",
+                    isMe 
+                      ? "bg-indigo-600 text-white border-indigo-500 rounded-tr-none" 
+                      : "bg-card text-card-foreground border rounded-tl-none"
+                  )}>
+                    {typeof payload === 'string' ? payload : JSON.stringify(payload)}
+                  </div>
                   <span className="text-[9px] text-muted-foreground mt-1 px-1 font-bold uppercase tracking-tighter">
                     {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending'}
                   </span>
