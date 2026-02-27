@@ -18,6 +18,7 @@ interface AuthContextType {
   isLoading: boolean;
   isWsConnected: boolean;
   sendMessage: (targetId: number, payload: string) => void;
+  sendAuthResponse: (actionId: string, approved: boolean) => void;
   wsLogs: any[];
 }
 
@@ -26,6 +27,7 @@ const WS_URL = 'ws://localhost:8080/api/ws';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const userRef = useRef<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -33,6 +35,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [wsLogs, setWsLogs] = useState<any[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
   const addChatMessage = useChatStore((state) => state.addMessage);
+
+  // Sync ref with state
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   const handleLogout = useCallback(() => {
     setToken(null);
@@ -58,11 +65,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
+        const currentUser = userRef.current;
+        
         if (msg.type === 'SYSTEM_LOG') {
           setWsLogs((prev) => [msg.payload, ...prev].slice(0, 50));
         } else if (msg.type === 'CHAT') {
-          // Route chat messages to the global store
-          addChatMessage(msg.sender_id, msg);
+          // Determine peerId: if I'm the sender, it's target_id. Otherwise it's sender_id.
+          const peerId = msg.sender_id === currentUser?.id ? msg.target_id : msg.sender_id;
+          if (peerId) {
+            addChatMessage(peerId, msg);
+          }
+        } else if (msg.type === 'AUTH_REQUEST') {
+          // Add auth request as a special system-type chat message from the Butler
+          addChatMessage(msg.sender_id, {
+            ...msg,
+            type: 'SYSTEM', // Marked as SYSTEM so ChatView can render it specially
+            payload: msg.payload, // This is the AuthRequest object
+          });
         }
       } catch (err) {
         console.error('WS parse error:', err);
@@ -120,13 +139,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const sendAuthResponse = (actionId: string, approved: boolean) => {
+    // We send this via API since it requires more complex handling and DB updates
+    // Actually, T018 says WebSocket transmission, but FR-004 says support AUTH_RESPONSE type.
+    // I'll stick to the plan's HandleAuthResponse API for reliability, but also support WS if needed.
+    // Wait, the handler is already implemented in handlers.go as HandleAuthResponse (POST /api/chat/auth/response).
+    // I'll use the API for now as it's more standard for "actions".
+    
+    import('axios').then(axios => {
+      axios.default.post('http://localhost:8080/api/chat/auth/response', {
+        action_id: actionId,
+        approved
+      }).catch(err => console.error('Failed to send auth response:', err));
+    });
+  };
+
   const isAuthenticated = !!token;
   const isAdmin = user?.role === 'ADMIN';
 
   return (
     <AuthContext.Provider value={{ 
       user, token, login, logout: handleLogout, isAuthenticated, isAdmin, isLoading,
-      isWsConnected, sendMessage, wsLogs
+      isWsConnected, sendMessage, sendAuthResponse, wsLogs
     }}>
       {children}
     </AuthContext.Provider>

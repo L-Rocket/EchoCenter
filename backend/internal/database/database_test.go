@@ -134,3 +134,38 @@ func TestChatHistory(t *testing.T) {
 		t.Errorf("Expected content '%s', got '%s'", content, history[0].Payload)
 	}
 }
+
+func TestButlerAuthorization(t *testing.T) {
+	actionID := "test-uuid-123"
+	butlerID := 1
+	targetID := 2
+	command := "RESTART"
+	reasoning := "System update"
+
+	// Test Save
+	err := SaveAuthorization(actionID, butlerID, targetID, command, reasoning)
+	if err != nil {
+		t.Fatalf("Failed to save auth: %v", err)
+	}
+
+	// Test Get
+	auth, err := GetAuthorization(actionID)
+	if err != nil || auth == nil {
+		t.Fatalf("Failed to retrieve auth: %v", err)
+	}
+
+	if auth.Status != "PENDING" {
+		t.Errorf("Expected PENDING, got %s", auth.Status)
+	}
+
+	// Test Update
+	err = UpdateAuthorizationStatus(actionID, "APPROVED")
+	if err != nil {
+		t.Fatalf("Failed to update status: %v", err)
+	}
+
+	auth, _ = GetAuthorization(actionID)
+	if auth.Status != "APPROVED" {
+		t.Errorf("Expected APPROVED, got %s", auth.Status)
+	}
+}

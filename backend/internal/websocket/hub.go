@@ -1,9 +1,13 @@
 package websocket
 
 import (
+	"context"
 	"log"
 	"sync"
+	"time"
 	"github.com/lea/echocenter/backend/internal/database"
+	"github.com/lea/echocenter/backend/internal/butler"
+	"github.com/lea/echocenter/backend/internal/models"
 )
 
 // Message defines the structure of WebSocket messages
@@ -58,6 +62,26 @@ func (h *Hub) Run() {
 			h.mu.Unlock()
 
 		case message := <-h.broadcast:
+			// Butler Situational Awareness (US1)
+			if message.Type == "SYSTEM_LOG" {
+				if b := butler.GetButler(); b != nil {
+					if logMsg, ok := message.Payload.(models.Message); ok {
+						go b.ProcessLog(context.Background(), logMsg)
+					}
+				}
+			}
+
+			// Direct Chat to Butler
+			if message.Type == "CHAT" {
+				if b := butler.GetButler(); b != nil && message.TargetID == b.GetButlerID() {
+					// Route to butler logic
+					payload, ok := message.Payload.(string)
+					if ok {
+						go b.HandleUserMessage(context.Background(), message.SenderID, payload)
+					}
+				}
+			}
+
 			// Persist CHAT messages asynchronously (T005)
 			if message.Type == "CHAT" && message.TargetID != 0 {
 				go func(m *Message) {
@@ -75,12 +99,21 @@ func (h *Hub) Run() {
 			// Route to specific target if present
 			if message.TargetID != 0 {
 				h.mu.RLock()
+				// Send to target
 				if target, ok := h.clients[message.TargetID]; ok {
 					select {
 					case target.send <- message:
 					default:
 						// If send buffer full, drop client (unregister)
 						go func() { h.unregister <- target }()
+					}
+				}
+				// Also send back to sender so they see it in their UI
+				if sender, ok := h.clients[message.SenderID]; ok && message.SenderID != message.TargetID {
+					select {
+					case sender.send <- message:
+					default:
+						go func() { h.unregister <- sender }()
 					}
 				}
 				h.mu.RUnlock()
@@ -102,4 +135,31 @@ func (h *Hub) Run() {
 
 func (h *Hub) Broadcast(message *Message) {
 	h.broadcast <- message
+}
+
+// BroadcastGeneric allows other packages to broadcast without importing websocket (T013)
+func (h *Hub) BroadcastGeneric(msg interface{}) {
+	if m, ok := msg.(*Message); ok {
+		h.broadcast <- m
+		return
+	}
+
+	// Try to convert map to Message
+	if data, ok := msg.(map[string]interface{}); ok {
+		m := &Message{
+			Type:      data["type"].(string),
+			Payload:   data["payload"],
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
+		if sid, ok := data["sender_id"].(int); ok {
+			m.SenderID = sid
+		}
+		if tid, ok := data["target_id"].(int); ok {
+			m.TargetID = tid
+		}
+		if sname, ok := data["sender_name"].(string); ok {
+			m.SenderName = sname
+		}
+		h.broadcast <- m
+	}
 }

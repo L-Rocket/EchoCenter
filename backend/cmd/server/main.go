@@ -9,6 +9,7 @@ import (
 	"github.com/lea/echocenter/backend/internal/database"
 	"github.com/lea/echocenter/backend/internal/handlers"
 	"github.com/lea/echocenter/backend/internal/websocket"
+	"github.com/lea/echocenter/backend/internal/butler"
 )
 
 func main() {
@@ -19,6 +20,14 @@ func main() {
 	hub := websocket.NewHub()
 	go hub.Run()
 	handlers.SetHub(hub)
+
+	// Initialize Butler Service (T006)
+	agent, err := database.GetUserByUsername("my-agent")
+	if err == nil && agent != nil {
+		butler.InitButler(agent.ID, agent.Username, hub)
+	} else {
+		log.Println("WARNING: 'my-agent' not found in database. Butler service disabled.")
+	}
 
 	// Gin configuration
 	gin.SetMode(gin.ReleaseMode)
@@ -62,6 +71,7 @@ func main() {
 		// All authenticated users can see agents and history
 		protected.GET("/users/agents", handlers.HandleGetAgents)
 		protected.GET("/chat/history/:peer_id", handlers.HandleGetChatHistory)
+		protected.POST("/chat/auth/response", handlers.HandleAuthResponse)
 	}
 
 	log.Println("Starting server on :8080")

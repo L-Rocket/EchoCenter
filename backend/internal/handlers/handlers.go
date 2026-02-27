@@ -3,6 +3,7 @@ package handlers
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/lea/echocenter/backend/internal/database"
 	"github.com/lea/echocenter/backend/internal/models"
 	"github.com/lea/echocenter/backend/internal/websocket"
+	"github.com/lea/echocenter/backend/internal/butler"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -235,5 +237,53 @@ func HandleGetChatHistory(c *gin.Context) {
 		return
 	}
 
+	// Enrich Butler messages with current authorization status (SC-004)
+	for i, msg := range history {
+		var payload map[string]interface{}
+		if err := json.Unmarshal([]byte(msg.Payload), &payload); err == nil {
+			if actionID, ok := payload["action_id"].(string); ok {
+				// It's an authorization request, get current status from DB
+				auth, _ := database.GetAuthorization(actionID)
+				if auth != nil {
+					payload["status"] = auth.Status
+					newPayload, _ := json.Marshal(payload)
+					history[i].Payload = string(newPayload)
+				}
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, history)
+}
+
+func HandleAuthResponse(c *gin.Context) {
+	var input struct {
+		ActionID string `json:"action_id" binding:"required"`
+		Approved bool   `json:"approved"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		RespondWithError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// 1. Update DB status
+	status := "REJECTED"
+	if input.Approved {
+		status = "APPROVED"
+	}
+	err := database.UpdateAuthorizationStatus(input.ActionID, status)
+	if err != nil {
+		RespondWithError(c, http.StatusInternalServerError, "Failed to update authorization")
+		return
+	}
+
+	// 2. Resume Eino execution (T014)
+	success := butler.ResolveAction(input.ActionID, input.Approved)
+	if !success {
+		RespondWithError(c, http.StatusNotFound, "Action ID not found or already processed")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "resolved", "action_id": input.ActionID})
 }
