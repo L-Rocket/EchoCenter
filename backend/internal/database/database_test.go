@@ -53,7 +53,7 @@ func TestGetLatestMessages(t *testing.T) {
 		})
 	}
 
-	messages, err := GetLatestMessages(50)
+	messages, err := GetLatestMessages("", "", "", 0, 50)
 	if err != nil {
 		t.Fatalf("Failed to get latest messages: %v", err)
 	}
@@ -66,6 +66,49 @@ func TestGetLatestMessages(t *testing.T) {
 	if messages[0].ID < messages[49].ID {
 		t.Errorf("Expected reverse chronological order (by ID), but first ID %d is smaller than last ID %d", messages[0].ID, messages[49].ID)
 	}
+}
+
+func TestGetFilteredMessages(t *testing.T) {
+	// Seed specific messages
+	CreateMessage(models.Message{AgentID: "weather-bot", Level: "INFO", Content: "Sunny day"})
+	CreateMessage(models.Message{AgentID: "weather-bot", Level: "ERROR", Content: "Storm incoming"})
+	CreateMessage(models.Message{AgentID: "security-bot", Level: "ERROR", Content: "Intrusion detected"})
+
+	t.Run("filter by agent", func(t *testing.T) {
+		msgs, _ := GetLatestMessages("security-bot", "", "", 0, 10)
+		if len(msgs) != 1 || msgs[0].AgentID != "security-bot" {
+			t.Errorf("Expected 1 security-bot message, got %d", len(msgs))
+		}
+	})
+
+	t.Run("filter by level", func(t *testing.T) {
+		msgs, _ := GetLatestMessages("", "ERROR", "", 0, 10)
+		if len(msgs) < 2 {
+			t.Errorf("Expected at least 2 ERROR messages, got %d", len(msgs))
+		}
+		for _, m := range msgs {
+			if m.Level != "ERROR" {
+				t.Errorf("Expected ERROR level, got %s", m.Level)
+			}
+		}
+	})
+
+	t.Run("filter by query", func(t *testing.T) {
+		msgs, _ := GetLatestMessages("", "", "Storm", 0, 10)
+		if len(msgs) != 1 || msgs[0].Content != "Storm incoming" {
+			t.Errorf("Expected 'Storm incoming' message, got %d results", len(msgs))
+		}
+	})
+
+	t.Run("pagination offset", func(t *testing.T) {
+		// We have many messages from TestGetLatestMessages
+		msgs1, _ := GetLatestMessages("", "", "", 0, 10)
+		msgs2, _ := GetLatestMessages("", "", "", 10, 10)
+		
+		if msgs1[0].ID == msgs2[0].ID {
+			t.Error("Offset 10 should return different messages than offset 0")
+		}
+	})
 }
 
 func TestChatHistory(t *testing.T) {
