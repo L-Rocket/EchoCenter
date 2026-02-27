@@ -64,15 +64,23 @@ func (b *EinoBrain) ObserveLog(ctx context.Context, msg models.Message) (string,
 	return b.logChain.Invoke(ctx, msg)
 }
 
-func (b *EinoBrain) Chat(ctx context.Context, sessionID string, input string) (string, error) {
+func (b *EinoBrain) Chat(ctx context.Context, sessionID string, input string, systemState string) (string, error) {
 	if b.chatModel == nil {
 		return "I am currently operating in safe-mode. My intelligence core is offline, but I can still assist with basic system monitoring.", nil
 	}
 
 	b.historyMu.Lock()
 	msgs := b.history[sessionID]
+	
+	systemPrompt := "You are the EchoCenter Butler, an intelligent manager of an AI Agent hive. Be professional, concise, and helpful. You have oversight of all system logs."
+	if systemState != "" {
+		systemPrompt += "\n\nCURRENT SYSTEM STATE:\n" + systemState
+	}
+
 	if len(msgs) == 0 {
-		msgs = append(msgs, schema.SystemMessage("You are the EchoCenter Butler, an intelligent manager of an AI Agent hive. Be professional, concise, and helpful. You have oversight of all system logs."))
+		msgs = append(msgs, schema.SystemMessage(systemPrompt))
+	} else if msgs[0].Role == schema.System {
+		msgs[0].Content = systemPrompt
 	}
 	
 	// Add user message to history
@@ -98,7 +106,7 @@ func (b *EinoBrain) Chat(ctx context.Context, sessionID string, input string) (s
 	return resp.Content, nil
 }
 
-func (b *EinoBrain) ChatStream(ctx context.Context, sessionID string, input string, onChunk func(chunk string) error) (string, error) {
+func (b *EinoBrain) ChatStream(ctx context.Context, sessionID string, input string, systemState string, onChunk func(chunk string) error) (string, error) {
 	if b.chatModel == nil {
 		reply := "I am currently operating in safe-mode. My intelligence core is offline, but I can still assist with basic system monitoring."
 		for _, word := range []string{"I ", "am ", "currently ", "operating ", "in ", "safe-mode."} {
@@ -109,13 +117,27 @@ func (b *EinoBrain) ChatStream(ctx context.Context, sessionID string, input stri
 
 	b.historyMu.Lock()
 	msgs := b.history[sessionID]
-	if len(msgs) == 0 {
-		msgs = append(msgs, schema.SystemMessage("You are the EchoCenter Butler, an intelligent manager of an AI Agent hive. Be professional, concise, and helpful. You have oversight of all system logs."))
+	
+	// Base system prompt
+	systemPrompt := "You are the EchoCenter Butler, an intelligent manager of an AI Agent hive. Be professional, concise, and helpful. You have oversight of all system logs."
+	if systemState != "" {
+		systemPrompt += "\n\nCURRENT SYSTEM STATE:\n" + systemState
 	}
+
+	if len(msgs) == 0 {
+		msgs = append(msgs, schema.SystemMessage(systemPrompt))
+	} else {
+		// Update existing system message if it's the first one
+		if msgs[0].Role == schema.System {
+			msgs[0].Content = systemPrompt
+		}
+	}
+	
 	userMsg := schema.UserMessage(input)
 	msgs = append(msgs, userMsg)
 	b.history[sessionID] = msgs
 	b.historyMu.Unlock()
+
 
 	// Invoke streaming
 	stream, err := b.chatModel.Stream(ctx, msgs)
