@@ -158,20 +158,16 @@ RULES:
 
 func (b *EinoBrain) ChatStream(ctx context.Context, sessionID string, input string, systemState string, onChunk func(chunk string) error) (string, error) {
 	// Call Chat internally but trigger intermediate feedback via onChunk
-	// This gives the "Gemini CLI" style execution feedback
-
-	// Pre-reasoning feedback
-	_ = onChunk("Butler is analyzing request...")
+	// Only send the final reply, no intermediate status messages
 
 	reply, err := b.Chat(ctx, sessionID, input, systemState)
 	if err != nil {
 		return "", err
 	}
 
-	// We don't want to double-print if Chat already handled some output
-	// But since Chat is blocking and intercepts, we can provide the final summary here
+	// Send the final reply directly
 	if reply != "" {
-		_ = onChunk("\n\n" + reply)
+		_ = onChunk(reply)
 	}
 
 	return reply, nil
