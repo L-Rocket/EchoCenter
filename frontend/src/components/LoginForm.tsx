@@ -19,7 +19,6 @@ const LoginForm: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Get the page the user was trying to access before being redirected to login
   const from = location.state?.from?.pathname || "/dashboard";
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,7 +33,6 @@ const LoginForm: React.FC = () => {
       });
       login(response.data.token, response.data.user);
       
-      // Redirect to the intended page or dashboard (T011 requirement)
       navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
@@ -44,12 +42,12 @@ const LoginForm: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
-      <Card className="w-full max-w-md shadow-xl border-slate-200">
+    <div className="min-h-screen flex items-center justify-center bg-muted/30 py-12 px-4 sm:px-6 lg:px-8 font-sans">
+      <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="bg-indigo-600 p-3 rounded-2xl shadow-indigo-200 shadow-xl">
-              <Terminal className="h-8 w-8 text-white" />
+            <div className="bg-primary p-3 rounded-2xl shadow-lg">
+              <Terminal className="h-8 w-8 text-primary-foreground" />
             </div>
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">EchoCenter</CardTitle>
@@ -60,13 +58,13 @@ const LoginForm: React.FC = () => {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 ml-1">Username</label>
+              <label className="text-sm font-semibold ml-1">Username</label>
               <div className="relative">
-                <User className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
                   placeholder="admin"
-                  className="pl-10 h-11 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
+                  className="pl-10 h-11 bg-muted/50 border focus:bg-background transition-all"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
@@ -74,13 +72,13 @@ const LoginForm: React.FC = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 ml-1">Password</label>
+              <label className="text-sm font-semibold ml-1">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="password"
                   placeholder="••••••••"
-                  className="pl-10 h-11 bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
+                  className="pl-10 h-11 bg-muted/50 border focus:bg-background transition-all"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -89,7 +87,7 @@ const LoginForm: React.FC = () => {
             </div>
             
             {error && (
-              <div className="bg-red-50 text-red-600 p-3 rounded-lg border border-red-100 flex items-center gap-2 text-sm font-medium animate-in fade-in zoom-in duration-300">
+              <div className="bg-destructive/10 text-destructive p-3 rounded-lg border border-destructive/20 flex items-center gap-2 text-sm font-medium animate-in fade-in zoom-in duration-300">
                 <AlertCircle className="h-4 w-4" />
                 {error}
               </div>
@@ -98,7 +96,7 @@ const LoginForm: React.FC = () => {
           <CardFooter>
             <Button 
               type="submit" 
-              className="w-full h-11 text-base font-semibold shadow-lg shadow-indigo-100 bg-indigo-600 hover:bg-indigo-700 transition-all"
+              className="w-full h-11 text-base font-semibold shadow-lg transition-all"
               disabled={loading}
             >
               {loading ? "Authenticating..." : "Sign In"}

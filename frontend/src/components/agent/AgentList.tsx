@@ -35,22 +35,22 @@ const AgentList: React.FC<AgentListProps> = ({ onSelectAgent, selectedAgentId })
     fetchAgents();
   }, []);
 
-  if (loading) return <div className="p-4 text-center text-xs text-slate-400">Syncing hive...</div>;
+  if (loading) return <div className="p-4 text-center text-xs text-muted-foreground">Syncing hive...</div>;
 
   return (
-    <div className="flex flex-col divide-y divide-slate-100 h-full overflow-y-auto bg-white border-r">
+    <div className="flex flex-col divide-y h-full overflow-y-auto border-r">
       {agents.map((agent) => (
         <button
           key={agent.id}
           onClick={() => onSelectAgent(agent)}
           className={cn(
-            "w-full flex items-center gap-3 p-4 text-left transition-all hover:bg-slate-50 group",
-            selectedAgentId === agent.id ? "bg-indigo-50/50 border-r-2 border-r-indigo-600" : ""
+            "w-full flex items-center gap-3 p-4 text-left transition-all group",
+            selectedAgentId === agent.id ? "bg-primary/10 border-r-2 border-r-primary" : "hover:bg-accent"
           )}
         >
           <div className={cn(
             "p-2 rounded-lg border shadow-sm transition-colors",
-            selectedAgentId === agent.id ? "bg-white border-indigo-200 text-indigo-600" : "bg-slate-50 border-slate-200 text-slate-400 group-hover:text-indigo-500"
+            selectedAgentId === agent.id ? "bg-background border-primary/30 text-primary" : "bg-muted border-border text-muted-foreground group-hover:text-primary"
           )}>
             <Terminal className="h-4 w-4" />
           </div>
@@ -58,21 +58,21 @@ const AgentList: React.FC<AgentListProps> = ({ onSelectAgent, selectedAgentId })
             <div className="flex items-center justify-between gap-2">
               <span className={cn(
                 "text-sm font-semibold truncate",
-                selectedAgentId === agent.id ? "text-indigo-900" : "text-slate-700"
+                selectedAgentId === agent.id ? "text-primary" : "text-foreground"
               )}>
                 {agent.username}
               </span>
               <StatusIndicator variant="success" className="h-1.5 w-1.5" />
             </div>
             <div className="flex items-center gap-1 mt-0.5">
-              <MessageSquare className="h-3 w-3 text-slate-300" />
-              <span className="text-[10px] text-slate-400 uppercase font-bold tracking-tighter">{agent.role}</span>
+              <MessageSquare className="h-3 w-3 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">{agent.role}</span>
             </div>
           </div>
         </button>
       ))}
       {(agents || []).length === 0 && (
-        <div className="p-8 text-center text-xs text-slate-400 italic">
+        <div className="p-8 text-center text-xs text-muted-foreground italic">
           No active agents detected.
         </div>
       )}
