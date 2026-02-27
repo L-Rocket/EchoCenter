@@ -2,6 +2,7 @@ package butler
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"sync"
@@ -116,7 +117,8 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 		return
 	}
 
-	reply, err := s.brain.Chat(ctx, payload)
+	sessionID := fmt.Sprintf("user_%d", senderID)
+	reply, err := s.brain.Chat(ctx, sessionID, payload)
 	if err != nil {
 		log.Printf("[Butler] Error in chat reasoning: %v", err)
 		return

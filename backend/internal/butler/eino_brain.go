@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/compose"
@@ -14,7 +15,11 @@ import (
 // EinoBrain represents the Butler's reasoning engine
 type EinoBrain struct {
 	logChain  compose.Runnable[models.Message, string]
-	chatChain compose.Runnable[string, string]
+	chatModel *openai.ChatModel
+	
+	// Simple in-memory history management
+	historyMu sync.RWMutex
+	history   map[string][]*schema.Message
 }
 
 func NewEinoBrain(baseURL, apiToken, model string) *EinoBrain {
@@ -48,23 +53,10 @@ Provide a very brief (one sentence) internal thought about this.`, msg.AgentID, 
 	}))
 	lChain, _ := logBuilder.Compile(context.Background())
 
-	// --- Direct Chat Chain ---
-	chatBuilder := compose.NewChain[string, string]()
-	chatBuilder.AppendLambda(compose.InvokableLambda(func(ctx context.Context, input string) ([]*schema.Message, error) {
-		return []*schema.Message{
-			schema.SystemMessage("You are the EchoCenter Butler, an intelligent manager of an AI Agent hive. Be professional, concise, and helpful. You have oversight of all system logs."),
-			schema.UserMessage(input),
-		}, nil
-	}))
-	chatBuilder.AppendChatModel(chatModel)
-	chatBuilder.AppendLambda(compose.InvokableLambda(func(ctx context.Context, resp *schema.Message) (string, error) {
-		return resp.Content, nil
-	}))
-	cChain, _ := chatBuilder.Compile(context.Background())
-
 	return &EinoBrain{
 		logChain:  lChain,
-		chatChain: cChain,
+		chatModel: chatModel,
+		history:   make(map[string][]*schema.Message),
 	}
 }
 
@@ -72,8 +64,43 @@ func (b *EinoBrain) ObserveLog(ctx context.Context, msg models.Message) (string,
 	return b.logChain.Invoke(ctx, msg)
 }
 
-func (b *EinoBrain) Chat(ctx context.Context, input string) (string, error) {
-	return b.chatChain.Invoke(ctx, input)
+func (b *EinoBrain) Chat(ctx context.Context, sessionID string, input string) (string, error) {
+	if b.chatModel == nil {
+		return "I am currently operating in safe-mode. My intelligence core is offline, but I can still assist with basic system monitoring.", nil
+	}
+
+	b.historyMu.Lock()
+	msgs := b.history[sessionID]
+	if len(msgs) == 0 {
+		msgs = append(msgs, schema.SystemMessage("You are the EchoCenter Butler, an intelligent manager of an AI Agent hive. Be professional, concise, and helpful. You have oversight of all system logs."))
+	}
+	
+	// Add user message to history
+	userMsg := schema.UserMessage(input)
+	msgs = append(msgs, userMsg)
+	b.history[sessionID] = msgs
+	b.historyMu.Unlock()
+
+	// Invoke model with full history
+	resp, err := b.chatModel.Generate(ctx, msgs)
+	if err != nil {
+		return "", err
+	}
+
+	// Add assistant response to history
+	b.historyMu.Lock()
+	b.history[sessionID] = append(b.history[sessionID], resp)
+	
+	// Keep history manageable (e.g., last 20 messages)
+	if len(b.history[sessionID]) > 21 {
+		// Keep system message + last 20
+		newHistory := []*schema.Message{b.history[sessionID][0]}
+		newHistory = append(newHistory, b.history[sessionID][len(b.history[sessionID])-20:]...)
+		b.history[sessionID] = newHistory
+	}
+	b.historyMu.Unlock()
+
+	return resp.Content, nil
 }
 
 // Fallback mock brain if model init fails
@@ -87,11 +114,8 @@ func newMockBrain() *EinoBrain {
 	}))
 	lChain, _ := logBuilder.Compile(context.Background())
 
-	chatBuilder := compose.NewChain[string, string]()
-	chatBuilder.AppendLambda(compose.InvokableLambda(func(ctx context.Context, input string) (string, error) {
-		return "I am currently operating in safe-mode. My intelligence core is offline, but I can still assist with basic system monitoring.", nil
-	}))
-	cChain, _ := chatBuilder.Compile(context.Background())
-
-	return &EinoBrain{logChain: lChain, chatChain: cChain}
+	return &EinoBrain{
+		logChain: lChain,
+		history:  make(map[string][]*schema.Message),
+	}
 }
