@@ -7,19 +7,31 @@ import (
 	"sync"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
+	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 	"github.com/lea/echocenter/backend/internal/models"
 )
 
 // EinoBrain represents the Butler's reasoning engine
+// EinoBrain represents the Butler's reasoning engine
 type EinoBrain struct {
 	logChain  compose.Runnable[models.Message, string]
 	chatModel *openai.ChatModel
+	tools     []tool.InvokableTool
 	
 	// Simple in-memory history management
 	historyMu sync.RWMutex
 	history   map[string][]*schema.Message
+}
+
+func (b *EinoBrain) getToolInfos() []*schema.ToolInfo {
+	var infos []*schema.ToolInfo
+	for _, t := range b.tools {
+		info, _ := t.Info(context.Background())
+		infos = append(infos, info)
+	}
+	return infos
 }
 
 func NewEinoBrain(baseURL, apiToken, model string) *EinoBrain {
@@ -36,6 +48,11 @@ func NewEinoBrain(baseURL, apiToken, model string) *EinoBrain {
 	if err != nil {
 		log.Printf("ERROR: Failed to initialize Eino ChatModel: %v. Butler will use mock logic.", err)
 		return newMockBrain()
+	}
+
+	// 2. Initialize Tools
+	tools := []tool.InvokableTool{
+		NewCommandAgentTool(),
 	}
 
 	// --- Log Observation Chain ---
@@ -56,6 +73,7 @@ Provide a very brief (one sentence) internal thought about this.`, msg.AgentID, 
 	return &EinoBrain{
 		logChain:  lChain,
 		chatModel: chatModel,
+		tools:     tools,
 		history:   make(map[string][]*schema.Message),
 	}
 }
@@ -72,7 +90,7 @@ func (b *EinoBrain) Chat(ctx context.Context, sessionID string, input string, sy
 	b.historyMu.Lock()
 	msgs := b.history[sessionID]
 	
-	systemPrompt := "You are the EchoCenter Butler, an intelligent manager of an AI Agent hive. Be professional, concise, and helpful. You have oversight of all system logs."
+	systemPrompt := "You are the EchoCenter Butler, an intelligent manager of an AI Agent hive. Be professional, concise, and helpful. You have oversight of all system logs. You can command other agents using the 'command_agent' tool."
 	if systemState != "" {
 		systemPrompt += "\n\nCURRENT SYSTEM STATE:\n" + systemState
 	}
@@ -98,8 +116,6 @@ func (b *EinoBrain) Chat(ctx context.Context, sessionID string, input string, sy
 	// Add assistant response to history
 	b.historyMu.Lock()
 	b.history[sessionID] = append(b.history[sessionID], resp)
-	
-	// Keep history manageable
 	b.trimHistory(sessionID)
 	b.historyMu.Unlock()
 
@@ -119,25 +135,21 @@ func (b *EinoBrain) ChatStream(ctx context.Context, sessionID string, input stri
 	msgs := b.history[sessionID]
 	
 	// Base system prompt
-	systemPrompt := "You are the EchoCenter Butler, an intelligent manager of an AI Agent hive. Be professional, concise, and helpful. You have oversight of all system logs."
+	systemPrompt := "You are the EchoCenter Butler, an intelligent manager of an AI Agent hive. Be professional, concise, and helpful. You have oversight of all system logs. You can command other agents using the 'command_agent' tool."
 	if systemState != "" {
 		systemPrompt += "\n\nCURRENT SYSTEM STATE:\n" + systemState
 	}
 
 	if len(msgs) == 0 {
 		msgs = append(msgs, schema.SystemMessage(systemPrompt))
-	} else {
-		// Update existing system message if it's the first one
-		if msgs[0].Role == schema.System {
-			msgs[0].Content = systemPrompt
-		}
+	} else if msgs[0].Role == schema.System {
+		msgs[0].Content = systemPrompt
 	}
 	
 	userMsg := schema.UserMessage(input)
 	msgs = append(msgs, userMsg)
 	b.history[sessionID] = msgs
 	b.historyMu.Unlock()
-
 
 	// Invoke streaming
 	stream, err := b.chatModel.Stream(ctx, msgs)
@@ -169,6 +181,7 @@ func (b *EinoBrain) ChatStream(ctx context.Context, sessionID string, input stri
 
 	return fullContent, nil
 }
+
 
 func (b *EinoBrain) trimHistory(sessionID string) {
 	if len(b.history[sessionID]) > 21 {
