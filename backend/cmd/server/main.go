@@ -22,11 +22,11 @@ func main() {
 	handlers.SetHub(hub)
 
 	// Initialize Butler Service (T006)
-	agent, err := database.GetUserByUsername("my-agent")
+	agent, err := database.GetUserByUsername("Butler")
 	if err == nil && agent != nil {
 		butler.InitButler(agent.ID, agent.Username, hub)
 	} else {
-		log.Println("WARNING: 'my-agent' not found in database. Butler service disabled.")
+		log.Println("WARNING: 'Butler' not found in database. Butler service disabled.")
 	}
 
 	// Gin configuration

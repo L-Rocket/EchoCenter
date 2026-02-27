@@ -1,4 +1,4 @@
-# Feature Specification: Agent Butler Coordination (my-agent)
+# Feature Specification: Agent Butler Coordination (Butler)
 
 **Feature Branch**: `009-agent-butler-coordination`  
 **Created**: 2026-02-25  
@@ -9,7 +9,7 @@
 
 ### User Story 1 - Centralized Butler Visibility (Priority: P1)
 
-As an EchoCenter operator, I want the Butler agent (my-agent) to automatically receive all logs and status updates from every other agent in the system so that it has full situational awareness to assist me.
+As an EchoCenter operator, I want the Butler agent (Butler) to automatically receive all logs and status updates from every other agent in the system so that it has full situational awareness to assist me.
 
 **Why this priority**: Foundational capability. The Butler cannot "manage" the hive if it cannot see what's happening.
 
@@ -43,7 +43,7 @@ As an operator, I want to see Butler's authorization requests as interactive car
 
 **Why this priority**: Crucial for UX and efficient management.
 
-**Independent Test**: Verify that the chat window for "my-agent" renders a special UI component (card) when an authorization is requested.
+**Independent Test**: Verify that the chat window for "Butler" renders a special UI component (card) when an authorization is requested.
 
 ---
 
@@ -57,7 +57,7 @@ As an operator, I want to see Butler's authorization requests as interactive car
 
 ### Functional Requirements
 
-- **FR-001**: Backend MUST identify `my-agent` as the **System Butler** with global ingestion privileges.
+- **FR-001**: Backend MUST identify `Butler` as the **System Butler** with global ingestion privileges.
 - **FR-002**: System MUST use the **Eino framework** to orchestrate the Butler's logic and tool-calling loop.
 - **FR-003**: System MUST implement a **Command Gate** (HITL Interceptor) that pauses Eino tool execution for agent-bound commands.
 - **FR-004**: System MUST support a new WebSocket message type `AUTH_REQUEST` (Butler -> User) and `AUTH_RESPONSE` (User -> Butler).
@@ -85,6 +85,6 @@ As an operator, I want to see Butler's authorization requests as interactive car
 
 ## Assumptions
 
-- **A-001**: `my-agent` has a fixed, known ID or is identified by a specific role in the `users` table.
+- **A-001**: `Butler` has a fixed, known ID or is identified by a specific role in the `users` table.
 - **A-002**: The Eino framework is compatible with the existing Go/Gin/Websocket stack.
 - **A-003**: The operator is the only human user authorized to approve Butler requests (Single-admin model for now).

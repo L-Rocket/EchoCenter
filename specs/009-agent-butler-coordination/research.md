@@ -1,4 +1,4 @@
-# Research: Agent Butler Coordination (my-agent)
+# Research: Agent Butler Coordination (Butler)
 
 ## Decisions
 
@@ -28,4 +28,4 @@
 
 ### Security
 - The Butler's `api_token` and `URL` will be stored in the `.env` file (placeholders provided for the user).
-- Ensure that only messages from the designated `my-agent` can trigger system-level commands.
+- Ensure that only messages from the designated `Butler` can trigger system-level commands.

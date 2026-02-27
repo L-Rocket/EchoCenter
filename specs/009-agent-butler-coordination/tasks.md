@@ -1,4 +1,4 @@
-# Tasks: Agent Butler Coordination (my-agent)
+# Tasks: Agent Butler Coordination (Butler)
 
 **Input**: Design documents from `/specs/009-agent-butler-coordination/`
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/ws-api.md
