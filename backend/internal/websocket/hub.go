@@ -108,12 +108,14 @@ func (h *Hub) Run() {
 						go func() { h.unregister <- target }()
 					}
 				}
-				// Also send back to sender so they see it in their UI
-				if sender, ok := h.clients[message.SenderID]; ok && message.SenderID != message.TargetID {
-					select {
-					case sender.send <- message:
-					default:
-						go func() { h.unregister <- sender }()
+				// Also send back to sender so they see it in their UI (for CHAT and CHAT_STREAM)
+				if (message.Type == "CHAT" || message.Type == "CHAT_STREAM" || message.Type == "CHAT_STREAM_END") {
+					if sender, ok := h.clients[message.SenderID]; ok && message.SenderID != message.TargetID {
+						select {
+						case sender.send <- message:
+						default:
+							go func() { h.unregister <- sender }()
+						}
 					}
 				}
 				h.mu.RUnlock()

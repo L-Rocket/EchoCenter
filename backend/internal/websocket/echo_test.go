@@ -92,3 +92,43 @@ func TestBroadcastGenericConversion(t *testing.T) {
 		t.Fatal("Client did not receive Generic message")
 	}
 }
+
+func TestHubStreamRouting(t *testing.T) {
+	h := NewHub()
+	go h.Run()
+
+	sender := &Client{userID: 1, send: make(chan *Message, 10)}
+	target := &Client{userID: 2, send: make(chan *Message, 10)}
+
+	h.register <- sender
+	h.register <- target
+	time.Sleep(100 * time.Millisecond)
+
+	msg := &Message{
+		Type:     "CHAT_STREAM",
+		SenderID: 1,
+		TargetID: 2,
+		Payload:  "chunk1",
+	}
+	h.broadcast <- msg
+
+	// Verify target
+	select {
+	case received := <-target.send:
+		if received.Type != "CHAT_STREAM" || received.Payload != "chunk1" {
+			t.Errorf("Target received wrong stream message: %v", received)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("Target did not receive stream message")
+	}
+
+	// Verify echo back to sender
+	select {
+	case received := <-sender.send:
+		if received.Type != "CHAT_STREAM" || received.Payload != "chunk1" {
+			t.Errorf("Sender did not receive stream echo: %v", received)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("Sender did not receive stream echo")
+	}
+}

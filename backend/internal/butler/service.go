@@ -7,6 +7,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/google/uuid"
+	"github.com/lea/echocenter/backend/internal/database"
 	"github.com/lea/echocenter/backend/internal/models"
 )
 
@@ -118,19 +120,40 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 	}
 
 	sessionID := fmt.Sprintf("user_%d", senderID)
-	reply, err := s.brain.Chat(ctx, sessionID, payload)
+	streamID := uuid.New().String()
+
+	fullReply, err := s.brain.ChatStream(ctx, sessionID, payload, func(chunk string) error {
+		msg := map[string]interface{}{
+			"type":        "CHAT_STREAM",
+			"sender_id":   s.butlerID,
+			"sender_name": s.butlerName,
+			"target_id":   senderID,
+			"payload":     chunk,
+			"stream_id":   streamID,
+		}
+		s.hub.BroadcastGeneric(msg)
+		return nil
+	})
+
 	if err != nil {
 		log.Printf("[Butler] Error in chat reasoning: %v", err)
 		return
 	}
 
-	// Send reply back to the user who messaged us
+	// Persist the complete message to DB
+	err = database.SaveChatMessage(s.butlerID, senderID, fullReply)
+	if err != nil {
+		log.Printf("[Butler] Failed to persist chat: %v", err)
+	}
+
+	// Final message to signal completion
 	msg := map[string]interface{}{
-		"type":        "CHAT",
+		"type":        "CHAT_STREAM_END",
 		"sender_id":   s.butlerID,
 		"sender_name": s.butlerName,
 		"target_id":   senderID,
-		"payload":     reply,
+		"payload":     "",
+		"stream_id":   streamID,
 	}
 	s.hub.BroadcastGeneric(msg)
 }

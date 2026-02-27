@@ -35,6 +35,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [wsLogs, setWsLogs] = useState<any[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
   const addChatMessage = useChatStore((state) => state.addMessage);
+  const appendStreamChunk = useChatStore((state) => state.appendStreamChunk);
 
   // Sync ref with state
   useEffect(() => {
@@ -75,6 +76,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (peerId) {
             addChatMessage(peerId, msg);
           }
+        } else if (msg.type === 'CHAT_STREAM') {
+          const peerId = msg.sender_id === currentUser?.id ? msg.target_id : msg.sender_id;
+          if (peerId) {
+            appendStreamChunk(peerId, {
+              stream_id: msg.stream_id,
+              payload: msg.payload,
+              sender_id: msg.sender_id,
+              sender_name: msg.sender_name,
+              timestamp: msg.timestamp || new Date().toISOString()
+            });
+          }
+        } else if (msg.type === 'CHAT_STREAM_END') {
+          // Stream finished, could optionally trigger a history sync here to get DB ID
+          console.log('Stream finished:', msg.stream_id);
         } else if (msg.type === 'AUTH_REQUEST') {
           // Add auth request as a special system-type chat message from the Butler
           addChatMessage(msg.sender_id, {
