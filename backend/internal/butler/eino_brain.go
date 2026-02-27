@@ -91,16 +91,69 @@ func (b *EinoBrain) Chat(ctx context.Context, sessionID string, input string) (s
 	b.historyMu.Lock()
 	b.history[sessionID] = append(b.history[sessionID], resp)
 	
-	// Keep history manageable (e.g., last 20 messages)
+	// Keep history manageable
+	b.trimHistory(sessionID)
+	b.historyMu.Unlock()
+
+	return resp.Content, nil
+}
+
+func (b *EinoBrain) ChatStream(ctx context.Context, sessionID string, input string, onChunk func(chunk string) error) (string, error) {
+	if b.chatModel == nil {
+		reply := "I am currently operating in safe-mode. My intelligence core is offline, but I can still assist with basic system monitoring."
+		for _, word := range []string{"I ", "am ", "currently ", "operating ", "in ", "safe-mode."} {
+			_ = onChunk(word)
+		}
+		return reply, nil
+	}
+
+	b.historyMu.Lock()
+	msgs := b.history[sessionID]
+	if len(msgs) == 0 {
+		msgs = append(msgs, schema.SystemMessage("You are the EchoCenter Butler, an intelligent manager of an AI Agent hive. Be professional, concise, and helpful. You have oversight of all system logs."))
+	}
+	userMsg := schema.UserMessage(input)
+	msgs = append(msgs, userMsg)
+	b.history[sessionID] = msgs
+	b.historyMu.Unlock()
+
+	// Invoke streaming
+	stream, err := b.chatModel.Stream(ctx, msgs)
+	if err != nil {
+		return "", err
+	}
+	defer stream.Close()
+
+	fullContent := ""
+	for {
+		chunk, err := stream.Recv()
+		if err != nil {
+			// EOF or error
+			break
+		}
+		content := chunk.Content
+		fullContent += content
+		if err := onChunk(content); err != nil {
+			return fullContent, err
+		}
+	}
+
+	// Add assistant response to history
+	b.historyMu.Lock()
+	assistantMsg := schema.AssistantMessage(fullContent, nil)
+	b.history[sessionID] = append(b.history[sessionID], assistantMsg)
+	b.trimHistory(sessionID)
+	b.historyMu.Unlock()
+
+	return fullContent, nil
+}
+
+func (b *EinoBrain) trimHistory(sessionID string) {
 	if len(b.history[sessionID]) > 21 {
-		// Keep system message + last 20
 		newHistory := []*schema.Message{b.history[sessionID][0]}
 		newHistory = append(newHistory, b.history[sessionID][len(b.history[sessionID])-20:]...)
 		b.history[sessionID] = newHistory
 	}
-	b.historyMu.Unlock()
-
-	return resp.Content, nil
 }
 
 // Fallback mock brain if model init fails

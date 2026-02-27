@@ -8,12 +8,14 @@ export interface ChatMessage {
   target_id?: number
   payload: string
   timestamp: string
+  stream_id?: string // For grouping chunks
 }
 
 interface ChatState {
   // Messages keyed by Agent/User ID
   messages: Record<number, ChatMessage[]>
   addMessage: (peerId: number, message: ChatMessage) => void
+  appendStreamChunk: (peerId: number, chunk: { stream_id: string, payload: string, sender_id: number, sender_name: string, timestamp: string }) => void
   setHistory: (peerId: number, messages: ChatMessage[]) => void
   clearMessages: (peerId: number) => void
 }
@@ -24,7 +26,7 @@ export const useChatStore = create<ChatState>((set) => ({
     set((state) => {
       const existing = state.messages[peerId] || []
       
-      // Simple de-duplication: if we have an ID, don't add if it already exists
+      // Simple de-duplication
       if (message.id && existing.some(m => m.id === message.id)) {
         return state
       }
@@ -34,6 +36,40 @@ export const useChatStore = create<ChatState>((set) => ({
           ...state.messages,
           [peerId]: [...existing, message],
         },
+      }
+    }),
+  appendStreamChunk: (peerId, chunk) =>
+    set((state) => {
+      const existing = state.messages[peerId] || []
+      const messageIndex = existing.findIndex(m => m.stream_id === chunk.stream_id)
+
+      if (messageIndex > -1) {
+        // Append to existing stream
+        const updatedMessages = [...existing]
+        updatedMessages[messageIndex] = {
+          ...updatedMessages[messageIndex],
+          payload: updatedMessages[messageIndex].payload + chunk.payload,
+          timestamp: chunk.timestamp
+        }
+        return {
+          messages: { ...state.messages, [peerId]: updatedMessages }
+        }
+      } else {
+        // Start new stream
+        const newMessage: ChatMessage = {
+          type: 'CHAT',
+          sender_id: chunk.sender_id,
+          sender_name: chunk.sender_name,
+          payload: chunk.payload,
+          timestamp: chunk.timestamp,
+          stream_id: chunk.stream_id
+        }
+        return {
+          messages: {
+            ...state.messages,
+            [peerId]: [...existing, newMessage]
+          }
+        }
       }
     }),
   setHistory: (peerId, history) =>
