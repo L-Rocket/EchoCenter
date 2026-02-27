@@ -33,9 +33,9 @@ npm test && npm run lint
 Go 1.22+, TypeScript (Frontend): Follow standard conventions
 
 ## Recent Changes
+- 010-dark-light-mode: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
 - 009-agent-butler-coordination: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
 - 008-dashboard-filter-search: Added Go 1.22+, TypeScript (React) + Gin (Backend), Shadcn/ui (Select, Input, Button), Lucide Reac
-- 007-chat-history-persistence: Added Go 1.22+, TypeScrip + Gorilla WebSocket, Gin, Zustand
 
 
 <!-- MANUAL ADDITIONS START -->

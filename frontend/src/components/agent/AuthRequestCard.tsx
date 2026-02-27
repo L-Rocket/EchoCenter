@@ -24,8 +24,6 @@ const AuthRequestCard: React.FC<AuthRequestCardProps> = ({
     if (type === 'approve') onApprove(actionId);
     else onReject(actionId);
     
-    // Safety timeout: if no state change happens from parent, reset loading
-    // In a real app, the parent would update 'status' via WebSocket/API history
     setTimeout(() => setIsProcessing(false), 5000);
   };
 
@@ -34,46 +32,42 @@ const AuthRequestCard: React.FC<AuthRequestCardProps> = ({
   return (
     <Card className={cn(
       "w-72 border shadow-lg overflow-hidden animate-in fade-in slide-in-from-left-4 duration-500",
-      isPending ? "border-amber-200 bg-slate-50" : "border-slate-200 bg-slate-50/50"
+      isPending ? "border-amber-500/30 bg-card" : "border bg-card/50"
     )}>
-      {/* Mini Header */}
       <div className={cn(
         "px-3 py-2 flex items-center justify-between border-b",
-        isPending ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"
+        isPending ? "bg-amber-500 text-white" : "bg-muted text-muted-foreground"
       )}>
         <div className="flex items-center gap-2">
           <ShieldAlert className="h-3.5 w-3.5" />
           <span className="text-[10px] font-bold uppercase tracking-widest">Directive Auth</span>
         </div>
         {!isPending && (
-          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/20">
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-background/50">
             {status}
           </span>
         )}
       </div>
 
       <div className="p-3 space-y-3">
-        {/* Target & Command Row */}
         <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase">
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground font-bold uppercase">
             <span>Target Agent</span>
-            <span className="text-slate-900">{targetAgentName}</span>
+            <span className="text-foreground">{targetAgentName}</span>
           </div>
           <div className="mt-1">
-            <code className="text-[11px] bg-slate-900 text-amber-400 px-2 py-1.5 rounded block font-mono border border-slate-800 shadow-inner truncate">
+            <code className="text-[11px] bg-foreground text-amber-400 px-2 py-1.5 rounded block font-mono border shadow-inner truncate">
               {command}
             </code>
           </div>
         </div>
 
-        {/* Reasoning */}
-        <div className="bg-white/50 p-2 rounded border border-slate-100">
-          <p className="text-[11px] text-slate-600 leading-snug italic">
+        <div className="bg-muted/50 p-2 rounded border">
+          <p className="text-[11px] text-muted-foreground leading-snug italic">
             "{reason}"
           </p>
         </div>
 
-        {/* Actions */}
         <div className="flex gap-2">
           {isPending ? (
             <>
@@ -94,7 +88,7 @@ const AuthRequestCard: React.FC<AuthRequestCardProps> = ({
                 variant="outline" 
                 size="sm" 
                 disabled={isProcessing}
-                className="h-8 flex-1 bg-white text-slate-600 border-slate-200 hover:bg-slate-50 text-[11px] font-bold transition-all active:scale-95"
+                className="h-8 flex-1 bg-background text-foreground border hover:bg-muted text-[11px] font-bold transition-all active:scale-95"
                 onClick={() => handleAction('reject')}
               >
                 <XCircle className="h-3 w-3 mr-1.5" />
@@ -104,7 +98,7 @@ const AuthRequestCard: React.FC<AuthRequestCardProps> = ({
           ) : (
             <div className={cn(
               "w-full flex items-center justify-center gap-1.5 py-1.5 rounded border text-[10px] font-bold uppercase tracking-tight",
-              status === 'APPROVED' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-slate-100 text-slate-500 border-slate-200"
+              status === 'APPROVED' ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" : "bg-muted text-muted-foreground border"
             )}>
               {status === 'APPROVED' ? (
                 <>

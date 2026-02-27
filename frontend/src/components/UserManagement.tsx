@@ -39,10 +39,10 @@ const UserManagement: React.FC = () => {
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <Card className="shadow-lg border-slate-200">
+      <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-3 mb-1">
-            <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
+            <div className="bg-primary/10 p-2 rounded-lg text-primary">
               <UserPlus className="h-5 w-5" />
             </div>
             <CardTitle className="text-xl font-bold">Add Team Member</CardTitle>
@@ -55,13 +55,13 @@ const UserManagement: React.FC = () => {
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700">Username</label>
+                <label className="text-sm font-semibold">Username</label>
                 <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="text"
                     placeholder="jdoe"
-                    className="pl-10 bg-slate-50/50 border-slate-200"
+                    className="pl-10 bg-muted/50 border"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required
@@ -69,11 +69,11 @@ const UserManagement: React.FC = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700">Initial Password</label>
+                <label className="text-sm font-semibold">Initial Password</label>
                 <Input
                   type="password"
                   placeholder="••••••••"
-                  className="bg-slate-50/50 border-slate-200"
+                  className="bg-muted/50 border"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -82,11 +82,11 @@ const UserManagement: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700">Permission Level</label>
+              <label className="text-sm font-semibold">Permission Level</label>
               <Select value={role} onValueChange={setRole}>
-                <SelectTrigger className="bg-slate-50/50 border-slate-200">
+                <SelectTrigger className="bg-muted/50 border">
                   <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-slate-400" />
+                    <Shield className="h-4 w-4 text-muted-foreground" />
                     <SelectValue placeholder="Select a role" />
                   </div>
                 </SelectTrigger>
@@ -98,20 +98,20 @@ const UserManagement: React.FC = () => {
             </div>
 
             {message && (
-              <div className="bg-green-50 text-green-700 p-4 rounded-lg border border-green-100 flex items-center gap-3 text-sm font-medium">
+              <div className="bg-green-500/10 text-green-600 dark:text-green-400 p-4 rounded-lg border border-green-500/20 flex items-center gap-3 text-sm font-medium">
                 <CheckCircle2 className="h-5 w-5" />
                 {message}
               </div>
             )}
             {error && (
-              <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-100 flex items-center gap-3 text-sm font-medium">
+              <div className="bg-destructive/10 text-destructive p-4 rounded-lg border border-destructive/20 flex items-center gap-3 text-sm font-medium">
                 <AlertCircle className="h-5 w-5" />
                 {error}
               </div>
             )}
           </CardContent>
-          <CardFooter className="bg-slate-50/50 border-t px-6 py-4 rounded-b-xl">
-            <Button type="submit" className="w-full md:w-auto ml-auto px-8 bg-indigo-600 hover:bg-indigo-700 shadow-md">
+          <CardFooter className="border-t px-6 py-4 rounded-b-xl">
+            <Button type="submit" className="w-full md:w-auto ml-auto px-8 shadow-md bg-emerald-600 hover:bg-emerald-700 text-white">
               Create Account
             </Button>
           </CardFooter>
