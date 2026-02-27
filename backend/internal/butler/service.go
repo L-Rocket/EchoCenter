@@ -105,8 +105,9 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
 	// Create a generic message that the Hub can understand
 	// We'll use a map to simulate the Message struct without importing websocket
 	msg := map[string]interface{}{
-		"type":      "AUTH_REQUEST",
-		"sender_id": s.butlerID,
+		"type":        "AUTH_REQUEST",
+		"sender_id":   s.butlerID,
+		"sender_role": "BUTLER",
 		"payload": map[string]interface{}{
 			"action_id":         actionID,
 			"target_agent_id":   targetID,
@@ -150,17 +151,12 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 			"type":        "CHAT_STREAM",
 			"sender_id":   s.butlerID,
 			"sender_name": s.butlerName,
+			"sender_role": "BUTLER",
 			"target_id":   senderID,
 			"payload":     chunk,
 			"stream_id":   streamID,
 		}
 		s.hub.BroadcastGeneric(msg)
-
-		// RELAY: If this message is from an Agent to Butler, also send to Admin (ID 1)
-		if senderID != 1 {
-			msg["target_id"] = 1
-			s.hub.BroadcastGeneric(msg)
-		}
 		return nil
 	})
 
@@ -176,18 +172,13 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 	}
 
 	// Final message to signal completion
-	msg := map[string]interface{}{
+	s.hub.BroadcastGeneric(map[string]interface{}{
 		"type":        "CHAT_STREAM_END",
 		"sender_id":   s.butlerID,
 		"sender_name": s.butlerName,
+		"sender_role": "BUTLER",
 		"target_id":   senderID,
 		"payload":     "",
 		"stream_id":   streamID,
-	}
-	s.hub.BroadcastGeneric(msg)
-
-	if senderID != 1 {
-		msg["target_id"] = 1
-		s.hub.BroadcastGeneric(msg)
-	}
+	})
 }

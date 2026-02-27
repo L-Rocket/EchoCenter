@@ -63,6 +63,15 @@ func (c *Client) ReadPump() {
 		msg.SenderID = c.userID
 		msg.SenderName = c.username
 		msg.Timestamp = time.Now().Format(time.RFC3339)
+		
+		// Set Role based on presence of API token (Humans use JWT, Agents use static token)
+		// For simplicity in MVP, we can pass this during ServeWs or check it here
+		if c.username == "admin" || c.userID == 1 {
+			msg.SenderRole = "USER"
+		} else {
+			msg.SenderRole = "AGENT"
+		}
+		
 		c.hub.broadcast <- &msg
 	}
 }
