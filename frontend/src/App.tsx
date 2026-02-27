@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import axios from 'axios'
 import { AuthProvider } from './context/AuthContext'
+import { ThemeProvider } from './components/theme-provider'
 import { MainLayout } from './components/layout/MainLayout'
 import RequireAuth from './components/layout/RequireAuth'
 
@@ -23,33 +24,35 @@ axios.interceptors.request.use((config) => {
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/login" element={<LoginPage />} />
+    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={<LoginPage />} />
 
-          {/* Protected Routes */}
-          <Route element={<RequireAuth />}>
-            <Route element={<MainLayout />}>
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/agents" element={<AgentsPage />} />
-              
-              {/* Admin Only Routes */}
-              <Route element={<RequireAuth adminOnly />}>
-                <Route path="/team" element={<TeamPage />} />
+            {/* Protected Routes */}
+            <Route element={<RequireAuth />}>
+              <Route element={<MainLayout />}>
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/agents" element={<AgentsPage />} />
+                
+                {/* Admin Only Routes */}
+                <Route element={<RequireAuth adminOnly />}>
+                  <Route path="/team" element={<TeamPage />} />
+                </Route>
+
+                {/* Default Redirect */}
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
               </Route>
-
-              {/* Default Redirect */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
             </Route>
-          </Route>
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 
