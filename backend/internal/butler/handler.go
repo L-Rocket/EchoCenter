@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/lea/echocenter/backend/internal/websocket"
+	"github.com/lea/echocenter/backend/internal/api/websocket"
 )
 
 // MessageHandler handles WebSocket messages for the Butler

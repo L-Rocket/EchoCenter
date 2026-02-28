@@ -14,7 +14,7 @@ import (
 	"github.com/lea/echocenter/backend/internal/butler"
 	"github.com/lea/echocenter/backend/internal/models"
 	"github.com/lea/echocenter/backend/internal/repository"
-	"github.com/lea/echocenter/backend/internal/websocket"
+	"github.com/lea/echocenter/backend/internal/api/websocket"
 	apperrors "github.com/lea/echocenter/backend/pkg/errors"
 )
 

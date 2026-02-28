@@ -18,7 +18,7 @@ import (
 	"github.com/lea/echocenter/backend/internal/butler"
 	"github.com/lea/echocenter/backend/internal/config"
 	"github.com/lea/echocenter/backend/internal/repository"
-	"github.com/lea/echocenter/backend/internal/websocket"
+	"github.com/lea/echocenter/backend/internal/api/websocket"
 )
 
 func main() {
