@@ -1,144 +1,144 @@
 # EchoCenter
 
-[English README](./README.en.md)
+[中文 README](./README.zh.md)
 
-EchoCenter 是一个智能代理中心系统，用于协调和管理多个 AI 代理。它提供了一个集中的平台，用于代理注册、消息传递、命令执行和状态监控。
+EchoCenter is an intelligent agent center system designed to coordinate and manage multiple AI agents. It provides a centralized platform for agent registration, message passing, command execution, and status monitoring.
 
-## 功能特性
+## Features
 
-- **多代理管理**：支持注册和管理多个 AI 代理
-- **实时消息传递**：通过 WebSocket 实现低延迟的实时通信
-- **命令执行**：支持代理之间的命令传递和执行
-- **状态监控**：实时监控代理状态和系统指标
-- **持久化存储**：使用 SQLite 数据库持久化聊天记录和系统数据
-- **授权机制**：安全的用户认证和授权系统
+- **Multi-Agent Management**: Register and manage multiple AI agents
+- **Real-time Messaging**: Low-latency real-time communication via WebSocket
+- **Command Execution**: Command passing and execution between agents
+- **Status Monitoring**: Real-time monitoring of agent status and system metrics
+- **Persistent Storage**: SQLite database for persisting chat history and system data
+- **Authorization**: Secure user authentication and authorization system
 
-## 架构
+## Architecture
 
-### 后端
+### Backend
 
-- **Gin 框架**：用于 HTTP API 服务
-- **WebSocket**：实现实时消息传递
-- **SQLite**：本地文件数据库
-- **Eino**：AI 推理引擎
-- **Butler**：核心代理服务
+- **Gin Framework**: HTTP API service
+- **WebSocket**: Real-time message passing
+- **SQLite**: Local file database
+- **Eino**: AI inference engine
+- **Butler**: Core agent service
 
-### 前端
+### Frontend
 
-- **React**：用户界面框架
-- **TypeScript**：类型安全的 JavaScript
-- **Tailwind CSS**：样式框架
-- **Vite**：构建工具
+- **React**: User interface framework
+- **TypeScript**: Type-safe JavaScript
+- **Tailwind CSS**: Styling framework
+- **Vite**: Build tool
 
-## 快速开始
+## Quick Start
 
-### 前置要求
+### Prerequisites
 
 - Go 1.21+
 - Python 3.9+
 - Node.js 18+
-- npm 或 yarn
+- npm or yarn
 
-### 安装
+### Installation
 
 ```bash
-# 克隆仓库
+# Clone the repository
 git clone https://github.com/L-Rocket/EchoCenter.git
 cd EchoCenter
 
-# 安装后端依赖
+# Install backend dependencies
 cd backend
 go mod download
 
-# 安装前端依赖
+# Install frontend dependencies
 cd ../frontend
 npm install
 
-# 安装 Python 依赖
+# Install Python dependencies
 cd ../backend
 pip install -r requirements.txt
 ```
 
-### 配置
+### Configuration
 
-在 `backend/.env` 文件中配置环境变量：
+Configure environment variables in `backend/.env`:
 
 ```env
-# 数据库配置
+# Database configuration
 DATABASE_URL=echocenter.db
 
-# Butler 配置
+# Butler configuration
 BUTLER_BASE_URL=https://api.siliconflow.cn/v1
 BUTLER_API_TOKEN=your_api_token_here
 BUTLER_MODEL=gpt-3.5-turbo
 
-# JWT 配置
+# JWT configuration
 JWT_SECRET=your_jwt_secret_here
 JWT_EXPIRES_IN=24h
 ```
 
-### 运行
+### Running
 
-使用启动脚本一键启动所有服务：
+Use the startup script to launch all services:
 
 ```bash
 cd backend/scripts
 ./start_with_custodian.sh
 ```
 
-这个脚本会：
-1. 启动后端服务
-2. 初始化数据库
-3. 注册代理
-4. 启动 Storage-Custodian 代理
+This script will:
+1. Start the backend service
+2. Initialize the database
+3. Register agents
+4. Launch the Storage-Custodian agent
 
-### 停止
+### Stopping
 
-按 `Ctrl+C` 停止所有服务。
+Press `Ctrl+C` to stop all services.
 
-## 项目结构
+## Project Structure
 
 ```
 EchoCenter/
 ├── backend/
 │   ├── cmd/
-│   │   └── server/          # 服务入口
+│   │   └── server/          # Service entry point
 │   ├── internal/
-│   │   ├── api/             # API 层
-│   │   │   ├── handler/     # 处理器
-│   │   │   ├── middleware/  # 中间件
-│   │   │   └── router/      # 路由
-│   │   ├── butler/          # Butler 服务
-│   │   ├── auth/            # 认证服务
-│   │   ├── models/          # 数据模型
-│   │   ├── repository/      # 数据存储层
-│   │   └── websocket/       # WebSocket 服务
-│   ├── scripts/             # 启动脚本
-│   ├── mock_agents/         # 代理模拟器
-│   └── pkg/                 # 公共包
+│   │   ├── api/             # API layer
+│   │   │   ├── handler/     # Handlers
+│   │   │   ├── middleware/  # Middleware
+│   │   │   └── router/      # Routes
+│   │   ├── butler/          # Butler service
+│   │   ├── auth/            # Authentication service
+│   │   ├── models/          # Data models
+│   │   ├── repository/      # Data storage layer
+│   │   └── websocket/       # WebSocket service
+│   ├── scripts/             # Startup scripts
+│   ├── mock_agents/         # Agent simulators
+│   └── pkg/                 # Common packages
 ├── frontend/
 │   ├── src/
-│   │   ├── components/      # React 组件
-│   │   ├── pages/           # 页面
+│   │   ├── components/      # React components
+│   │   ├── pages/           # Pages
 │   │   ├── context/         # React Context
-│   │   ├── store/           # 状态管理
-│   │   └── App.tsx          # 主应用
+│   │   ├── store/           # State management
+│   │   └── App.tsx          # Main application
 │   └── package.json
-├── specs/                   # 项目规范
+├── specs/                   # Project specifications
 └── README.md
 ```
 
-## API 文档
+## API Documentation
 
-### 认证
+### Authentication
 
-#### 登录
+#### Login
 
 ```
 POST /api/auth/login
 ```
 
-请求体：
+Request body:
 ```json
 {
   "username": "admin",
@@ -146,7 +146,7 @@ POST /api/auth/login
 }
 ```
 
-响应：
+Response:
 ```json
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -155,9 +155,9 @@ POST /api/auth/login
 
 ### WebSocket
 
-连接地址：`ws://localhost:8080/api/ws?token=your_token`
+Connection URL: `ws://localhost:8080/api/ws?token=your_token`
 
-消息格式：
+Message format:
 ```json
 {
   "type": "CHAT",
@@ -168,55 +168,55 @@ POST /api/auth/login
 }
 ```
 
-## 代理
+## Agents
 
 ### Butler
 
-核心代理，负责协调其他代理和处理用户请求。
+The core agent responsible for coordinating other agents and handling user requests.
 
 ### Storage-Custodian
 
-管理存储系统的代理，负责文件和磁盘空间监控。
+Manages the storage system, responsible for file and disk space monitoring.
 
-### 其他代理
+### Other Agents
 
-- **Weather-Sentinel**：天气监控代理
-- **Code-Reviewer-AI**：代码审查代理
-- **Security-Audit-Bot**：安全审计代理
-- **Echo-Bot**：回显代理
+- **Weather-Sentinel**: Weather monitoring agent
+- **Code-Reviewer-AI**: Code review agent
+- **Security-Audit-Bot**: Security audit agent
+- **Echo-Bot**: Echo agent
 
-## 开发
+## Development
 
-### 后端开发
+### Backend Development
 
 ```bash
 cd backend
 go run cmd/server/main.go
 ```
 
-### 前端开发
+### Frontend Development
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-### 运行测试
+### Running Tests
 
 ```bash
-# 后端测试
+# Backend tests
 cd backend
 go test ./...
 
-# 前端测试
+# Frontend tests
 cd frontend
 npm test
 ```
 
-## 许可证
+## License
 
 MIT License
 
-## 贡献
+## Contributing
 
-欢迎提交 Issue 和 Pull Request！
+Issues and pull requests are welcome!
