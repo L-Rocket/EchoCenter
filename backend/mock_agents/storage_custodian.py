@@ -24,7 +24,7 @@ if not LLM_API_KEY:
     exit(1)
 
 # This is where we store our files
-STORAGE_DIR = os.path.abspath("./hive_storage")
+STORAGE_DIR = os.path.join(script_dir, "hive_storage")
 if not os.path.exists(STORAGE_DIR):
     os.makedirs(STORAGE_DIR)
 
@@ -165,10 +165,31 @@ User Instruction: {payload}"""
 if __name__ == "__main__":
     # We need to get the token for Storage-Custodian from the DB
     import sqlite3
-    db_path = "echocenter.db"
-    # Try multiple common paths depending on where it's launched
+    
+    # Try to get DB path from environment, default to standard location
+    env_db_path = os.getenv("DB_PATH", "./data/echo_center.db")
+    
+    if os.path.isabs(env_db_path):
+        db_path = env_db_path
+    else:
+        # If relative, it's relative to backend/ (root of the backend)
+        # Script is in backend/mock_agents/, so we need to go up one level
+        db_path = os.path.abspath(os.path.join(script_dir, "..", env_db_path))
+
     if not os.path.exists(db_path):
-        db_path = "../echocenter.db"
+        # Final fallback check in case of unexpected structure
+        alt_db_path = os.path.join(script_dir, "..", "data", "echo_center.db")
+        if os.path.exists(alt_db_path):
+            db_path = alt_db_path
+
+    if not os.path.exists(db_path):
+        print(f"Error: Could not find database at {db_path}. Run seed_mock_data.sh first.")
+        exit(1)
+
+    # Ensure the parent directory exists (though it should if the file was found)
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+
+    print(f"[Storage-Custodian] Using database: {db_path}")
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("SELECT api_token FROM users WHERE username='Storage-Custodian'")

@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/lea/echocenter/backend/internal/config"
@@ -62,6 +64,12 @@ type sqliteRepository struct {
 
 // New creates a new repository instance
 func New(cfg *config.DatabaseConfig) (Repository, error) {
+	// Ensure the directory for the database exists
+	dbDir := filepath.Dir(cfg.Path)
+	if err := os.MkdirAll(dbDir, 0755); err != nil {
+		return nil, apperrors.Wrap(apperrors.ErrInternal, "failed to create database directory", err)
+	}
+
 	// Add busy timeout and journal mode parameters to avoid SQLITE_BUSY errors
 	dsn := cfg.Path + "?_busy_timeout=5000&_journal_mode=WAL"
 	db, err := sql.Open("sqlite", dsn)

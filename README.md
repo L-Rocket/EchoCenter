@@ -57,16 +57,15 @@ git clone https://github.com/L-Rocket/EchoCenter.git
 cd EchoCenter
 
 # 2. Install all dependencies (Backend, Frontend, Python)
+# This will also create backend/.env from .env.example
 make install
 
-# 3. Setup Environment
-# Edit backend/.env and add your BUTLER_API_TOKEN and JWT_SECRET
+# 3. Configure API Keys
+# Edit backend/.env and add your BUTLER_API_TOKEN (e.g., from SiliconFlow or OpenAI)
+# and ensure JWT_SECRET is set to a strong random string.
 
 # 4. Launch with mock data and agents (recommended for first run)
 make mock-start
-
-# Or run backend + frontend only (for development)
-make dev
 ```
 
 Run `make help` to see all available commands.

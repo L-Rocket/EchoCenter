@@ -14,6 +14,8 @@ backend/bin/
 vendor/
 echocenter.db
 echocenter.db-journal
+backend/data/*
+!backend/data/.gitkeep
 bin/
 
 # Node.js

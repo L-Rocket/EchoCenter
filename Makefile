@@ -7,12 +7,19 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 install: ## Install all dependencies (Go, Node, Python)
+	@echo "Checking environment variables..."
+	@if [ ! -f backend/.env ]; then \
+		cp backend/.env.example backend/.env; \
+		echo "Created backend/.env from .env.example"; \
+	else \
+		echo "backend/.env already exists"; \
+	fi
 	@echo "Installing backend dependencies..."
 	cd backend && go mod download
 	@echo "Installing frontend dependencies..."
 	cd frontend && npm install
 	@echo "Installing Python dependencies..."
-	pip install -r backend/mock_agents/requirements.txt
+	pip3 install -r backend/mock_agents/requirements.txt --break-system-packages
 
 dev-backend: ## Run backend in development mode
 	cd backend && go run cmd/server/main.go

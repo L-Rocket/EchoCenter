@@ -22,6 +22,9 @@ jobs:
       - name: Install dependencies
         run: cd backend && go mod download
 
+      - name: Create dummy .env
+        run: cp backend/.env.example backend/.env
+
       - name: Build check
         run: cd backend && go build -v ./...
 

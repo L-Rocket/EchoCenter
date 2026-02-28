@@ -69,6 +69,7 @@ If you have `make` installed, you can use the following commands to set up every
 
 ```bash
 # Install all dependencies (Go, Node, Python)
+# This will automatically create backend/.env from backend/.env.example
 make install
 
 # Build the project
@@ -95,10 +96,9 @@ cd EchoCenter/backend
 ```bash
 go mod download
 ```
-
 ### 3. Configure Environment Variables
 
-Create `.env` file:
+The `make install` command automatically copies `.env.example` to `.env`. If you are doing it manually:
 
 ```bash
 cp .env.example .env
@@ -112,7 +112,9 @@ SERVER_HOST=0.0.0.0
 SERVER_PORT=8080
 
 # Database Configuration
-DB_PATH=./echocenter.db
+DB_PATH=./data/echo_center.db
+...
+```
 
 # Butler Configuration
 BUTLER_BASE_URL=https://api.siliconflow.cn/v1
@@ -181,7 +183,7 @@ The frontend will run at `http://localhost:5173`.
 
 ```bash
 cd ../backend
-pip install -r mock_agents/requirements.txt
+pip install -r mock_agents/requirements.txt --break-system-packages
 ```
 
 ### 2. Run Agent
