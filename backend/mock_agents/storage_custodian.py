@@ -24,7 +24,7 @@ if not LLM_API_KEY:
     exit(1)
 
 # This is where we store our files
-STORAGE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hive_storage")
+STORAGE_DIR = os.path.abspath("./hive_storage")
 if not os.path.exists(STORAGE_DIR):
     os.makedirs(STORAGE_DIR)
 
@@ -164,12 +164,10 @@ User Instruction: {payload}"""
 if __name__ == "__main__":
     # We need to get the token for Storage-Custodian from the DB
     import sqlite3
-    db_path = "data/echocenter.db"
+    db_path = "echocenter.db"
     # Try multiple common paths depending on where it's launched
     if not os.path.exists(db_path):
-        db_path = "../data/echocenter.db"
-    if not os.path.exists(db_path):
-        db_path = "echocenter.db"
+        db_path = "../echocenter.db"
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("SELECT api_token FROM users WHERE username='Storage-Custodian'")

@@ -51,24 +51,20 @@ func main() {
 
 	// Initialize WebSocket hub with Butler and persistence handlers
 	persistHandler := websocket.NewPersistingMessageHandler(repo)
+	agentResponseHandler := websocket.NewAgentResponseHandler()
 	var hub websocket.Hub
 
 	if err == nil && agent != nil {
 		// Initialize WebSocket hub with Butler handlers first
 		butlerUserHandler := websocket.NewButlerMessageHandler(agent.ID)
-		butlerWSHandler := websocket.NewButlerWebSocketHandler(agent.ID)
-		hub = websocket.NewHub(websocket.NewCompositeHandler(persistHandler, butlerUserHandler, butlerWSHandler))
+		hub = websocket.NewHub(websocket.NewCompositeHandler(persistHandler, butlerUserHandler, agentResponseHandler))
 
 		// Initialize Butler service with hub
 		butler.InitButler(agent.ID, agent.Username, hub, repo)
 
-		// Set up callbacks for WebSocket handlers
-		websocket.ButlerMessageCallback = butler.GetButler().HandleUserMessage
-		websocket.AgentResponseCallback = butler.RegisterAgentResponse
-
 		log.Printf("Butler service initialized for agent: %s (ID: %d)", agent.Username, agent.ID)
 	} else {
-		hub = websocket.NewHub(websocket.NewCompositeHandler(persistHandler))
+		hub = websocket.NewHub(websocket.NewCompositeHandler(persistHandler, agentResponseHandler))
 		log.Println("WARNING: 'Butler' not found in database. Run seed script to create Butler.")
 	}
 
