@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lea/echocenter/backend/internal/auth"
@@ -16,8 +17,8 @@ func Auth(authSvc auth.Service) gin.HandlerFunc {
 			return
 		}
 
-		parts := splitAuthHeader(authHeader)
-		if len(parts) != 2 || parts[0] != "bearer" {
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization header format"})
 			return
 		}
@@ -33,7 +34,6 @@ func Auth(authSvc auth.Service) gin.HandlerFunc {
 		c.Next()
 	}
 }
-
 // AdminOnly creates a middleware that only allows admin users
 func AdminOnly(authSvc auth.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -49,38 +49,6 @@ func AdminOnly(authSvc auth.Service) gin.HandlerFunc {
 		}
 
 		c.Next()
-	}
-}
-
-func splitAuthHeader(header string) []string {
-	var parts []string
-	var current string
-	for i, ch := range header {
-		if ch == ' ' && current != "" {
-			parts = append(parts, current)
-			current = ""
-		} else {
-			current += string(ch)
-		}
-		if i == len(header)-1 && current != "" {
-			parts = append(parts, current)
 		}
 	}
-	// Convert first part to lowercase for comparison
-	if len(parts) > 0 {
-		parts[0] = toLower(parts[0])
-	}
-	return parts
-}
-
-func toLower(s string) string {
-	var result string
-	for _, ch := range s {
-		if ch >= 'A' && ch <= 'Z' {
-			result += string(ch + 32)
-		} else {
-			result += string(ch)
-		}
-	}
-	return result
-}
+	

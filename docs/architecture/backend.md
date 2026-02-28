@@ -62,9 +62,9 @@ backend/
 
 ### 5. Data Storage
 
-- **SQLite** - Local database
-- **Repository** - Data access layer
-- **Models** - Data model definitions
+- **SQLite** - Local database with WAL (Write-Ahead Logging) mode enabled for concurrent read/write performance.
+- **Migrations** - Built-in migration system with a `migrations` tracking table to ensure atomic and reliable schema updates.
+- **Repository** - Data access layer separating business logic from SQL queries.
 
 ## Architecture Diagram
 
@@ -171,27 +171,23 @@ func LoggerMiddleware() gin.HandlerFunc {
 
 ```json
 {
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "Error message"
-  }
+  "error": "User friendly error message"
 }
 ```
 
-### Error Codes
+### Error Security
 
-- `INVALID_CREDENTIALS` - Invalid credentials
-- `UNAUTHORIZED` - Unauthorized
-- `NOT_FOUND` - Not found
-- `INTERNAL_ERROR` - Internal error
+- **Information Hiding** - In production, internal errors (500) hide database details and return a generic "Internal server error" to the client.
+- **Detailed Logging** - The actual error cause is logged on the server for debugging purposes.
+- **Type Mapping** - Application-specific errors are automatically mapped to appropriate HTTP status codes.
 
 ## Performance Optimization
 
 ### Database Optimization
 
-- Connection pool
-- Index optimization
-- Query optimization
+- **Connection Pool** - Optimized for WAL mode, allowing multiple concurrent readers while maintaining data integrity.
+- **Atomic Migrations** - All database schema changes are executed within transactions to ensure consistency.
+- **Index Optimization** - Critical columns (timestamps, IDs) are indexed for fast retrieval.
 
 ### Caching
 

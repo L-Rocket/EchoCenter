@@ -180,7 +180,15 @@ Tokens expire after 24 hours by default:
 exp := time.Now().Add(time.Hour * 24).Unix()
 ```
 
-### CORS
+## Configuration
+
+The system requires the following environment variables to be set for authentication to work securely:
+
+- `JWT_SECRET` - **(Mandatory)** A strong, unique secret key (at least 32 characters). The system will not start if this is missing or too short.
+- `JWT_TOKEN_EXPIRATION` - (Optional) Duration of token validity (e.g., `24h`).
+- `BCRYPT_COST` - (Optional) Work factor for password hashing (default: `12`).
+
+## CORS
 
 CORS protection configuration:
 

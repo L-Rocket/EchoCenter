@@ -62,9 +62,9 @@ backend/
 
 ### 5. 数据存储
 
-- **SQLite** - 本地数据库
-- **Repository** - 数据访问层
-- **模型** - 数据模型定义
+- **SQLite** - 本地数据库，启用 WAL (Write-Ahead Logging) 模式以支持并发读写性能。
+- **数据库迁移** - 内置迁移系统，使用 `migrations` 表追踪已执行的变更，确保 Schema 更新的原子性和可靠性。
+- **Repository** - 数据访问层，将业务逻辑与 SQL 查询解耦。
 
 ## 架构图
 
@@ -171,27 +171,23 @@ func LoggerMiddleware() gin.HandlerFunc {
 
 ```json
 {
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "Error message"
-  }
+  "error": "用户友好的错误信息"
 }
 ```
 
-### 错误码
+### 错误处理安全性
 
-- `INVALID_CREDENTIALS` - 无效凭据
-- `UNAUTHORIZED` - 未授权
-- `NOT_FOUND` - 未找到
-- `INTERNAL_ERROR` - 内部错误
+- **信息隐藏** - 在内部错误（500）发生时，系统会向客户端隐藏数据库等敏感细节，统一返回 "Internal server error"。
+- **详细日志** - 真实的错误原因会记录在服务器日志中，便于调试。
+- **类型映射** - 业务错误会自动映射到对应的 HTTP 状态码。
 
 ## 性能优化
 
 ### 数据库优化
 
-- 连接池
-- 索引优化
-- 查询优化
+- **连接池** - 针对 WAL 模式进行了优化，允许在保持数据一致性的同时进行多个并发读操作。
+- **原子迁移** - 所有数据库结构变更都在事务中执行，确保一致性。
+- **索引优化** - 对关键列（时间戳、ID）建立索引以实现快速检索。
 
 ### 缓存
 

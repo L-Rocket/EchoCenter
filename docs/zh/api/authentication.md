@@ -180,7 +180,15 @@ passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.Defaul
 exp := time.Now().Add(time.Hour * 24).Unix()
 ```
 
-### CORS
+## 配置要求
+
+为了确保认证系统的安全性，必须配置以下环境变量：
+
+- `JWT_SECRET` - **(强制要求)** 强随机密钥（至少 32 个字符）。如果缺失或长度不足，系统将无法启动。
+- `JWT_TOKEN_EXPIRATION` - (可选) 令牌有效期 (例如 `24h`)。
+- `BCRYPT_COST` - (可选) 密码哈希的计算成本 (默认 `12`)。
+
+## CORS
 
 配置 CORS 保护：
 

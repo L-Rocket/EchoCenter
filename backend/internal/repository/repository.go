@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/lea/echocenter/backend/internal/config"
@@ -67,11 +68,11 @@ func New(cfg *config.DatabaseConfig) (Repository, error) {
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to open database", err)
 	}
 
-	// Configure connection pool - SQLite works best with single connection
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-	db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
-
+	        // Configure connection pool
+	        // With WAL mode, we can have multiple readers and one writer
+	        db.SetMaxOpenConns(cfg.MaxOpenConns)
+	        db.SetMaxIdleConns(cfg.MaxIdleConns)
+	        db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
 	// Test connection
 	if err := db.Ping(); err != nil {
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to ping database", err)
@@ -86,14 +87,23 @@ func New(cfg *config.DatabaseConfig) (Repository, error) {
 	return repo, nil
 }
 
-// migrate creates database tables and indexes
+// migrate creates database tables and indexes with a tracking table
 func (r *sqliteRepository) migrate() error {
+	// Create migrations table first
+	_, err := r.db.Exec(`CREATE TABLE IF NOT EXISTS migrations (
+		name TEXT PRIMARY KEY,
+		executed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);`)
+	if err != nil {
+		return apperrors.Wrap(apperrors.ErrDatabase, "failed to create migrations table", err)
+	}
+
 	migrations := []struct {
 		name string
 		sql  string
 	}{
 		{
-			name: "create_messages_table",
+			name: "001_create_messages_table",
 			sql: `CREATE TABLE IF NOT EXISTS messages (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				agent_id TEXT NOT NULL,
@@ -103,7 +113,7 @@ func (r *sqliteRepository) migrate() error {
 			);`,
 		},
 		{
-			name: "create_users_table",
+			name: "002_create_users_table",
 			sql: `CREATE TABLE IF NOT EXISTS users (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				username TEXT NOT NULL UNIQUE,
@@ -114,7 +124,7 @@ func (r *sqliteRepository) migrate() error {
 			);`,
 		},
 		{
-			name: "create_chat_messages_table",
+			name: "003_create_chat_messages_table",
 			sql: `CREATE TABLE IF NOT EXISTS chat_messages (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				sender_id INTEGER NOT NULL,
@@ -126,9 +136,8 @@ func (r *sqliteRepository) migrate() error {
 				FOREIGN KEY(receiver_id) REFERENCES users(id)
 			);`,
 		},
-
 		{
-			name: "create_butler_authorizations_table",
+			name: "004_create_butler_authorizations_table",
 			sql: `CREATE TABLE IF NOT EXISTS butler_authorizations (
 				id TEXT PRIMARY KEY,
 				target_agent_id INTEGER NOT NULL,
@@ -141,7 +150,7 @@ func (r *sqliteRepository) migrate() error {
 			);`,
 		},
 		{
-			name: "create_indexes",
+			name: "005_create_indexes",
 			sql: `CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages (timestamp DESC, id DESC);
 				CREATE INDEX IF NOT EXISTS idx_chat_pair_time ON chat_messages (sender_id, receiver_id, timestamp DESC);
 				CREATE INDEX IF NOT EXISTS idx_butler_status ON butler_authorizations (status);`,
@@ -149,8 +158,37 @@ func (r *sqliteRepository) migrate() error {
 	}
 
 	for _, m := range migrations {
-		if _, err := r.db.Exec(m.sql); err != nil {
+		// Check if migration already executed
+		var exists int
+		err := r.db.QueryRow("SELECT COUNT(*) FROM migrations WHERE name = ?", m.name).Scan(&exists)
+		if err != nil {
+			return apperrors.Wrap(apperrors.ErrDatabase, "failed to check migration status", err)
+		}
+
+		if exists > 0 {
+			continue
+		}
+
+		log.Printf("[Migration] Executing: %s", m.name)
+
+		// Run migration in a transaction
+		tx, err := r.db.Begin()
+		if err != nil {
+			return apperrors.Wrap(apperrors.ErrDatabase, "failed to start migration transaction", err)
+		}
+
+		if _, err := tx.Exec(m.sql); err != nil {
+			tx.Rollback()
 			return apperrors.Wrap(apperrors.ErrDatabase, fmt.Sprintf("failed to run migration: %s", m.name), err)
+		}
+
+		if _, err := tx.Exec("INSERT INTO migrations (name) VALUES (?)", m.name); err != nil {
+			tx.Rollback()
+			return apperrors.Wrap(apperrors.ErrDatabase, "failed to record migration", err)
+		}
+
+		if err := tx.Commit(); err != nil {
+			return apperrors.Wrap(apperrors.ErrDatabase, "failed to commit migration transaction", err)
 		}
 	}
 
