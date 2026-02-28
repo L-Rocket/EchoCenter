@@ -3,12 +3,6 @@
 # EchoCenter Full Stack Launcher (with Storage-Custodian Agent)
 # This script starts the backend, seeds data, and launches the Python mock agent.
 
-# Get the project root directory (parent of scripts/)
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-
-cd "$PROJECT_ROOT"
-
 echo "--- EchoCenter Full Stack Startup ---"
 
 # 1. Kill existing processes on port 8080
@@ -17,17 +11,18 @@ lsof -ti:8080 | xargs kill -9 2>/dev/null
 
 # 2. Build and Start Backend
 echo "Starting Backend (Go)..."
+cd "$(dirname "$0")/.."
 go build -o bin/server ./cmd/server
 ./bin/server &
 BACKEND_PID=$!
 
 # 3. Wait for Backend to be ready
 echo "Waiting for backend to initialize..."
-sleep 3
+sleep 5
 
 # 4. Seed Database (Registers Agents and adds history)
 echo "Seeding data and registering Storage-Custodian..."
-"$SCRIPT_DIR/seed_mock_data.sh"
+./scripts/seed_mock_data.sh
 
 # 5. Start Python Agent (Storage-Custodian)
 echo "Launching Storage-Custodian Agent..."

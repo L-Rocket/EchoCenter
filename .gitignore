@@ -1,11 +1,8 @@
 # Go
-backend/bin/
-backend/logs/
-backend/data/*.db
-backend/data/*.db-journal
-backend/**/*.db
-backend/**/*.db-journal
-backend/mock_agents/hive_storage/
+backend/backend
+backend/echocenter
+backend/echocenter_server
+backend/server.log
 *.exe
 *.exe~
 *.dll
@@ -14,6 +11,8 @@ backend/mock_agents/hive_storage/
 *.test
 *.out
 vendor/
+echocenter.db
+echocenter.db-journal
 
 # Node.js
 node_modules/

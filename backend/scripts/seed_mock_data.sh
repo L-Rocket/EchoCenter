@@ -10,7 +10,7 @@
 API_URL="http://localhost:8080/api"
 ADMIN_USER="admin"
 ADMIN_PASS="admin123"
-DB_FILE="data/echocenter.db"
+DB_FILE="echocenter.db"
 
 echo "--- EchoCenter Seeder ---"
 
