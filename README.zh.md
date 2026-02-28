@@ -1,6 +1,6 @@
 # EchoCenter
 
-[English README](./README.md)
+[文档站点](https://l-rocket.github.io/EchoCenter/) | [English README](./README.md)
 
 EchoCenter 是一个智能代理中心系统，用于协调和管理多个 AI 代理。它提供了一个集中的平台，用于代理注册、消息传递、命令执行和状态监控。
 
