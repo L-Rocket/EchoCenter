@@ -1,6 +1,6 @@
 import { Moon, Sun, Monitor } from "lucide-react"
 import { useTheme } from "@/hooks/useTheme"
-import { Theme } from "@/context/ThemeProvider"
+import type { Theme } from "@/context/ThemeProvider"
 import {
   Select,
   SelectContent,

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 export interface ChatMessage {
   id?: number
-  type: 'CHAT' | 'SYSTEM' | 'SYSTEM_LOG' | 'AUTH_REQUEST' | 'AUTH_RESPONSE'
+  type: 'CHAT' | 'SYSTEM' | 'SYSTEM_LOG' | 'AUTH_REQUEST' | 'AUTH_RESPONSE' | 'CHAT_STREAM' | 'CHAT_STREAM_END'
   sender_id: number
   sender_name: string
   target_id?: number

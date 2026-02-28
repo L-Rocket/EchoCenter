@@ -33,7 +33,7 @@ const LogFilterBar: React.FC<LogFilterBarProps> = ({ filters, onFilterChange }) 
         const response = await axios.get(`${API_BASE_URL}/api/users/agents`);
         setAgents(Array.isArray(response.data) ? response.data : []);
       } catch (_err) {
-        console.error('Failed to fetch agents for filter:', err);
+        console.error('Failed to fetch agents for filter:', _err);
       }
     };
     fetchAgents();

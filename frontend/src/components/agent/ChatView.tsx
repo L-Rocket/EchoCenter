@@ -168,15 +168,15 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
                       reason={p.reason as string}
                       onApprove={(id) => sendAuthResponse(id, true)}
                       onReject={(id) => sendAuthResponse(id, false)}
-                      status={(p.status as string) || 'PENDING'}
+                      status={(p.status as 'PENDING' | 'APPROVED' | 'REJECTED') || 'PENDING'}
                     />
                   </div>
                 </div>
               );
             }
 
-            // Render other process messages (AUTH_RESPONSE, SYSTEM) as collapsible
-            if (isAuthResponse || isSystem) {
+            // Render other process messages (AUTH_RESPONSE, SYSTEM, SYSTEM_LOG) as collapsible
+            if (isAuthResponse || isSystem || msg.type === 'SYSTEM_LOG') {
               const p = payload as Record<string, unknown>;
               return (
                 <ProcessMessage

@@ -18,7 +18,7 @@ interface AuthResponsePayload {
 }
 
 interface ProcessMessageProps {
-  type: 'AUTH_REQUEST' | 'AUTH_RESPONSE' | 'SYSTEM' | 'CHAT';
+  type: 'AUTH_REQUEST' | 'AUTH_RESPONSE' | 'SYSTEM' | 'CHAT' | 'SYSTEM_LOG' | 'CHAT_STREAM' | 'CHAT_STREAM_END';
   payload: string | Record<string, unknown>;
   timestamp: string;
   status?: string;
