@@ -64,8 +64,9 @@ const DashboardPage = () => {
       setLoading(false)
       setLoadingMore(false)
       setError(null)
-    } catch (_err: any) {
-      if (err.response?.status === 401) {
+    } catch (err) {
+      const axiosError = err as { response?: { status: number } };
+      if (axiosError.response?.status === 401) {
         logout()
       }
       console.error("Failed to fetch messages:", err)
@@ -89,7 +90,7 @@ const DashboardPage = () => {
       // Avoid synchronous setState in effect
       const timer = setTimeout(() => {
         setMessages(prev => {
-          const _latest = wsLogs[0];
+          const latest = wsLogs[0] as unknown as Message;
           if (latest && !prev.some(m => m.id === latest.id)) {
             return [latest, ...prev].slice(0, 50);
           }

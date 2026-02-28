@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import axios from 'axios'
 import { AuthProvider } from './context/AuthContext'
-import { ThemeProvider } from './components/theme-provider'
+import { ThemeProvider } from './context/ThemeProvider'
 import { MainLayout } from './components/layout/MainLayout'
 import RequireAuth from './components/layout/RequireAuth'
 

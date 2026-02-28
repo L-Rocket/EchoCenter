@@ -14,7 +14,7 @@ const getWsUrl = () => {
 
 const WS_URL = getWsUrl();
 
-export const useWebSocket = (token: string | null, onLogReceived?: (log: any) => void) => {
+export const useWebSocket = (token: string | null, onLogReceived?: (log: Record<string, unknown>) => void) => {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
@@ -40,10 +40,11 @@ export const useWebSocket = (token: string | null, onLogReceived?: (log: any) =>
         if (msg.type === 'CHAT') {
            addMessage(msg.sender_id, msg);
         } else if (msg.type === 'SYSTEM_LOG' && onLogReceived) {
-           onLogReceived(msg.payload);
+           const logPayload = typeof msg.payload === 'string' ? JSON.parse(msg.payload) : msg.payload;
+           onLogReceived(logPayload as Record<string, unknown>);
         }
       } catch (_err) {
-        console.error('Failed to parse WS message:', err);
+        console.error('Failed to parse WS message:', _err);
       }
     };
 
@@ -81,11 +82,6 @@ export const useWebSocket = (token: string | null, onLogReceived?: (log: any) =>
         payload: payload,
       };
       socketRef.current.send(JSON.stringify(msg));
-      
-      // Also add to local store immediately for better UX
-      // We need local user info for this. 
-      // For now, I'll let the server broadcast it back or handle it in the component.
-      // Better to let server broadcast it back so we have consistent attribution.
     }
   }, []);
 

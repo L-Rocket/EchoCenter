@@ -6,7 +6,7 @@ export interface ChatMessage {
   sender_id: number
   sender_name: string
   target_id?: number
-  payload: string | any
+  payload: string | Record<string, unknown>
   timestamp: string
   stream_id?: string 
 }
@@ -34,12 +34,12 @@ export const useChatStore = create<ChatState>((set) => ({
       // 1. SYSTEM and AUTH_REQUEST message deduplication by action_id
       if (message.type === 'SYSTEM' || message.type === 'AUTH_REQUEST') {
         try {
-          const newPayload = typeof message.payload === 'string' ? JSON.parse(message.payload) : message.payload
+          const newPayload = typeof message.payload === 'string' ? JSON.parse(message.payload) : (message.payload as Record<string, unknown>)
           if (newPayload && newPayload.action_id) {
             const duplicateIndex = existing.findIndex(m => {
               if (m.type !== 'SYSTEM' && m.type !== 'AUTH_REQUEST') return false
               try {
-                const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : m.payload
+                const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : (m.payload as Record<string, unknown>)
                 return p && p.action_id === newPayload.action_id
               } catch (_e) {
                 // Ignore parse errors
@@ -91,7 +91,7 @@ export const useChatStore = create<ChatState>((set) => ({
         const updatedMessages = [...existing]
         updatedMessages[messageIndex] = {
           ...updatedMessages[messageIndex],
-          payload: updatedMessages[messageIndex].payload + chunk.payload,
+          payload: (updatedMessages[messageIndex].payload as string) + chunk.payload,
           timestamp: chunk.timestamp
         }
         return {
@@ -144,7 +144,7 @@ export const useChatStore = create<ChatState>((set) => ({
         // Special key for SYSTEM requests to ensure they merge correctly
         if (m.type === 'SYSTEM') {
           try {
-            const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : m.payload
+            const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : (m.payload as Record<string, unknown>)
             merged.set(`sys_${p.action_id}`, m)
             return
           } catch (_e) {
@@ -158,7 +158,7 @@ export const useChatStore = create<ChatState>((set) => ({
       current.forEach(m => {
         if (m.type === 'SYSTEM') {
           try {
-            const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : m.payload
+            const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : (m.payload as Record<string, unknown>)
             const key = `sys_${p.action_id}`
             if (!merged.has(key)) merged.set(key, m)
             return
@@ -206,7 +206,7 @@ export const useChatStore = create<ChatState>((set) => ({
         if (m.type !== 'SYSTEM') return true
         // Remove execution_start messages
         try {
-          const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : m.payload
+          const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : (m.payload as Record<string, unknown>)
           return p.type !== 'execution_start'
         } catch (_e) {
           // Ignore parse errors
