@@ -288,7 +288,7 @@ func (r *sqliteRepository) GetUserByUsername(ctx context.Context, username strin
 	}
 
 	if apiToken.Valid {
-		user.ApiToken = apiToken.String
+		user.APIToken = apiToken.String
 	}
 	return &user, nil
 }
@@ -311,7 +311,7 @@ func (r *sqliteRepository) GetUserByID(ctx context.Context, id int) (*models.Use
 	}
 
 	if apiToken.Valid {
-		user.ApiToken = apiToken.String
+		user.APIToken = apiToken.String
 	}
 	return &user, nil
 }
@@ -332,7 +332,7 @@ func (r *sqliteRepository) GetAgentByToken(ctx context.Context, token string) (*
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to get agent by token", err)
 	}
 
-	user.ApiToken = token
+	user.APIToken = token
 	return &user, nil
 }
 
