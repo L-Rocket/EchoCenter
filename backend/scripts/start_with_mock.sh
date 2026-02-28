@@ -3,8 +3,11 @@
 # EchoCenter Startup Script with Mock Data
 # This script starts the server and automatically seeds it with mock agents/data.
 
-# 1. Ensure we are in the backend directory
-cd "$(dirname "$0")"
+# Get the project root directory (parent of scripts/)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+cd "$PROJECT_ROOT"
 
 echo "--- Starting EchoCenter with Mock Data ---"
 
@@ -29,7 +32,7 @@ while ! curl -s http://localhost:8080/api/ping > /dev/null; do
     sleep 1
     COUNT=$((COUNT + 1))
     if [ $COUNT -ge $MAX_RETRIES ]; then
-        echo "Error: Server failed to start in time. Check server.log"
+        echo "Error: Server failed to start in time. Check logs/server.log"
         kill $SERVER_PID
         exit 1
     fi
@@ -37,13 +40,13 @@ done
 
 # 5. Run the seeder
 echo "Server is UP. Seeding mock data..."
-./seed_mock_data.sh
+"$SCRIPT_DIR/seed_mock_data.sh"
 
 echo -e "
 --- Startup Complete ---"
 echo "Server is running (PID: $SERVER_PID). Press Ctrl+C to stop."
 echo "Dashboard: http://localhost:5173"
-echo "Logs are being written to backend/server.log"
+echo "Logs are being written to backend/logs/server.log"
 
 # 6. Wait for server process to finish (keep script alive)
 trap "kill $SERVER_PID; echo 'Server stopped.'; exit" SIGINT SIGTERM

@@ -164,10 +164,12 @@ User Instruction: {payload}"""
 if __name__ == "__main__":
     # We need to get the token for Storage-Custodian from the DB
     import sqlite3
-    db_path = "echocenter.db"
+    db_path = "data/echocenter.db"
     # Try multiple common paths depending on where it's launched
     if not os.path.exists(db_path):
-        db_path = "../echocenter.db"
+        db_path = "../data/echocenter.db"
+    if not os.path.exists(db_path):
+        db_path = "echocenter.db"
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("SELECT api_token FROM users WHERE username='Storage-Custodian'")
