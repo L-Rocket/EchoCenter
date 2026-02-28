@@ -12,10 +12,11 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/lea/echocenter/backend/internal/api/router"
+	"github.com/lea/echocenter/backend/internal/api/handler"
 	"github.com/lea/echocenter/backend/internal/auth"
 	"github.com/lea/echocenter/backend/internal/butler"
 	"github.com/lea/echocenter/backend/internal/config"
-	"github.com/lea/echocenter/backend/internal/handlers"
 	"github.com/lea/echocenter/backend/internal/repository"
 	"github.com/lea/echocenter/backend/internal/websocket"
 )
@@ -73,7 +74,7 @@ func main() {
 	go hub.Run(rootCtx)
 
 	// Initialize handlers
-	handler := handlers.NewHandler(repo, authSvc, hub)
+	h := handler.NewHandler(repo, authSvc, hub)
 
 	// Setup Gin router
 	gin.SetMode(gin.ReleaseMode)
@@ -93,7 +94,7 @@ func main() {
 	r.Use(cors.New(corsConfig))
 
 	// Setup routes
-	setupRoutes(r, handler, authSvc)
+	router.Setup(r, h, authSvc)
 
 	// Create HTTP server
 	srv := &http.Server{
@@ -130,39 +131,4 @@ func main() {
 	rootCancel()
 
 	log.Println("Server exited")
-}
-
-// setupRoutes configures all HTTP routes
-func setupRoutes(r *gin.Engine, h *handlers.Handler, authSvc auth.Service) {
-	// Public routes
-	api := r.Group("/api")
-	{
-		api.GET("/ping", h.Ping)
-		api.POST("/auth/login", h.Login)
-		api.GET("/ws", h.HandleWS)
-	}
-
-	// Protected routes
-	protected := api.Group("/")
-	protected.Use(authSvc.AuthMiddleware())
-	{
-		// Messages
-		protected.GET("/messages", h.GetMessages)
-		protected.POST("/messages", h.IngestMessage)
-
-		// Agents
-		protected.GET("/users/agents", h.GetAgents)
-
-		// Chat
-		protected.GET("/chat/history/:peer_id", h.GetChatHistory)
-		protected.POST("/chat/auth/response", h.AuthResponse)
-
-		// Admin routes
-		admin := protected.Group("/users")
-		admin.Use(authSvc.AdminOnlyMiddleware())
-		{
-			admin.POST("", h.CreateUser)
-			admin.POST("/agents", h.RegisterAgent)
-		}
-	}
 }
