@@ -416,12 +416,14 @@ func (r *sqliteRepository) CreateAgent(ctx context.Context, username, token stri
 
 // SaveChatMessage saves a chat message
 func (r *sqliteRepository) SaveChatMessage(ctx context.Context, msg *models.ChatMessage) error {
-	query := `INSERT INTO chat_messages (sender_id, receiver_id, type, content) VALUES (?, ?, ?, ?)`
+	query := `INSERT INTO chat_messages (sender_id, receiver_id, type, content, timestamp) VALUES (?, ?, ?, ?, ?)`
 	msgType := msg.Type
 	if msgType == "" {
 		msgType = "CHAT"
 	}
-	_, err := r.db.ExecContext(ctx, query, msg.SenderID, msg.ReceiverID, msgType, msg.Payload)
+	// Use high-precision timestamp
+	timestamp := time.Now()
+	_, err := r.db.ExecContext(ctx, query, msg.SenderID, msg.ReceiverID, msgType, msg.Payload, timestamp)
 	if err != nil {
 		return apperrors.Wrap(apperrors.ErrDatabase, "failed to save chat message", err)
 	}

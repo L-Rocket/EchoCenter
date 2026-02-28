@@ -41,7 +41,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
       setIsHistoryLoading(true);
       try {
         const historyData = await userService.getChatHistory(agent.id);
-        const history = historyData.map((m) => ({
+        const history = (Array.isArray(historyData) ? historyData : []).map((m) => ({
           ...m,
           type: m.type || 'CHAT',
           sender_name: m.sender_id === agent.id ? agent.username : (user?.username || 'Me')
