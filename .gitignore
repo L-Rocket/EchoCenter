@@ -1,8 +1,8 @@
 # Go
-backend/backend
-backend/echocenter
-backend/echocenter_server
-backend/server.log
+backend/bin/
+backend/logs/
+backend/data/*.db
+backend/data/*.db-journal
 *.exe
 *.exe~
 *.dll
@@ -11,8 +11,6 @@ backend/server.log
 *.test
 *.out
 vendor/
-echocenter.db
-echocenter.db-journal
 
 # Node.js
 node_modules/

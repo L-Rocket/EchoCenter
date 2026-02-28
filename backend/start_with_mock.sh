@@ -10,7 +10,7 @@ echo "--- Starting EchoCenter with Mock Data ---"
 
 # 2. Build the server
 echo "Building server..."
-go build -o echocenter_server ./cmd/server
+go build -o bin/server ./cmd/server
 if [ $? -ne 0 ]; then
     echo "Error: Build failed."
     exit 1
@@ -18,7 +18,7 @@ fi
 
 # 3. Start the server in the background
 echo "Launching server on :8080..."
-./echocenter_server > server.log 2>&1 &
+./bin/server > logs/server.log 2>&1 &
 SERVER_PID=$!
 
 # 4. Wait for server to be ready

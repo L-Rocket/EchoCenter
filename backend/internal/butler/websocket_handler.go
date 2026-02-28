@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/lea/echocenter/backend/internal/websocket"
+	"github.com/lea/echocenter/backend/internal/api/websocket"
 )
 
 // streamBuffer holds accumulated stream content
