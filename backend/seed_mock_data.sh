@@ -10,7 +10,7 @@
 API_URL="http://localhost:8080/api"
 ADMIN_USER="admin"
 ADMIN_PASS="admin123"
-DB_FILE="echocenter.db"
+DB_FILE="data/echocenter.db"
 
 echo "--- EchoCenter Seeder ---"
 
@@ -29,7 +29,14 @@ fi
 
 echo "Login successful."
 
-# 2. Register Agents
+# 2. Register Butler (ID should be 2)
+echo "Registering Butler..."
+curl -s -X POST $API_URL/users/agents \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $TOKEN" \
+     -d '{"username": "Butler"}' > /dev/null
+
+# 3. Register Agents
 declare -a AGENTS=("Weather-Sentinel" "Code-Reviewer-AI" "Security-Audit-Bot" "Echo-Bot" "Storage-Custodian")
 
 for agent in "${AGENTS[@]}"; do
@@ -40,7 +47,7 @@ for agent in "${AGENTS[@]}"; do
          -d "{\"username\": \"$agent\"}" > /dev/null
 done
 
-# 3. Ingest Mock Status Messages (Dashboard)
+# 4. Ingest Mock Status Messages (Dashboard)
 echo "Populating dashboard with initial records..."
 
 curl -s -X POST $API_URL/messages \
@@ -58,7 +65,7 @@ curl -s -X POST $API_URL/messages \
      -H "Authorization: Bearer $TOKEN" \
      -d '{"agent_id": "Echo-Bot", "level": "INFO", "content": "[Handshake] Hello operator! I am connected via WebSocket and ready to reflect your commands."}'
 
-# 4. Mock Chat History (Dynamic IDs)
+# 5. Mock Chat History (Dynamic IDs)
 echo "Seeding initial chat history for all agents..."
 
 # Clear existing history first to avoid mess

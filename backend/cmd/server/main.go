@@ -57,13 +57,11 @@ func main() {
 	if err == nil && agent != nil {
 		butlerWSHandler := butler.NewWebSocketHandler(agent.ID)
 		hub = websocket.NewHub(websocket.NewCompositeHandler(persistHandler, butlerUserHandler, butlerWSHandler))
+		butler.InitButler(agent.ID, agent.Username, hub, repo)
+		log.Printf("Butler service initialized for agent: %s (ID: %d)", agent.Username, agent.ID)
 	} else {
 		hub = websocket.NewHub(websocket.NewCompositeHandler(persistHandler, butlerUserHandler))
-	}
-	if err == nil && agent != nil {
-		butler.InitButler(agent.ID, agent.Username, hub, repo)
-	} else {
-		log.Println("WARNING: 'Butler' not found in database. Butler service disabled.")
+		log.Println("WARNING: 'Butler' not found in database. Run seed script to create Butler.")
 	}
 
 	// Create root context for graceful shutdown
