@@ -232,7 +232,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             payload.status = approved ? 'APPROVED' : 'REJECTED';
             return { ...msg, payload: JSON.stringify(payload) };
           }
-        } catch (e) {}
+        } catch (e) {
+          // Ignore parse errors for non-auth messages
+        }
       }
       return msg;
     });
@@ -263,7 +265,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 payload.status = 'PENDING';
                 return { ...msg, payload: JSON.stringify(payload) };
               }
-            } catch (e) {}
+            } catch (e) {
+              // Ignore parse errors during revert
+            }
           }
           return msg;
         });

@@ -42,6 +42,7 @@ export const useChatStore = create<ChatState>((set) => ({
                 const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : m.payload
                 return p && p.action_id === newPayload.action_id
               } catch (e) {
+                // Ignore parse errors
                 return false
               }
             })
@@ -53,7 +54,7 @@ export const useChatStore = create<ChatState>((set) => ({
             }
           }
         } catch (e) {
-          console.error('Failed to parse message payload for deduplication:', e)
+          // Ignore parse errors
         }
       }
 
@@ -146,7 +147,9 @@ export const useChatStore = create<ChatState>((set) => ({
             const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : m.payload
             merged.set(`sys_${p.action_id}`, m)
             return
-          } catch(e) {}
+          } catch (e) {
+            // Ignore parse errors
+          }
         }
         merged.set(key, m)
       })
@@ -159,7 +162,9 @@ export const useChatStore = create<ChatState>((set) => ({
             const key = `sys_${p.action_id}`
             if (!merged.has(key)) merged.set(key, m)
             return
-          } catch(e) {}
+          } catch (e) {
+            // Ignore parse errors
+          }
         }
         
         // Skip if this message is a duplicate of any history message
@@ -204,6 +209,7 @@ export const useChatStore = create<ChatState>((set) => ({
           const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : m.payload
           return p.type !== 'execution_start'
         } catch (e) {
+          // Ignore parse errors
           return true
         }
       })

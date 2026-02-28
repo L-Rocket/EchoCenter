@@ -59,7 +59,7 @@ export const useWebSocket = (token: string | null, onLogReceived?: (log: any) =>
         socketRef.current = null;
       }
     };
-  }, [token, addMessage]);
+  }, [token, addMessage, onLogReceived]);
 
   const disconnect = useCallback(() => {
     if (socketRef.current) {

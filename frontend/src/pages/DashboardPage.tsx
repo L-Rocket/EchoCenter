@@ -76,19 +76,27 @@ const DashboardPage = () => {
   }, [filters.agentID, filters.level, debouncedQuery, offset, logout])
 
   useEffect(() => {
-    fetchMessages(false)
-  }, [filters.agentID, filters.level, debouncedQuery])
+    // Avoid synchronous setState in effect
+    const timer = setTimeout(() => {
+      fetchMessages(false)
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [filters.agentID, filters.level, debouncedQuery, fetchMessages])
 
   useEffect(() => {
     const isFiltering = filters.agentID || filters.level || debouncedQuery;
     if (!isFiltering && wsLogs.length > 0) {
-      setMessages(prev => {
-        const latest = wsLogs[0];
-        if (latest && !prev.some(m => m.id === latest.id)) {
-          return [latest, ...prev].slice(0, 50);
-        }
-        return prev;
-      });
+      // Avoid synchronous setState in effect
+      const timer = setTimeout(() => {
+        setMessages(prev => {
+          const latest = wsLogs[0];
+          if (latest && !prev.some(m => m.id === latest.id)) {
+            return [latest, ...prev].slice(0, 50);
+          }
+          return prev;
+        });
+      }, 0)
+      return () => clearTimeout(timer)
     }
   }, [wsLogs, filters.agentID, filters.level, debouncedQuery])
 
