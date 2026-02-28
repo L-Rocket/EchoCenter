@@ -416,14 +416,31 @@ func (h *Handler) AuthResponse(c *gin.Context) {
 		status = "APPROVED"
 	}
 
+	// Try to update authorization status, but don't fail if it doesn't exist
+	// (it might be a pending command without a stored authorization)
 	if err := h.repo.UpdateAuthorizationStatus(c.Request.Context(), req.ActionID, status); err != nil {
-		h.respondWithError(c, http.StatusInternalServerError, err)
-		return
+		// Only log the error, don't return - we still want to try resolving the action
+		log.Printf("[AuthResponse] Note: Could not update authorization status for %s: %v", req.ActionID, err)
 	}
 
-	// Notify Butler to resume the pending action
-	if resolved := butler.ResolveAction(req.ActionID, req.Approved); !resolved {
-		log.Printf("[AuthResponse] Warning: Action %s was not found in pending actions", req.ActionID)
+	// Get current user ID from context
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.respondWithError(c, http.StatusUnauthorized, apperrors.New(apperrors.ErrUnauthorized, "user not authenticated"))
+		return
+	}
+	senderID := userID.(int)
+
+	// First try to resolve as a tool action
+	resolved := butler.ResolveAction(req.ActionID, req.Approved)
+
+	// If not resolved as tool action, try as a pending command
+	if !resolved {
+		resolved = butler.ExecutePendingCommandByID(c.Request.Context(), req.ActionID, senderID, req.Approved)
+	}
+
+	if !resolved {
+		log.Printf("[AuthResponse] Warning: Action %s was not found in pending actions or commands", req.ActionID)
 	}
 
 	c.JSON(http.StatusOK, gin.H{

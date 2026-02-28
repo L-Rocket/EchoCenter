@@ -12,7 +12,7 @@ lsof -ti:8080 | xargs kill -9 2>/dev/null
 # 2. Build and Start Backend
 echo "Starting Backend (Go)..."
 cd "$(dirname "$0")"
-go build -o server cmd/server/main.go
+go build -o server ./cmd/server
 ./server &
 BACKEND_PID=$!
 

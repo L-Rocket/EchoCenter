@@ -187,14 +187,62 @@ func NewCommandAgentTool() tool.InvokableTool {
 	return &CommandAgentTool{}
 }
 
-// ResolveAction resumes a pending tool execution
+// ExecuteCommandDirect executes a command directly without waiting for user approval
+// This is used when the command has already been approved
+func ExecuteCommandDirect(ctx context.Context, targetAgentID int, command string, reasoning string) (string, error) {
+	log.Printf("[Butler Tool] Directly executing command to Agent %d: %s", targetAgentID, command)
+
+	// Prepare to receive response
+	respChan := make(chan string, 1)
+	actionsMu.Lock()
+	pendingResponses[targetAgentID] = respChan
+	log.Printf("[Butler Tool] Registered listener for Agent %d response", targetAgentID)
+	actionsMu.Unlock()
+
+	// Deliver message to target agent
+	if b := GetButler(); b != nil {
+		commandMsg := fmt.Sprintf("[DIRECTIVE] %s", command)
+		if repoInstance != nil {
+			_ = repoInstance.SaveChatMessage(ctx, &models.ChatMessage{
+				SenderID:   b.butlerID,
+				ReceiverID: targetAgentID,
+				Payload:    commandMsg,
+			})
+		}
+		b.hub.BroadcastGeneric(map[string]interface{}{
+			"type":        "CHAT",
+			"sender_id":   b.butlerID,
+			"sender_name": b.butlerName,
+			"sender_role": "BUTLER",
+			"target_id":   targetAgentID,
+			"payload":     commandMsg,
+		})
+	}
+
+	// WAIT for the agent to report back (max 30s)
+	log.Printf("[Butler Tool] Waiting for Agent %d to reply...", targetAgentID)
+	select {
+	case realResult := <-respChan:
+		log.Printf("[Butler Tool] Received REAL response from Agent %d: %s", targetAgentID, truncateString(realResult, 20))
+		return realResult, nil
+	case <-time.After(30 * time.Second):
+		actionsMu.Lock()
+		delete(pendingResponses, targetAgentID)
+		actionsMu.Unlock()
+		log.Printf("[Butler Tool] TIMEOUT waiting for Agent %d", targetAgentID)
+		return "Timeout: Target agent did not respond within 30 seconds.", nil
+	}
+}
+
+// ResolveAction resumes a pending tool execution or command
 func ResolveAction(actionID string, approved bool) bool {
+	// First check pendingActions (for tool execution)
 	actionsMu.Lock()
 	ch, ok := pendingActions[actionID]
-	log.Printf("[Butler ResolveAction] Looking for action %s. Found: %v, Pending actions count: %d", actionID, ok, len(pendingActions))
 	actionsMu.Unlock()
 
 	if ok {
+		log.Printf("[Butler ResolveAction] Found action %s in pendingActions", actionID)
 		select {
 		case ch <- approved:
 			log.Printf("[Butler ResolveAction] Successfully sent approval=%v for action %s", approved, actionID)
@@ -204,6 +252,50 @@ func ResolveAction(actionID string, approved bool) bool {
 			return false
 		}
 	}
-	log.Printf("[Butler ResolveAction] Action %s not found in pending actions", actionID)
+
+	// Check pendingCommands (for service-level commands)
+	pendingCommandsMu.RLock()
+	_, ok = pendingCommands[actionID]
+	pendingCommandsMu.RUnlock()
+
+	if ok {
+		log.Printf("[Butler ResolveAction] Found action %s in pendingCommands", actionID)
+		// Execute the pending command
+		// We need to get the butler service instance to execute it
+		// This will be handled by the service's ExecutePendingCommand method
+		return true
+	}
+
+	log.Printf("[Butler ResolveAction] Action %s not found in pending actions or commands", actionID)
 	return false
+}
+
+// ExecutePendingCommandByID executes a pending command by its action ID
+// This is called by the handler after user approval
+func ExecutePendingCommandByID(ctx context.Context, actionID string, senderID int, approved bool) bool {
+	pendingCommandsMu.RLock()
+	_, exists := pendingCommands[actionID]
+	pendingCommandsMu.RUnlock()
+
+	if !exists {
+		return false
+	}
+
+	// Get the global butler service instance
+	if globalButlerService == nil {
+		log.Printf("[Butler] No global service instance available")
+		return false
+	}
+
+	// Let ExecutePendingCommand handle the deletion
+	globalButlerService.ExecutePendingCommand(ctx, actionID, senderID, approved)
+	return true
+}
+
+// globalButlerService holds the singleton butler service instance
+var globalButlerService *ButlerService
+
+// SetGlobalService sets the global butler service instance
+func SetGlobalService(svc *ButlerService) {
+	globalButlerService = svc
 }

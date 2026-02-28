@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"sync"
 
 	"github.com/google/uuid"
@@ -65,6 +66,8 @@ func InitButler(id int, name string, hub HubInterface, repo repository.Repositor
 			hub:        hub,
 			repo:       repo,
 		}
+		// Set global service for command execution
+		SetGlobalService(instance)
 		log.Printf("Butler service initialized for agent: %s (ID: %d)", name, id)
 		if baseURL != "" {
 			log.Printf("Butler brain connected to: %s", baseURL)
@@ -161,6 +164,10 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
 	}
 }
 
+// pendingCommands stores commands waiting for user authorization
+var pendingCommands = make(map[string]*ChatStreamResult)
+var pendingCommandsMu sync.RWMutex
+
 // HandleUserMessage processes direct instructions to the butler
 func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, payload string) {
 	if s.brain == nil {
@@ -183,7 +190,8 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 		systemState = "System error: Unable to retrieve agent list."
 	}
 
-	fullReply, err := s.brain.ChatStream(ctx, sessionID, payload, systemState, func(chunk string) error {
+	// Step 1: Stream the initial response and detect if there's a command
+	result, err := s.brain.ChatStream(ctx, sessionID, payload, systemState, func(chunk string) error {
 		msg := map[string]interface{}{
 			"type":        "CHAT_STREAM",
 			"sender_id":   s.butlerID,
@@ -202,13 +210,131 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 		return
 	}
 
+	// Save the initial response
 	err = s.repo.SaveChatMessage(ctx, &models.ChatMessage{
 		SenderID:   s.butlerID,
 		ReceiverID: senderID,
-		Payload:    fullReply,
+		Payload:    result.Content,
 	})
 	if err != nil {
 		log.Printf("[Butler] Failed to persist chat: %v", err)
+	}
+
+	// Step 2: If there's a command, send AUTH_REQUEST and wait for user approval
+	if result.HasCommand {
+		// Store the command for later execution
+		pendingCommandsMu.Lock()
+		pendingCommands[streamID] = result
+		pendingCommandsMu.Unlock()
+
+		// Convert agent_id to int for frontend
+		var agentID int
+		switch v := result.Command["target_agent_id"].(type) {
+		case float64:
+			agentID = int(v)
+		case int:
+			agentID = v
+		case string:
+			agentID, _ = strconv.Atoi(v)
+		}
+
+		// Send AUTH_REQUEST to user
+		authPayload := map[string]interface{}{
+			"action_id":         streamID,
+			"target_agent_name": fmt.Sprintf("Agent %d", agentID),
+			"command":           result.Command["command"],
+			"reason":            result.Command["reasoning"],
+			"status":            "PENDING",
+		}
+
+		s.hub.BroadcastGeneric(map[string]interface{}{
+			"type":        "AUTH_REQUEST",
+			"sender_id":   s.butlerID,
+			"sender_name": s.butlerName,
+			"sender_role": "BUTLER",
+			"target_id":   senderID,
+			"payload":     authPayload,
+		})
+
+		// Send CHAT_STREAM_END to stop the processing indicator
+		s.hub.BroadcastGeneric(map[string]interface{}{
+			"type":        "CHAT_STREAM_END",
+			"sender_id":   s.butlerID,
+			"sender_name": s.butlerName,
+			"sender_role": "BUTLER",
+			"target_id":   senderID,
+			"payload":     "",
+			"stream_id":   streamID,
+		})
+
+		return
+	}
+
+	// No command, end the stream normally
+	s.hub.BroadcastGeneric(map[string]interface{}{
+		"type":        "CHAT_STREAM_END",
+		"sender_id":   s.butlerID,
+		"sender_name": s.butlerName,
+		"sender_role": "BUTLER",
+		"target_id":   senderID,
+		"payload":     "",
+		"stream_id":   streamID,
+	})
+}
+
+// ExecutePendingCommand executes a pending command after user approval
+func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID string, senderID int, approved bool) {
+	pendingCommandsMu.Lock()
+	result, exists := pendingCommands[streamID]
+	if exists {
+		delete(pendingCommands, streamID)
+	}
+	pendingCommandsMu.Unlock()
+
+	if !exists {
+		log.Printf("[Butler] No pending command found for streamID: %s", streamID)
+		return
+	}
+
+	if !approved {
+		// User rejected the command
+		s.hub.BroadcastGeneric(map[string]interface{}{
+			"type":        "CHAT",
+			"sender_id":   s.butlerID,
+			"sender_name": s.butlerName,
+			"sender_role": "BUTLER",
+			"target_id":   senderID,
+			"payload":     "Command cancelled by user.",
+		})
+		s.hub.BroadcastGeneric(map[string]interface{}{
+			"type":        "CHAT_STREAM_END",
+			"sender_id":   s.butlerID,
+			"sender_name": s.butlerName,
+			"sender_role": "BUTLER",
+			"target_id":   senderID,
+			"payload":     "",
+			"stream_id":   streamID,
+		})
+		return
+	}
+
+	// Execute the command and stream the result
+	_, err := s.brain.ExecuteCommand(ctx, result, func(chunk string) error {
+		msg := map[string]interface{}{
+			"type":        "CHAT_STREAM",
+			"sender_id":   s.butlerID,
+			"sender_name": s.butlerName,
+			"sender_role": "BUTLER",
+			"target_id":   senderID,
+			"payload":     chunk,
+			"stream_id":   streamID,
+		}
+		s.hub.BroadcastGeneric(msg)
+		return nil
+	})
+
+	if err != nil {
+		log.Printf("[Butler] Error executing command: %v", err)
 	}
 
 	s.hub.BroadcastGeneric(map[string]interface{}{

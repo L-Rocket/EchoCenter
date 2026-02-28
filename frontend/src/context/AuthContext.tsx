@@ -224,9 +224,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Send to server
     console.log('[AuthContext] Sending to server...');
     import('axios').then(axios => {
+      const token = localStorage.getItem('token');
       axios.default.post('http://localhost:8080/api/chat/auth/response', {
         action_id: actionId,
         approved
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       }).then(() => {
         console.log('[AuthContext] Server response success');
       }).catch(err => {
