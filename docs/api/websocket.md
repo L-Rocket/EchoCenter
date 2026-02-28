@@ -1,3 +1,7 @@
+---
+outline: deep
+---
+
 # WebSocket 通信
 
 ## 概述
@@ -34,24 +38,15 @@ ws://localhost:8080/api/ws?token=your_jwt_token
 ```json
 {
   "type": "SYSTEM_LOG",
-  "sender_id": 7,
-  "sender_name": "Storage-Custodian",
-  "sender_role": "AGENT",
+  "sender_id": 1,
+  "sender_name": "admin",
+  "sender_role": "ADMIN",
   "payload": {
     "level": "SUCCESS",
-    "content": "Storage-Custodian initialized. Monitoring /path/to/hive_storage. 10 files detected."
+    "content": "System initialized"
   }
 }
 ```
-
-**字段**：
-- `type` - 消息类型
-- `sender_id` - 发送者 ID
-- `sender_name` - 发送者名称
-- `sender_role` - 发送者角色 (AGENT/BUTLER)
-- `payload` - 日志数据
-  - `level` - 日志级别 (INFO/WARNING/ERROR/SUCCESS)
-  - `content` - 日志内容
 
 ### 2. CHAT
 
@@ -60,336 +55,154 @@ ws://localhost:8080/api/ws?token=your_jwt_token
 ```json
 {
   "type": "CHAT",
-  "sender_id": 2,
-  "sender_name": "Butler",
-  "sender_role": "BUTLER",
-  "target_id": 1,
-  "payload": "Hello, how can I help you?",
+  "sender_id": 1,
+  "sender_name": "admin",
+  "sender_role": "ADMIN",
+  "target_id": 2,
+  "payload": "Hello, Butler!",
   "timestamp": "2024-01-01T00:00:00Z"
 }
 ```
 
-**字段**：
-- `type` - 消息类型
-- `sender_id` - 发送者 ID
-- `sender_name` - 发送者名称
-- `sender_role` - 发送者角色
-- `target_id` - 接收者 ID
-- `payload` - 消息内容
-- `timestamp` - 时间戳
+### 3. AUTH_REQUEST
 
-### 3. CHAT_STREAM
-
-流式聊天消息：
+授权请求：
 
 ```json
 {
-  "type": "CHAT_STREAM",
+  "type": "AUTH_REQUEST",
   "sender_id": 2,
   "sender_name": "Butler",
   "sender_role": "BUTLER",
   "target_id": 1,
-  "payload": "Processing your request...",
-  "stream_id": "abc123"
+  "payload": {
+    "action_id": "cmd_123",
+    "command": "ls -la",
+    "description": "List files in current directory"
+  }
 }
 ```
 
-**字段**：
-- `type` - 消息类型
-- `sender_id` - 发送者 ID
-- `sender_name` - 发送者名称
-- `sender_role` - 发送者角色
-- `target_id` - 接收者 ID
-- `payload` - 流内容
-- `stream_id` - 流 ID
+### 4. AUTH_RESPONSE
 
-### 4. CHAT_STREAM_END
-
-流结束消息：
+授权响应：
 
 ```json
 {
-  "type": "CHAT_STREAM_END",
-  "sender_id": 2,
-  "sender_name": "Butler",
-  "sender_role": "BUTLER",
-  "target_id": 1,
-  "payload": "",
-  "stream_id": "abc123"
+  "type": "AUTH_RESPONSE",
+  "sender_id": 1,
+  "sender_name": "admin",
+  "sender_role": "ADMIN",
+  "target_id": 2,
+  "payload": {
+    "action_id": "cmd_123",
+    "approved": true,
+    "message": "Approved by admin"
+  }
 }
 ```
 
-**字段**：
-- `type` - 消息类型
-- `sender_id` - 发送者 ID
-- `sender_name` - 发送者名称
-- `sender_role` - 发送者角色
-- `target_id` - 接收者 ID
-- `payload` - 空字符串
-- `stream_id` - 流 ID
+### 5. AGENT_RESPONSE
 
-## 通信模式
-
-### 1. 代理注册
+代理响应：
 
 ```json
-// 代理连接后发送
 {
-  "type": "SYSTEM_LOG",
+  "type": "AGENT_RESPONSE",
   "sender_id": 7,
   "sender_name": "Storage-Custodian",
   "sender_role": "AGENT",
+  "target_id": 2,
   "payload": {
-    "level": "SUCCESS",
-    "content": "Storage-Custodian initialized."
+    "action_id": "cmd_123",
+    "stream_id": "stream_456",
+    "response": "file1.txt\nfile2.txt",
+    "is_complete": true
   }
 }
 ```
 
-### 2. 用户消息
+## 消息格式
+
+### 通用格式
 
 ```json
-// 用户发送消息
 {
-  "type": "CHAT",
+  "type": "MESSAGE_TYPE",
   "sender_id": 1,
-  "sender_name": "Admin",
-  "sender_role": "ADMIN",
+  "sender_name": "sender_name",
+  "sender_role": "ADMIN|BUTLER|AGENT",
   "target_id": 2,
-  "payload": "Check the status of agent 7",
+  "payload": {},
   "timestamp": "2024-01-01T00:00:00Z"
 }
 ```
 
-### 3. Butler 响应
+### 字段说明
 
-```json
-// Butler 处理消息
-{
-  "type": "CHAT",
-  "sender_id": 2,
-  "sender_name": "Butler",
-  "sender_role": "BUTLER",
-  "target_id": 1,
-  "payload": "I'll check the status of agent 7.",
-  "timestamp": "2024-01-01T00:00:01Z"
-}
-```
+| 字段 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| type | string | 是 | 消息类型 |
+| sender_id | integer | 是 | 发送者 ID |
+| sender_name | string | 是 | 发送者名称 |
+| sender_role | string | 是 | 发送者角色 |
+| target_id | integer | 否 | 目标 ID |
+| payload | object | 是 | 消息负载 |
+| timestamp | string | 是 | 时间戳 |
 
-### 4. 授权请求
+## Hub 管理
 
-```json
-// Butler 发送授权请求
-{
-  "type": "AUTH_REQUEST",
-  "action_id": "cmd_123",
-  "sender_id": 2,
-  "sender_name": "Butler",
-  "sender_role": "BUTLER",
-  "target_id": 1,
-  "command": "get_status 7",
-  "reasoning": "User requested to check agent status",
-  "timestamp": "2024-01-01T00:00:02Z"
-}
-```
-
-### 5. 授权响应
-
-```json
-// 管理员批准/拒绝
-{
-  "type": "AUTH_RESPONSE",
-  "action_id": "cmd_123",
-  "approved": true,
-  "sender_id": 1,
-  "sender_name": "Admin",
-  "sender_role": "ADMIN",
-  "target_id": 2,
-  "timestamp": "2024-01-01T00:00:03Z"
-}
-```
-
-### 6. 命令执行
-
-```json
-// Butler 执行命令
-{
-  "type": "CHAT_STREAM",
-  "sender_id": 2,
-  "sender_name": "Butler",
-  "sender_role": "BUTLER",
-  "target_id": 1,
-  "payload": "Checking status...",
-  "stream_id": "cmd_123"
-}
-
-{
-  "type": "CHAT_STREAM",
-  "sender_id": 2,
-  "sender_name": "Butler",
-  "sender_role": "BUTLER",
-  "target_id": 1,
-  "payload": "Agent 7: Online",
-  "stream_id": "cmd_123"
-}
-
-{
-  "type": "CHAT_STREAM_END",
-  "sender_id": 2,
-  "sender_name": "Butler",
-  "sender_role": "BUTLER",
-  "target_id": 1,
-  "payload": "",
-  "stream_id": "cmd_123"
-}
-```
-
-## 心跳
-
-### Ping/Pong
-
-WebSocket 实现了自动心跳检测：
+### 连接管理
 
 ```go
-// 发送 ping
-writeWait = 10 * time.Second
-
-// 期望 pong
-pongWait = 60 * time.Second
-
-// 发送 ping 的周期
-pingPeriod = (pongWait * 9) / 10
-```
-
-## 错误处理
-
-### 认证错误
-
-```json
-{
-  "error": "invalid token"
+type Hub struct {
+    connections map[*Connection]bool
+    register    chan *Connection
+    unregister  chan *Connection
+    messages    chan *Message
 }
 ```
 
-### 连接错误
+### 消息分发
 
-```json
-{
-  "error": "connection failed"
-}
-```
-
-### 消息格式错误
-
-```json
-{
-  "error": "invalid message format"
-}
-```
-
-## 最佳实践
-
-### 1. 重新连接
-
-```javascript
-const reconnect = async () => {
-  try {
-    await connectWebSocket();
-  } catch (error) {
-    setTimeout(reconnect, 5000);
-  }
-};
-```
-
-### 2. 消息队列
-
-```javascript
-let messageQueue = [];
-
-const sendMessage = (msg) => {
-  if (ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(msg));
-  } else {
-    messageQueue.push(msg);
-  }
-};
-```
-
-### 3. 流式处理
-
-```javascript
-let currentStream = null;
-
-ws.onmessage = (event) => {
-  const msg = JSON.parse(event.data);
-  
-  if (msg.type === 'CHAT_STREAM') {
-    if (currentStream !== msg.stream_id) {
-      currentStream = msg.stream_id;
-      console.log('New stream:', msg.payload);
-    } else {
-      console.log(msg.payload);
+```go
+func (h *Hub) run() {
+    for {
+        select {
+        case conn := <-h.register:
+            h.connections[conn] = true
+        case conn := <-h.unregister:
+            if _, ok := h.connections[conn]; ok {
+                delete(h.connections, conn)
+                close(conn.send)
+            }
+        case msg := <-h.messages:
+            for conn := range h.connections {
+                select {
+                case conn.send <- msg:
+                default:
+                    delete(h.connections, conn)
+                    close(conn.send)
+                }
+            }
+        }
     }
-  } else if (msg.type === 'CHAT_STREAM_END') {
-    currentStream = null;
-  }
-};
+}
 ```
 
-## 示例
+## 代理连接
 
-### JavaScript 示例
-
-```javascript
-const token = localStorage.getItem('token');
-const ws = new WebSocket(`ws://localhost:8080/api/ws?token=${token}`);
-
-ws.onopen = () => {
-  console.log('Connected to WebSocket');
-};
-
-ws.onmessage = (event) => {
-  const msg = JSON.parse(event.data);
-  
-  switch (msg.type) {
-    case 'SYSTEM_LOG':
-      console.log('System log:', msg.payload);
-      break;
-    case 'CHAT':
-      console.log('Chat:', msg.payload);
-      break;
-    case 'CHAT_STREAM':
-      processStream(msg);
-      break;
-    case 'CHAT_STREAM_END':
-      endStream(msg);
-      break;
-  }
-};
-
-ws.onclose = () => {
-  console.log('Disconnected, reconnecting...');
-  setTimeout(() => connect(), 5000);
-};
-
-ws.onerror = (error) => {
-  console.error('WebSocket error:', error);
-};
-```
-
-### Python 示例
+### 连接示例
 
 ```python
 import asyncio
 import websockets
 import json
 
-async def connect():
-    token = get_token()
-    uri = f"ws://localhost:8080/api/ws?token={token}"
-    
+async def agent_loop(api_token):
+    uri = f"ws://localhost:8080/api/ws?token={api_token}"
     async with websockets.connect(uri) as ws:
-        # 发送系统日志
+        # 发送消息
         await ws.send(json.dumps({
             "type": "SYSTEM_LOG",
             "sender_id": 7,
@@ -397,66 +210,146 @@ async def connect():
             "sender_role": "AGENT",
             "payload": {
                 "level": "SUCCESS",
-                "content": "Connected successfully"
+                "content": "Agent connected"
             }
         }))
         
         # 接收消息
         async for message in ws:
             msg = json.loads(message)
-            print(f"Received: {msg}")
-
-asyncio.run(connect())
+            await handle_message(msg)
 ```
 
-### Go 示例
+### 连接参数
 
-```go
-package main
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| token | string | 是 | JWT 令牌 |
 
-import (
-    "log"
-    "net/url"
-    "github.com/gorilla/websocket"
-)
+## 前端连接
 
-func main() {
-    token := "your_token"
-    u := url.URL{
-        Scheme: "ws",
-        Host:   "localhost:8080",
-        Path:   "/api/ws",
-        RawQuery: "token=" + token,
-    }
-    
-    conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-    if err != nil {
-        log.Fatal("Dial error:", err)
-    }
-    defer conn.Close()
-    
-    // 发送消息
-    err = conn.WriteJSON(map[string]interface{}{
-        "type": "SYSTEM_LOG",
-        "sender_id": 7,
-        "sender_name": "Storage-Custodian",
-        "sender_role": "AGENT",
-        "payload": map[string]string{
-            "level":   "SUCCESS",
-            "content": "Connected",
-        },
-    })
-    if err != nil {
-        log.Fatal("Write error:", err)
-    }
-    
-    // 接收消息
-    var msg map[string]interface{}
-    err = conn.ReadJSON(&msg)
-    if err != nil {
-        log.Fatal("Read error:", err)
-    }
-    
-    log.Println("Received:", msg)
+### 连接示例
+
+```javascript
+const token = localStorage.getItem('token')
+const ws = new WebSocket(`ws://localhost:8080/api/ws?token=${token}`)
+
+ws.onopen = () => {
+  console.log('Connected to WebSocket')
+}
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data)
+  handleMessage(msg)
+}
+
+ws.onclose = () => {
+  console.log('Disconnected from WebSocket')
+}
+
+ws.onerror = (error) => {
+  console.error('WebSocket error:', error)
 }
 ```
+
+### 连接状态
+
+- `CONNECTING` - 连接中
+- `OPEN` - 已连接
+- `CLOSING` - 关闭中
+- `CLOSED` - 已关闭
+
+## 消息处理
+
+### 代理消息处理
+
+```python
+async def handle_message(msg):
+    if msg["type"] == "CHAT":
+        response = await process_command(msg["payload"])
+        await ws.send(json.dumps({
+            "type": "CHAT",
+            "sender_id": 7,
+            "sender_name": "Storage-Custodian",
+            "sender_role": "AGENT",
+            "target_id": msg["sender_id"],
+            "payload": response,
+            "timestamp": datetime.utcnow().isoformat()
+        }))
+```
+
+### 前端消息处理
+
+```javascript
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'SYSTEM_LOG':
+      console.log('System log:', msg.payload)
+      break
+    case 'CHAT':
+      console.log('Chat message:', msg.payload)
+      break
+    case 'AUTH_REQUEST':
+      console.log('Authorization request:', msg.payload)
+      break
+    case 'AUTH_RESPONSE':
+      console.log('Authorization response:', msg.payload)
+      break
+    case 'AGENT_RESPONSE':
+      console.log('Agent response:', msg.payload)
+      break
+  }
+}
+```
+
+## 错误处理
+
+### 连接错误
+
+```json
+{
+  "type": "ERROR",
+  "payload": {
+    "code": "INVALID_TOKEN",
+    "message": "Invalid JWT token"
+  }
+}
+```
+
+### 消息错误
+
+```json
+{
+  "type": "ERROR",
+  "payload": {
+    "code": "INVALID_MESSAGE",
+    "message": "Invalid message format"
+  }
+}
+```
+
+## 最佳实践
+
+### 1. 连接管理
+
+- 保持连接
+- 重连机制
+- 心跳检测
+
+### 2. 消息处理
+
+- 异步处理
+- 错误处理
+- 日志记录
+
+### 3. 安全性
+
+- 使用 HTTPS
+- 令牌验证
+- 输入验证
+
+### 4. 性能
+
+- 连接池
+- 消息队列
+- 并发处理

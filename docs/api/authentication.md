@@ -1,3 +1,7 @@
+---
+outline: deep
+---
+
 # 认证
 
 ## 概述
@@ -28,132 +32,176 @@ Content-Type: application/json
 
 ### 令牌结构
 
-JWT 令牌包含以下声明：
-- `user_id` - 用户 ID
-- `exp` - 过期时间
+```
+{
+  "user_id": 1,
+  "exp": 1700000000
+}
+```
+
+## 注册流程
+
+### 请求
+
+```
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "username": "newuser",
+  "password": "password123"
+}
+```
+
+### 响应
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyLCJleHAiOjE3MDAwMDAwMDB9.def456"
+}
+```
 
 ## 令牌验证
 
-### 请求头
-
-```http
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJleHAiOjE3MDAwMDAwMDB9.abc123
-```
-
-### 验证流程
-
-1. 从请求头中提取令牌
-2. 验证令牌签名
-3. 检查令牌是否过期
-4. 解析用户 ID
-5. 将用户 ID 添加到上下文
-
-## 中间件
-
-### Auth 中间件
-
-验证用户是否登录：
+### 中间件
 
 ```go
-func Auth(authSvc auth.Service) gin.HandlerFunc {
+func AuthMiddleware() gin.HandlerFunc {
     return func(c *gin.Context) {
-        token := c.Query("token")
-        if token == "" {
-            token = c.GetHeader("Authorization")
-        }
-        
-        userID, err := authSvc.ValidateToken(token)
-        if err != nil {
-            c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+        authHeader := c.GetHeader("Authorization")
+        if authHeader == "" {
+            c.JSON(http.StatusUnauthorized, ErrorResponse{
+                Error: Error{Code: "UNAUTHORIZED", Message: "Missing authorization header"}
+            })
+            c.Abort()
             return
         }
-        
+
+        tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+        token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+            return []byte(config.JWTSecret), nil
+        })
+
+        if err != !nil || !token.Valid {
+            c.JSON(http.StatusUnauthorized, ErrorResponse{
+                Error: Error{Code: "INVALID_TOKEN", Message: "Invalid token"}
+            })
+            c.Abort()
+            return
+        }
+
+        claims, ok := token.Claims.(jwt.MapClaims)
+        if !ok {
+            c.JSON(http.StatusUnauthorized, ErrorResponse{
+                Error: Error{Code: "INVALID_TOKEN", Message: "Invalid token claims"}
+            })
+            c.Abort()
+            return
+        }
+
+        userID := uint(claims["user_id"].(float64))
         c.Set("user_id", userID)
         c.Next()
     }
 }
 ```
 
-### AdminOnly 中间件
+## API 端点
 
-验证用户是否为管理员：
+### 登录
 
-```go
-func AdminOnly(authSvc auth.Service) gin.HandlerFunc {
-    return func(c *gin.Context) {
-        userID, _ := c.Get("user_id")
-        user, err := repo.GetUserByID(c, userID.(int))
-        if err != nil || user.Role != "admin" {
-            c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-            return
-        }
-        
-        c.Next()
-    }
+```
+POST /api/auth/login
+```
+
+**请求体**
+```json
+{
+  "username": "string",
+  "password": "string"
 }
 ```
 
-## 令牌管理
-
-### 令牌过期
-
-默认令牌过期时间为 24 小时。可以通过环境变量配置：
-
-```env
-JWT_EXPIRES_IN=24h
+**响应**
+```json
+{
+  "token": "string"
+}
 ```
 
-### 令牌刷新
+### 注册
 
-当前版本不支持令牌刷新。过期后需要重新登录。
+```
+POST /api/auth/register
+```
 
-### 令牌撤销
+**请求体**
+```json
+{
+  "username": "string",
+  "password": "string"
+}
+```
 
-当前版本不支持令牌撤销。可以通过修改 JWT 密钥来使所有令牌失效。
+**响应**
+```json
+{
+  "token": "string"
+}
+```
+
+## 权限控制
+
+### 角色
+
+- `admin` - 管理员
+- `user` - 普通用户
+
+### 权限
+
+- `admin` - 所有权限
+- `user` - 有限权限
 
 ## 安全性
 
-### 密钥管理
+### 密码哈希
 
-JWT 密钥应该足够长且随机。可以通过环境变量配置：
+使用 Bcrypt 进行密码哈希：
 
-```env
-JWT_SECRET=your_jwt_secret_here_at_least_32_characters_long
+```go
+passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 ```
 
-### HTTPS
+### 令牌过期
 
-生产环境应该使用 HTTPS 来保护令牌传输。
+令牌默认 24 小时过期：
 
-### 存储
+```go
+exp := time.Now().Add(time.Hour * 24).Unix()
+```
 
-前端应该安全地存储令牌：
-- 使用 HTTP-only cookies
-- 或者 localStorage（不推荐）
+### CORS
 
-### 跨域
+配置 CORS 保护：
 
-CORS 配置应该限制允许的源：
-
-```env
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+```go
+app.Use(cors.New(cors.Config{
+    AllowOrigins: []string{"http://localhost:3000"},
+    AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+    AllowHeaders: []string{"Origin", "Content-Type", "Authorization"},
+}))
 ```
 
 ## 错误处理
 
-### 无效令牌
+### 无效凭据
 
 ```json
 {
-  "error": "invalid token"
-}
-```
-
-### 令牌过期
-
-```json
-{
-  "error": "token expired"
+  "error": {
+    "code": "INVALID_CREDENTIALS",
+    "message": "Invalid username or password"
+  }
 }
 ```
 
@@ -161,74 +209,74 @@ CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 
 ```json
 {
-  "error": "unauthorized"
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing authorization header"
+  }
 }
 ```
 
-### 禁止访问
+### 无效令牌
 
 ```json
 {
-  "error": "forbidden"
+  "error": {
+    "code": "INVALID_TOKEN",
+    "message": "Invalid token"
+  }
 }
+```
+
+## 前端集成
+
+### 登录
+
+```javascript
+const response = await fetch('/api/auth/login', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    username: 'admin',
+    password: 'admin123'
+  })
+})
+
+const data = await response.json()
+localStorage.setItem('token', data.token)
+```
+
+### 发送请求
+
+```javascript
+const token = localStorage.getItem('token')
+
+const response = await fetch('/api/users', {
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+})
 ```
 
 ## 最佳实践
 
-1. **使用 HTTPS** - 保护令牌传输
-2. **设置合理的过期时间** - 避免令牌长期有效
-3. **安全存储令牌** - 使用 HTTP-only cookies
-4. **限制 CORS** - 只允许必要的源
-5. **定期轮换密钥** - 定期更换 JWT 密钥
-6. **监控令牌使用** - 监控异常的令牌使用
+### 1. 令牌存储
 
-## 示例
+- 使用 `localStorage` 或 `sessionStorage`
+- 不要存储在 cookie 中（防止 CSRF）
 
-### cURL 示例
+### 2. 令牌刷新
 
-```bash
-# 登录
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123"}'
+- 令牌过期前刷新
+- 使用 refresh token（未来）
 
-# 使用令牌访问受保护的端点
-curl -X GET http://localhost:8080/api/messages \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
-```
+### 3. 令牌撤销
 
-### JavaScript 示例
+- 登出时清除令牌
+- 服务器端撤销令牌（未来）
 
-```javascript
-// 登录
-const response = await fetch('/api/auth/login', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ username: 'admin', password: 'admin123' })
-});
+### 4. 安全传输
 
-const { token } = await response.json();
-
-// 使用令牌
-const messages = await fetch('/api/messages', {
-  headers: { 'Authorization': `Bearer ${token}` }
-});
-
-const data = await messages.json();
-```
-
-### Go 示例
-
-```go
-// 登录
-resp, err := http.Post("/api/auth/login", "application/json", body)
-var result struct {
-    Token string `json:"token"`
-}
-json.NewDecoder(resp.Body).Decode(&result)
-
-// 使用令牌
-req, _ := http.NewRequest("GET", "/api/messages", nil)
-req.Header.Set("Authorization", "Bearer "+result.Token)
-resp, err := http.DefaultClient.Do(req)
-```
+- 使用 HTTPS
+- 不要在 URL 中传递令牌
