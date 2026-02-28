@@ -28,10 +28,39 @@ func NewHandler(repo repository.Repository, authSvc auth.Service, hub websocket.
 	}
 }
 
-func (h *Handler) respondWithError(c *gin.Context, statusCode int, err error) {
-	c.JSON(statusCode, gin.H{"error": err.Error()})
-}
+func (h *Handler) respondWithError(c *gin.Context, defaultStatusCode int, err error) {
+	statusCode := defaultStatusCode
+	message := err.Error()
 
+	var appErr *apperrors.AppError
+	if apperrors.As(err, &appErr) {
+		message = appErr.Message
+		switch {
+		case apperrors.Is(appErr, apperrors.ErrNotFound):
+			statusCode = http.StatusNotFound
+		case apperrors.Is(appErr, apperrors.ErrInvalidInput), apperrors.Is(appErr, apperrors.ErrValidation):
+			statusCode = http.StatusBadRequest
+		case apperrors.Is(appErr, apperrors.ErrUnauthorized), apperrors.Is(appErr, apperrors.ErrInvalidCredentials):
+			statusCode = http.StatusUnauthorized
+		case apperrors.Is(appErr, apperrors.ErrForbidden):
+			statusCode = http.StatusForbidden
+		case apperrors.Is(appErr, apperrors.ErrConflict):
+			statusCode = http.StatusConflict
+		case apperrors.Is(appErr, apperrors.ErrInternal), apperrors.Is(appErr, apperrors.ErrDatabase):
+			statusCode = http.StatusInternalServerError
+			message = "Internal server error" // Hide database details
+		}
+	} else if statusCode == http.StatusInternalServerError {
+		message = "Internal server error"
+	}
+
+	// Log the actual error for debugging
+	if statusCode >= 500 {
+		log.Printf("[ERROR] %d: %v", statusCode, err)
+	}
+
+	c.JSON(statusCode, gin.H{"error": message})
+}
 func (h *Handler) Login(c *gin.Context) {
 	var req models.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

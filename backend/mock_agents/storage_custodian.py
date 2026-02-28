@@ -24,8 +24,7 @@ if not LLM_API_KEY:
     exit(1)
 
 # This is where we store our files
-# Use a path relative to the script location, not the current working directory
-STORAGE_DIR = os.path.join(script_dir, "hive_storage")
+STORAGE_DIR = os.path.abspath("./hive_storage")
 if not os.path.exists(STORAGE_DIR):
     os.makedirs(STORAGE_DIR)
 

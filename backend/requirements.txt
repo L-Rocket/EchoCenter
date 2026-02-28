@@ -1,0 +1,4 @@
+websockets
+psutil
+openai
+python-dotenv

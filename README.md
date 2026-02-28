@@ -1,222 +1,93 @@
-# EchoCenter
+# EchoCenter 🌐
 
-[Documentation Site](https://l-rocket.github.io/EchoCenter/) | [中文 README](./README.zh.md)
+[English](#english) | [中文](#中文)
 
-EchoCenter is an intelligent agent center system designed to coordinate and manage multiple AI agents. It provides a centralized platform for agent registration, message passing, command execution, and status monitoring.
+---
 
-## Features
+## English
 
-- **Multi-Agent Management**: Register and manage multiple AI agents
-- **Real-time Messaging**: Low-latency real-time communication via WebSocket
-- **Command Execution**: Command passing and execution between agents
-- **Status Monitoring**: Real-time monitoring of agent status and system metrics
-- **Persistent Storage**: SQLite database for persisting chat history and system data
-- **Authorization**: Secure user authentication and authorization system
+EchoCenter is a high-performance, professional monitoring hub and command center for local AI Agents. It provides a centralized interface for real-time bi-directional communication, comprehensive status logging, and agent fleet management.
 
-## Architecture
+### ✨ Key Features
 
-### Backend
+- **🚀 Real-time Monitoring**: Live system log feed driven by WebSockets for zero-latency updates.
+- **💬 Bi-directional Chat**: Engage directly with AI Agents via a WeChat-style persistent chat interface.
+- **📂 Persistent History**: All instructions and agent responses are stored in SQLite and survive restarts.
+- **🔍 Advanced Filtering**: Deep-dive into logs with multi-dimensional filtering (by Agent, Severity Level) and debounced keyword search.
+- **🔒 Secure Access**: JWT-based authentication for operators and unique API tokens for autonomous agents.
+- **📱 Responsive Design**: Modern UI built with Shadcn/ui featuring a collapsible sidebar and mobile-optimized layouts.
 
-- **Gin Framework**: HTTP API service
-- **WebSocket**: Real-time message passing
-- **SQLite**: Local file database
-- **Eino**: AI inference engine
-- **Butler**: Core agent service
+### 🛠 Tech Stack
 
-### Frontend
+- **Backend**: Go (Gin), Gorilla WebSocket, SQLite, JWT.
+- **Frontend**: React (TypeScript), Vite, Tailwind CSS, Shadcn/ui, Zustand, React Router.
 
-- **React**: User interface framework
-- **TypeScript**: Type-safe JavaScript
-- **Tailwind CSS**: Styling framework
-- **Vite**: Build tool
+### 🚀 Quick Start
 
-## Quick Start
+1.  **Configure Backend**:
+    ```bash
+    cd backend
+    cp .env.example .env
+    # Edit .env with your JWT_SECRET and INITIAL_ADMIN credentials
+    ```
 
-### Prerequisites
+2.  **Start with Mock Data**:
+    ```bash
+    ./backend/start_with_mock.sh
+    ```
 
-- Go 1.21+
-- Python 3.9+
-- Node.js 18+
-- npm or yarn
+3.  **Launch Frontend**:
+    ```bash
+    cd frontend
+    npm install
+    npm run dev
+    ```
+    Access the dashboard at `http://localhost:5173`.
 
-### Installation
+---
 
-```bash
-# Clone the repository
-git clone https://github.com/L-Rocket/EchoCenter.git
-cd EchoCenter
+## 中文
 
-# Install backend dependencies
-cd backend
-go mod download
+EchoCenter 是一个专为本地 AI Agent 设计的高性能、专业级监控中心与指挥部。它为实时的双向通信、详尽的状态日志记录以及 Agent 集群管理提供了一个集中的交互界面。
 
-# Install frontend dependencies
-cd ../frontend
-npm install
+### ✨ 核心功能
 
-# Install Python dependencies
-cd ../backend
-pip install -r requirements.txt
-```
+- **🚀 实时监控**：基于 WebSocket 驱动的实时系统日志流，实现零延迟状态更新。
+- **💬 双向对话**：通过类似微信的持久化聊天界面，直接与 AI Agent 进行指令交互。
+- **📂 历史持久化**：所有指令和 Agent 响应均存储在 SQLite 数据库中，服务器重启后依然可用。
+- **🔍 高级检索**：支持多维度日志过滤（按 Agent、严重级别）以及带防抖（Debounce）功能的关键字搜索。
+- **🔒 安全准入**：为操作员提供基于 JWT 的身份验证，为 Agent 提供唯一的静态 API Token。
+- **📱 响应式布局**：基于 Shadcn/ui 构建的现代化界面，支持侧边栏折叠及移动端适配。
 
-### Configuration
+### 🛠 技术栈
 
-Configure environment variables in `backend/.env`:
+- **后端**: Go (Gin), Gorilla WebSocket, SQLite, JWT.
+- **前端**: React (TypeScript), Vite, Tailwind CSS, Shadcn/ui, Zustand, React Router.
 
-```env
-# Database configuration
-DATABASE_URL=echocenter.db
+### 🚀 快速启动
 
-# Butler configuration
-BUTLER_BASE_URL=https://api.siliconflow.cn/v1
-BUTLER_API_TOKEN=your_api_token_here
-BUTLER_MODEL=gpt-3.5-turbo
+1.  **配置后端**:
+    ```bash
+    cd backend
+    cp .env.example .env
+    # 编辑 .env 文件，设置 JWT_SECRET 和初始管理员账号
+    ```
 
-# JWT configuration
-JWT_SECRET=your_jwt_secret_here
-JWT_EXPIRES_IN=24h
-```
+2.  **启动并填充 Mock 数据**:
+    ```bash
+    ./backend/start_with_mock.sh
+    ```
 
-### Running
+3.  **启动前端**:
+    ```bash
+    cd frontend
+    npm install
+    npm run dev
+    ```
+    访问 `http://localhost:5173` 即可进入控制台。
 
-Use the startup script to launch all services:
+---
 
-```bash
-cd backend/scripts
-./start_with_custodian.sh
-```
+### 📄 License
 
-This script will:
-1. Start the backend service
-2. Initialize the database
-3. Register agents
-4. Launch the Storage-Custodian agent
-
-### Stopping
-
-Press `Ctrl+C` to stop all services.
-
-## Project Structure
-
-```
-EchoCenter/
-├── backend/
-│   ├── cmd/
-│   │   └── server/          # Service entry point
-│   ├── internal/
-│   │   ├── api/             # API layer
-│   │   │   ├── handler/     # Handlers
-│   │   │   ├── middleware/  # Middleware
-│   │   │   └── router/      # Routes
-│   │   ├── butler/          # Butler service
-│   │   ├── auth/            # Authentication service
-│   │   ├── models/          # Data models
-│   │   ├── repository/      # Data storage layer
-│   │   └── websocket/       # WebSocket service
-│   ├── scripts/             # Startup scripts
-│   ├── mock_agents/         # Agent simulators
-│   └── pkg/                 # Common packages
-├── frontend/
-│   ├── src/
-│   │   ├── components/      # React components
-│   │   ├── pages/           # Pages
-│   │   ├── context/         # React Context
-│   │   ├── store/           # State management
-│   │   └── App.tsx          # Main application
-│   └── package.json
-├── specs/                   # Project specifications
-└── README.md
-```
-
-## API Documentation
-
-### Authentication
-
-#### Login
-
-```
-POST /api/auth/login
-```
-
-Request body:
-```json
-{
-  "username": "admin",
-  "password": "admin123"
-}
-```
-
-Response:
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
-
-### WebSocket
-
-Connection URL: `ws://localhost:8080/api/ws?token=your_token`
-
-Message format:
-```json
-{
-  "type": "CHAT",
-  "sender_id": 1,
-  "target_id": 2,
-  "payload": "Hello",
-  "timestamp": "2024-01-01T00:00:00Z"
-}
-```
-
-## Agents
-
-### Butler
-
-The core agent responsible for coordinating other agents and handling user requests.
-
-### Storage-Custodian
-
-Manages the storage system, responsible for file and disk space monitoring.
-
-### Other Agents
-
-- **Weather-Sentinel**: Weather monitoring agent
-- **Code-Reviewer-AI**: Code review agent
-- **Security-Audit-Bot**: Security audit agent
-- **Echo-Bot**: Echo agent
-
-## Development
-
-### Backend Development
-
-```bash
-cd backend
-go run cmd/server/main.go
-```
-
-### Frontend Development
-
-```bash
-cd frontend
-npm run dev
-```
-
-### Running Tests
-
-```bash
-# Backend tests
-cd backend
-go test ./...
-
-# Frontend tests
-cd frontend
-npm test
-```
-
-## License
-
-MIT License
-
-## Contributing
-
-Issues and pull requests are welcome!
+This project is licensed under the [MIT License](LICENSE).

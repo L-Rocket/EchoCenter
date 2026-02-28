@@ -35,18 +35,26 @@ export const useChatStore = create<ChatState>((set) => ({
       if (message.type === 'SYSTEM' || message.type === 'AUTH_REQUEST') {
         try {
           const newPayload = typeof message.payload === 'string' ? JSON.parse(message.payload) : message.payload
-          const duplicateIndex = existing.findIndex(m => {
-            if (m.type !== 'SYSTEM' && m.type !== 'AUTH_REQUEST') return false
-            const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : m.payload
-            return p.action_id === newPayload.action_id
-          })
+          if (newPayload && newPayload.action_id) {
+            const duplicateIndex = existing.findIndex(m => {
+              if (m.type !== 'SYSTEM' && m.type !== 'AUTH_REQUEST') return false
+              try {
+                const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : m.payload
+                return p && p.action_id === newPayload.action_id
+              } catch (e) {
+                return false
+              }
+            })
 
-          if (duplicateIndex > -1) {
-            const updated = [...existing]
-            updated[duplicateIndex] = message
-            return { messages: { ...state.messages, [peerId]: updated } }
+            if (duplicateIndex > -1) {
+              const updated = [...existing]
+              updated[duplicateIndex] = message
+              return { messages: { ...state.messages, [peerId]: updated } }
+            }
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error('Failed to parse message payload for deduplication:', e)
+        }
       }
 
       // 2. CHAT message deduplication by ID or content+sender+time proximity (within 5 seconds)

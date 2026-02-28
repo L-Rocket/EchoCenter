@@ -69,7 +69,7 @@ func Load() (*Config, error) {
 			ConnMaxLifetime: getEnvAsDuration("DB_CONN_MAX_LIFETIME", 5*time.Minute),
 		},
 		Auth: AuthConfig{
-			JWTSecret:            getEnv("JWT_SECRET", "dev-secret-key-change-in-production-environment-32chars"),
+			JWTSecret:            getEnv("JWT_SECRET", ""),
 			TokenExpiration:      getEnvAsDuration("JWT_TOKEN_EXPIRATION", 24*time.Hour),
 			BcryptCost:           getEnvAsInt("BCRYPT_COST", 12),
 			InitialAdminUser:     getEnv("INITIAL_ADMIN_USER", ""),
