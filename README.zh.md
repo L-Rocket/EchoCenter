@@ -56,13 +56,17 @@
 git clone https://github.com/L-Rocket/EchoCenter.git
 cd EchoCenter
 
-# 2. 环境配置
+# 2. 一键安装所有依赖 (后端, 前端, Python)
+make install
+
+# 3. 环境配置
 # 编辑 backend/.env 文件，添加你的 BUTLER_API_TOKEN 和 JWT_SECRET
 
-# 3. 一键启动 (包含自动构建和数据初始化)
-cd backend/scripts
-./start_with_custodian.sh
+# 4. 一键启动 (包含自动构建和数据初始化)
+make run-full
 ```
+
+你也可以使用 `make dev` 来同时并行运行后端和前端。输入 `make help` 可以查看所有可用命令。
 
 系统启动后可访问 `http://localhost:5173`。默认管理员凭据：`admin` / `admin123`。
 

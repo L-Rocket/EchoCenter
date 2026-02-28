@@ -46,6 +46,14 @@ git push origin feature/your-feature
 ### 8. Create a Pull Request
 Create a Pull Request on GitHub.
 
+### 8. Continuous Integration
+
+Every Pull Request automatically triggers a CI workflow that runs:
+- Backend: `go vet` and `go test`
+- Frontend: `eslint` and `vitest`
+
+Please ensure your tests pass locally by running `make lint` and `make test` before pushing.
+
 ## Code Standards
 
 ### Go Code Standards

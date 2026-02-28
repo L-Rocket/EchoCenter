@@ -54,6 +54,14 @@ git push origin feature/your-feature
 
 在 GitHub 上创建 Pull Request。
 
+### 8. 持续集成 (CI)
+
+每个 Pull Request 都会自动触发 CI 工作流，运行以下检查：
+- 后端：`go vet` 和 `go test`
+- 前端：`eslint` 和 `vitest`
+
+在推送代码前，请确保在本地运行 `make lint` 和 `make test` 并通过测试。
+
 ## 代码规范
 
 ### Go 代码规范

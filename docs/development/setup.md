@@ -63,9 +63,24 @@ node --version
 npm --version
 ```
 
-## Backend Setup
+## Simplified Setup (Recommended)
 
-### 1. Clone Repository
+If you have `make` installed, you can use the following commands to set up everything quickly:
+
+```bash
+# Install all dependencies (Go, Node, Python)
+make install
+
+# Build the project
+make build
+
+# Run everything (Backend, Seed data, and Agent)
+make run-full
+```
+
+Run `make help` to see all available convenience commands.
+
+## Manual Backend Setup
 
 ```bash
 git clone https://github.com/L-Rocket/EchoCenter.git

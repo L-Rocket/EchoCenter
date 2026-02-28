@@ -63,9 +63,24 @@ node --version
 npm --version
 ```
 
-## 后端设置
+## 简化设置 (推荐)
 
-### 1. 克隆仓库
+如果你安装了 `make`，可以使用以下命令快速完成设置：
+
+```bash
+# 安装所有依赖 (Go, Node, Python)
+make install
+
+# 构建项目
+make build
+
+# 启动所有服务 (后端, 数据初始化, 代理)
+make run-full
+```
+
+输入 `make help` 可以查看所有可用的便捷命令。
+
+## 后端手动设置
 
 ```bash
 git clone https://github.com/L-Rocket/EchoCenter.git
