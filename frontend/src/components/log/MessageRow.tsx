@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { StatusIndicator } from '@/components/ui/status-indicator';
 import { Info, AlertTriangle, AlertCircle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { LogMessage } from '@/types';
+import type { LogMessage } from '@/types';
 
 interface MessageRowProps {
   message: LogMessage;

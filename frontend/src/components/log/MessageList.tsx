@@ -1,7 +1,7 @@
 import React from 'react';
 import MessageRow from './MessageRow';
 import EmptyState from '../common/EmptyState';
-import { LogMessage } from '@/types';
+import type { LogMessage } from '@/types';
 
 interface MessageListProps {
   messages: LogMessage[];

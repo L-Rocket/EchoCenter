@@ -9,7 +9,7 @@ import type { Agent } from '@/types';
 import AuthRequestCard from './AuthRequestCard';
 import ProcessMessage from './ProcessMessage';
 import { userService } from '@/services/userService';
-import { ChatMessage } from '@/types';
+import type { ChatMessage } from '@/types';
 
 interface ChatViewProps {
   agent: Agent;

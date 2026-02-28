@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Terminal, MessageSquare } from 'lucide-react';
 import { StatusIndicator } from '@/components/ui/status-indicator';
 import { cn } from '@/lib/utils';
-import { Agent } from '@/types';
+import type { Agent } from '@/types';
 import { userService } from '@/services/userService';
 
 interface AgentListProps {

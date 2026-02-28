@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { User } from '@/types';
+import type { User } from '@/types';
 import { userService } from '@/services/userService';
 
 const UserManagement = () => {

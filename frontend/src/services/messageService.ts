@@ -1,5 +1,5 @@
 import api from './api';
-import { LogMessage } from '@/types';
+import type { LogMessage } from '@/types';
 
 export interface GetMessagesParams {
   agent_id?: string;

@@ -2,7 +2,7 @@ import React, { createContext, useState, useContext, useEffect, useRef, useCallb
 import { jwtDecode } from 'jwt-decode';
 import { useChatStore } from '@/store/useChatStore';
 import { getWsUrl } from '@/lib/config';
-import { User, JWTPayload, ChatMessage } from '@/types';
+import type { User, JWTPayload, ChatMessage } from '@/types';
 import { userService } from '@/services/userService';
 
 interface AuthContextType {

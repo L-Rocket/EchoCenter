@@ -1,3 +1,5 @@
+export const TYPES_VERSION = '1.0.0';
+
 export interface User {
   id: number;
   username: string;

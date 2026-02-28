@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import MessageRow from './MessageRow'
-import { LogMessage } from '@/types'
+import type { LogMessage } from '@/types'
 
 describe('MessageRow', () => {
   const mockMessage: LogMessage = {

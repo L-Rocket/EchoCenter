@@ -1,5 +1,5 @@
 import api from './api';
-import { User, Agent, ChatMessage } from '@/types';
+import type { User, Agent, ChatMessage } from '@/types';
 
 export const userService = {
   getUsers: async () => {

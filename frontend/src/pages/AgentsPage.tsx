@@ -3,7 +3,7 @@ import { MessageSquare, ShieldAlert } from 'lucide-react'
 import AgentList from '@/components/agent/AgentList'
 import ChatView from '@/components/agent/ChatView'
 import { Card } from '@/components/ui/card'
-import { Agent } from '@/types'
+import type { Agent } from '@/types'
 
 const AgentsPage = () => {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)

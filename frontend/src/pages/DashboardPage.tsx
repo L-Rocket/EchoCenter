@@ -6,7 +6,7 @@ import { Terminal, Activity, ChevronDown } from 'lucide-react'
 import { useDebounce } from '@/hooks/useDebounce'
 import { Button } from '@/components/ui/button'
 import LogFilterBar from '@/components/log/LogFilterBar'
-import { LogMessage } from '@/types'
+import type { LogMessage } from '@/types'
 import { messageService } from '@/services/messageService'
 
 export interface LogFilterState {

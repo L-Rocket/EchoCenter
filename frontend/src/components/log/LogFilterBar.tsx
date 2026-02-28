@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { LogFilterState } from '@/pages/DashboardPage'
-import { User } from '@/types'
+import type { User } from '@/types'
 import { userService } from '@/services/userService'
 import { cn } from '@/lib/utils'
 
