@@ -1,222 +1,86 @@
-# EchoCenter
+# EchoCenter 🌐
+
+<p align="center">
+  <a href="https://l-rocket.github.io/EchoCenter/"><strong>Explore Documentation »</strong></a>
+  <br />
+  <br />
+  <a href="https://github.com/L-Rocket/EchoCenter/issues">Report Bug</a>
+  ·
+  <a href="https://github.com/L-Rocket/EchoCenter/issues">Request Feature</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat-square&logo=go" alt="Go Version" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react" alt="React Version" />
+  <img src="https://img.shields.io/badge/Vite-7-646CFF?style=flat-square&logo=vite" alt="Vite Version" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" />
+</p>
+
+---
 
 [Documentation Site](https://l-rocket.github.io/EchoCenter/) | [中文 README](./README.zh.md)
 
-EchoCenter is an intelligent agent center system designed to coordinate and manage multiple AI agents. It provides a centralized platform for agent registration, message passing, command execution, and status monitoring.
+**EchoCenter** is a professional, modular intelligent agent management hub. It provides a centralized platform for agent registration, real-time bidirectional messaging via WebSocket, and intelligent command execution coordinated by the core **Butler** agent.
 
-## Features
+## ✨ Key Features
 
-- **Multi-Agent Management**: Register and manage multiple AI agents
-- **Real-time Messaging**: Low-latency real-time communication via WebSocket
-- **Command Execution**: Command passing and execution between agents
-- **Status Monitoring**: Real-time monitoring of agent status and system metrics
-- **Persistent Storage**: SQLite database for persisting chat history and system data
-- **Authorization**: Secure user authentication and authorization system
+- **🤖 Multi-Agent Fleet**: Seamlessly manage and coordinate diverse AI agents (Python, Go, etc.).
+- **⚡ Real-time Messaging**: Low-latency communication powered by a robust WebSocket implementation.
+- **🧠 Butler Core**: An AI-driven coordinator that understands user intent and executes complex multi-agent workflows.
+- **📊 Interactive Dashboard**: Modern React-based UI for monitoring agent status and system-wide logs.
+- **🔒 Secure Architecture**: Mandatory JWT authentication and per-agent API tokens.
+- **📂 Persistent History**: Full chat and command history stored in an optimized SQLite database with WAL mode.
 
-## Architecture
+## 🛠 Tech Stack
 
-### Backend
+| Backend | Frontend | Agents |
+| :--- | :--- | :--- |
+| **Go 1.22+** | **React 19** | **Python 3.9+** |
+| Gin Gonic | TypeScript | OpenAI SDK |
+| Gorilla WebSocket | Tailwind CSS (v4) | websockets |
+| SQLite (WAL) | Zustand | psutil |
+| Eino (AI Brain) | Shadcn/ui | python-dotenv |
 
-- **Gin Framework**: HTTP API service
-- **WebSocket**: Real-time message passing
-- **SQLite**: Local file database
-- **Eino**: AI inference engine
-- **Butler**: Core agent service
-
-### Frontend
-
-- **React**: User interface framework
-- **TypeScript**: Type-safe JavaScript
-- **Tailwind CSS**: Styling framework
-- **Vite**: Build tool
-
-## Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Go 1.21+
-- Python 3.9+
-- Node.js 18+
-- npm or yarn
+- **Go**: 1.22 or higher
+- **Node.js**: 20 or higher (pnpm recommended)
+- **Python**: 3.9 or higher
 
-### Installation
+### Installation & Run
 
 ```bash
-# Clone the repository
+# 1. Clone the repository
 git clone https://github.com/L-Rocket/EchoCenter.git
 cd EchoCenter
 
-# Install backend dependencies
-cd backend
-go mod download
+# 2. Setup Environment
+# Edit backend/.env and add your BUTLER_API_TOKEN and JWT_SECRET
 
-# Install frontend dependencies
-cd ../frontend
-npm install
-
-# Install Python dependencies
-cd ../backend
-pip install -r requirements.txt
-```
-
-### Configuration
-
-Configure environment variables in `backend/.env`:
-
-```env
-# Database configuration
-DATABASE_URL=echocenter.db
-
-# Butler configuration
-BUTLER_BASE_URL=https://api.siliconflow.cn/v1
-BUTLER_API_TOKEN=your_api_token_here
-BUTLER_MODEL=gpt-3.5-turbo
-
-# JWT configuration
-JWT_SECRET=your_jwt_secret_here
-JWT_EXPIRES_IN=24h
-```
-
-### Running
-
-Use the startup script to launch all services:
-
-```bash
+# 3. Launch with one command (includes auto-build and seeding)
 cd backend/scripts
 ./start_with_custodian.sh
 ```
 
-This script will:
-1. Start the backend service
-2. Initialize the database
-3. Register agents
-4. Launch the Storage-Custodian agent
+The system will be available at `http://localhost:5173`. Default admin credentials: `admin` / `admin123`.
 
-### Stopping
+## 📖 Documentation
 
-Press `Ctrl+C` to stop all services.
+For detailed guides on architecture, API references, and agent integration, please visit our **[Official Documentation Site](https://l-rocket.github.io/EchoCenter/)**.
 
-## Project Structure
+- [System Architecture](/architecture/overview)
+- [API Reference](/api/authentication)
+- [Agent Integration Guide](/development/agent-integration)
+- [Development Setup](/development/setup)
 
-```
-EchoCenter/
-├── backend/
-│   ├── cmd/
-│   │   └── server/          # Service entry point
-│   ├── internal/
-│   │   ├── api/             # API layer
-│   │   │   ├── handler/     # Handlers
-│   │   │   ├── middleware/  # Middleware
-│   │   │   └── router/      # Routes
-│   │   ├── butler/          # Butler service
-│   │   ├── auth/            # Authentication service
-│   │   ├── models/          # Data models
-│   │   ├── repository/      # Data storage layer
-│   │   └── websocket/       # WebSocket service
-│   ├── scripts/             # Startup scripts
-│   ├── mock_agents/         # Agent simulators
-│   └── pkg/                 # Common packages
-├── frontend/
-│   ├── src/
-│   │   ├── components/      # React components
-│   │   ├── pages/           # Pages
-│   │   ├── context/         # React Context
-│   │   ├── store/           # State management
-│   │   └── App.tsx          # Main application
-│   └── package.json
-├── specs/                   # Project specifications
-└── README.md
-```
+## 📄 License
 
-## API Documentation
+Distributed under the MIT License. See `LICENSE` for more information.
 
-### Authentication
+---
 
-#### Login
-
-```
-POST /api/auth/login
-```
-
-Request body:
-```json
-{
-  "username": "admin",
-  "password": "admin123"
-}
-```
-
-Response:
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
-
-### WebSocket
-
-Connection URL: `ws://localhost:8080/api/ws?token=your_token`
-
-Message format:
-```json
-{
-  "type": "CHAT",
-  "sender_id": 1,
-  "target_id": 2,
-  "payload": "Hello",
-  "timestamp": "2024-01-01T00:00:00Z"
-}
-```
-
-## Agents
-
-### Butler
-
-The core agent responsible for coordinating other agents and handling user requests.
-
-### Storage-Custodian
-
-Manages the storage system, responsible for file and disk space monitoring.
-
-### Other Agents
-
-- **Weather-Sentinel**: Weather monitoring agent
-- **Code-Reviewer-AI**: Code review agent
-- **Security-Audit-Bot**: Security audit agent
-- **Echo-Bot**: Echo agent
-
-## Development
-
-### Backend Development
-
-```bash
-cd backend
-go run cmd/server/main.go
-```
-
-### Frontend Development
-
-```bash
-cd frontend
-npm run dev
-```
-
-### Running Tests
-
-```bash
-# Backend tests
-cd backend
-go test ./...
-
-# Frontend tests
-cd frontend
-npm test
-```
-
-## License
-
-MIT License
-
-## Contributing
-
-Issues and pull requests are welcome!
+<p align="center">
+  Built with ❤️ by <a href="https://github.com/L-Rocket">L-Rocket</a>
+</p>

@@ -1,222 +1,86 @@
-# EchoCenter
+# EchoCenter 🌐
 
-[文档站点](https://l-rocket.github.io/EchoCenter/) | [English README](./README.md)
+<p align="center">
+  <a href="https://l-rocket.github.io/EchoCenter/zh/"><strong>探索文档 »</strong></a>
+  <br />
+  <br />
+  <a href="https://github.com/L-Rocket/EchoCenter/issues">报告 Bug</a>
+  ·
+  <a href="https://github.com/L-Rocket/EchoCenter/issues">提交需求</a>
+</p>
 
-EchoCenter 是一个智能代理中心系统，用于协调和管理多个 AI 代理。它提供了一个集中的平台，用于代理注册、消息传递、命令执行和状态监控。
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat-square&logo=go" alt="Go Version" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react" alt="React Version" />
+  <img src="https://img.shields.io/badge/Vite-7-646CFF?style=flat-square&logo=vite" alt="Vite Version" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" />
+</p>
 
-## 功能特性
+---
 
-- **多代理管理**：支持注册和管理多个 AI 代理
-- **实时消息传递**：通过 WebSocket 实现低延迟的实时通信
-- **命令执行**：支持代理之间的命令传递和执行
-- **状态监控**：实时监控代理状态和系统指标
-- **持久化存储**：使用 SQLite 数据库持久化聊天记录和系统数据
-- **授权机制**：安全的用户认证和授权系统
+[文档站点](https://l-rocket.github.io/EchoCenter/zh/) | [English README](./README.md)
 
-## 架构
+**EchoCenter** 是一个专业、模块化的智能代理 (Agent) 管理中心。它提供了一个集中的平台，用于代理注册、基于 WebSocket 的实时双向消息传递，以及由核心代理 **Butler** 协调的智能命令执行。
 
-### 后端
+## ✨ 核心特性
 
-- **Gin 框架**：用于 HTTP API 服务
-- **WebSocket**：实现实时消息传递
-- **SQLite**：本地文件数据库
-- **Eino**：AI 推理引擎
-- **Butler**：核心代理服务
+- **🤖 多代理协同**：无缝管理和协调各种 AI 代理（支持 Python、Go 等多种语言）。
+- **⚡ 实时消息传递**：基于高性能 WebSocket 实现的低延迟、双向通信。
+- **🧠 Butler 核心**：AI 驱动的协调者，能够理解用户意图并执行复杂的跨代理工作流。
+- **📊 交互式大盘**：基于 React 的现代化 UI，实时监控代理状态和全系统日志。
+- **🔒 安全架构**：强制性的 JWT 认证机制和针对每个代理的独立 API Token。
+- **📂 持久化历史**：完整的聊天和命令历史存储在经过 WAL 优化的 SQLite 数据库中。
 
-### 前端
+## 🛠 技术栈
 
-- **React**：用户界面框架
-- **TypeScript**：类型安全的 JavaScript
-- **Tailwind CSS**：样式框架
-- **Vite**：构建工具
+| 后端 | 前端 | 代理 (Simulators) |
+| :--- | :--- | :--- |
+| **Go 1.22+** | **React 19** | **Python 3.9+** |
+| Gin Gonic | TypeScript | OpenAI SDK |
+| Gorilla WebSocket | Tailwind CSS (v4) | websockets |
+| SQLite (WAL) | Zustand | psutil |
+| Eino (AI 引擎) | Shadcn/ui | python-dotenv |
 
-## 快速开始
+## 🚀 快速开始
 
 ### 前置要求
 
-- Go 1.21+
-- Python 3.9+
-- Node.js 18+
-- npm 或 yarn
+- **Go**: 1.22 或更高版本
+- **Node.js**: 20 或更高版本 (推荐使用 pnpm)
+- **Python**: 3.9 或更高版本
 
-### 安装
+### 安装与运行
 
 ```bash
-# 克隆仓库
+# 1. 克隆仓库
 git clone https://github.com/L-Rocket/EchoCenter.git
 cd EchoCenter
 
-# 安装后端依赖
-cd backend
-go mod download
+# 2. 环境配置
+# 编辑 backend/.env 文件，添加你的 BUTLER_API_TOKEN 和 JWT_SECRET
 
-# 安装前端依赖
-cd ../frontend
-npm install
-
-# 安装 Python 依赖
-cd ../backend
-pip install -r requirements.txt
-```
-
-### 配置
-
-在 `backend/.env` 文件中配置环境变量：
-
-```env
-# 数据库配置
-DATABASE_URL=echocenter.db
-
-# Butler 配置
-BUTLER_BASE_URL=https://api.siliconflow.cn/v1
-BUTLER_API_TOKEN=your_api_token_here
-BUTLER_MODEL=gpt-3.5-turbo
-
-# JWT 配置
-JWT_SECRET=your_jwt_secret_here
-JWT_EXPIRES_IN=24h
-```
-
-### 运行
-
-使用启动脚本一键启动所有服务：
-
-```bash
+# 3. 一键启动 (包含自动构建和数据初始化)
 cd backend/scripts
 ./start_with_custodian.sh
 ```
 
-这个脚本会：
-1. 启动后端服务
-2. 初始化数据库
-3. 注册代理
-4. 启动 Storage-Custodian 代理
+系统启动后可访问 `http://localhost:5173`。默认管理员凭据：`admin` / `admin123`。
 
-### 停止
+## 📖 详细文档
 
-按 `Ctrl+C` 停止所有服务。
+欲了解更多关于架构设计、API 参考及代理接入指南的信息，请访问我们的 **[官方文档站点](https://l-rocket.github.io/EchoCenter/zh/)**。
 
-## 项目结构
+- [系统架构](/zh/architecture/overview)
+- [API 参考](/zh/api/authentication)
+- [Agent 接入指南](/zh/development/agent-integration)
+- [环境设置](/zh/development/setup)
 
-```
-EchoCenter/
-├── backend/
-│   ├── cmd/
-│   │   └── server/          # 服务入口
-│   ├── internal/
-│   │   ├── api/             # API 层
-│   │   │   ├── handler/     # 处理器
-│   │   │   ├── middleware/  # 中间件
-│   │   │   └── router/      # 路由
-│   │   ├── butler/          # Butler 服务
-│   │   ├── auth/            # 认证服务
-│   │   ├── models/          # 数据模型
-│   │   ├── repository/      # 数据存储层
-│   │   └── websocket/       # WebSocket 服务
-│   ├── scripts/             # 启动脚本
-│   ├── mock_agents/         # 代理模拟器
-│   └── pkg/                 # 公共包
-├── frontend/
-│   ├── src/
-│   │   ├── components/      # React 组件
-│   │   ├── pages/           # 页面
-│   │   ├── context/         # React Context
-│   │   ├── store/           # 状态管理
-│   │   └── App.tsx          # 主应用
-│   └── package.json
-├── specs/                   # 项目规范
-└── README.md
-```
+## 📄 许可证
 
-## API 文档
+本项目采用 MIT 许可证。详情请参阅 `LICENSE` 文件。
 
-### 认证
+---
 
-#### 登录
-
-```
-POST /api/auth/login
-```
-
-请求体：
-```json
-{
-  "username": "admin",
-  "password": "admin123"
-}
-```
-
-响应：
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
-
-### WebSocket
-
-连接地址：`ws://localhost:8080/api/ws?token=your_token`
-
-消息格式：
-```json
-{
-  "type": "CHAT",
-  "sender_id": 1,
-  "target_id": 2,
-  "payload": "Hello",
-  "timestamp": "2024-01-01T00:00:00Z"
-}
-```
-
-## 代理
-
-### Butler
-
-核心代理，负责协调其他代理和处理用户请求。
-
-### Storage-Custodian
-
-管理存储系统的代理，负责文件和磁盘空间监控。
-
-### 其他代理
-
-- **Weather-Sentinel**：天气监控代理
-- **Code-Reviewer-AI**：代码审查代理
-- **Security-Audit-Bot**：安全审计代理
-- **Echo-Bot**：回显代理
-
-## 开发
-
-### 后端开发
-
-```bash
-cd backend
-go run cmd/server/main.go
-```
-
-### 前端开发
-
-```bash
-cd frontend
-npm run dev
-```
-
-### 运行测试
-
-```bash
-# 后端测试
-cd backend
-go test ./...
-
-# 前端测试
-cd frontend
-npm test
-```
-
-## 许可证
-
-MIT License
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request！
+<p align="center">
+  由 <a href="https://github.com/L-Rocket">L-Rocket</a> 用 ❤️ 构建
+</p>
