@@ -5,6 +5,7 @@ backend/data/*.db
 backend/data/*.db-journal
 backend/**/*.db
 backend/**/*.db-journal
+backend/mock_agents/hive_storage/
 *.exe
 *.exe~
 *.dll
