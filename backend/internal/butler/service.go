@@ -254,6 +254,17 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 			"status":            "PENDING",
 		}
 
+		// Persist AUTH_REQUEST to database
+		authPayloadBytes, _ := json.Marshal(authPayload)
+		if err := s.repo.SaveChatMessage(ctx, &models.ChatMessage{
+			SenderID:   s.butlerID,
+			ReceiverID: senderID,
+			Type:       "AUTH_REQUEST",
+			Payload:    string(authPayloadBytes),
+		}); err != nil {
+			log.Printf("[Butler] Failed to persist AUTH_REQUEST: %v", err)
+		}
+
 		s.hub.BroadcastGeneric(map[string]interface{}{
 			"type":        "AUTH_REQUEST",
 			"sender_id":   s.butlerID,
@@ -305,6 +316,23 @@ func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID stri
 
 	if !approved {
 		// User rejected the command
+		responsePayload := map[string]interface{}{
+			"action_id": streamID,
+			"status":    "REJECTED",
+			"message":   "Command cancelled by user.",
+		}
+
+		// Persist AUTH_RESPONSE to database
+		responsePayloadBytes, _ := json.Marshal(responsePayload)
+		if err := s.repo.SaveChatMessage(ctx, &models.ChatMessage{
+			SenderID:   s.butlerID,
+			ReceiverID: senderID,
+			Type:       "AUTH_RESPONSE",
+			Payload:    string(responsePayloadBytes),
+		}); err != nil {
+			log.Printf("[Butler] Failed to persist AUTH_RESPONSE: %v", err)
+		}
+
 		s.hub.BroadcastGeneric(map[string]interface{}{
 			"type":        "CHAT",
 			"sender_id":   s.butlerID,
@@ -323,6 +351,21 @@ func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID stri
 			"stream_id":   streamID,
 		})
 		return
+	}
+
+	// Persist APPROVED response
+	responsePayload := map[string]interface{}{
+		"action_id": streamID,
+		"status":    "APPROVED",
+	}
+	responsePayloadBytes, _ := json.Marshal(responsePayload)
+	if err := s.repo.SaveChatMessage(ctx, &models.ChatMessage{
+		SenderID:   s.butlerID,
+		ReceiverID: senderID,
+		Type:       "AUTH_RESPONSE",
+		Payload:    string(responsePayloadBytes),
+	}); err != nil {
+		log.Printf("[Butler] Failed to persist AUTH_RESPONSE: %v", err)
 	}
 
 	// Execute the command and stream the result
