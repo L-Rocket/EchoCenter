@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useChatStore } from '../store/useChatStore';
-import type { ChatMessage } from '../store/useChatStore';
+import type { ChatMessage } from '@/types';
 
 const getWsUrl = () => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';

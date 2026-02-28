@@ -163,7 +163,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
                       reason={p.reason as string}
                       onApprove={(id) => sendAuthResponse(id, true)}
                       onReject={(id) => sendAuthResponse(id, false)}
-                      status={(p.status as string) || 'PENDING'}
+                      status={(p.status as 'PENDING' | 'APPROVED' | 'REJECTED') || 'PENDING'}
                     />
                   </div>
                 </div>

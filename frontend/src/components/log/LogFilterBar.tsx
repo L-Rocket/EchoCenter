@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { LogFilterState } from '@/pages/DashboardPage'
+import type { LogFilterState } from '@/pages/DashboardPage'
 import type { User } from '@/types'
 import { userService } from '@/services/userService'
 import { cn } from '@/lib/utils'
