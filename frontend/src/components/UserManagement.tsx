@@ -17,7 +17,7 @@ const UserManagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuth();
 
-  const handleCreateUser = async (e: React.FormEvent) => {
+  const handleCreateUser = async (_e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
     setError(null);
@@ -32,7 +32,7 @@ const UserManagement: React.FC = () => {
       setUsername('');
       setPassword('');
       setRole('MEMBER');
-    } catch (err: any) {
+    } catch (_err: any) {
       setError(err.response?.data?.error || 'Failed to create user.');
     }
   };

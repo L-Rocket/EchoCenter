@@ -41,7 +41,7 @@ export const useChatStore = create<ChatState>((set) => ({
               try {
                 const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : m.payload
                 return p && p.action_id === newPayload.action_id
-              } catch (e) {
+              } catch (_e) {
                 // Ignore parse errors
                 return false
               }
@@ -53,7 +53,7 @@ export const useChatStore = create<ChatState>((set) => ({
               return { messages: { ...state.messages, [peerId]: updated } }
             }
           }
-        } catch (e) {
+        } catch (_e) {
           // Ignore parse errors
         }
       }
@@ -147,7 +147,7 @@ export const useChatStore = create<ChatState>((set) => ({
             const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : m.payload
             merged.set(`sys_${p.action_id}`, m)
             return
-          } catch (e) {
+          } catch (_e) {
             // Ignore parse errors
           }
         }
@@ -162,7 +162,7 @@ export const useChatStore = create<ChatState>((set) => ({
             const key = `sys_${p.action_id}`
             if (!merged.has(key)) merged.set(key, m)
             return
-          } catch (e) {
+          } catch (_e) {
             // Ignore parse errors
           }
         }
@@ -208,7 +208,7 @@ export const useChatStore = create<ChatState>((set) => ({
         try {
           const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : m.payload
           return p.type !== 'execution_start'
-        } catch (e) {
+        } catch (_e) {
           // Ignore parse errors
           return true
         }

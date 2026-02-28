@@ -56,7 +56,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
     };
 
     fetchHistory();
-  }, [agent.id, setHistory, user?.username]);
+  }, [agent.id, agent.username, setHistory, user?.username]);
 
   useEffect(() => {
     if (scrollRef.current && messages.length > 0) {

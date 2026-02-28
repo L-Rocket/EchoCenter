@@ -21,7 +21,7 @@ const LoginForm: React.FC = () => {
 
   const from = location.state?.from?.pathname || "/dashboard";
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (_e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -34,7 +34,7 @@ const LoginForm: React.FC = () => {
       login(response.data.token, response.data.user);
       
       navigate(from, { replace: true });
-    } catch (err: any) {
+    } catch (_err: any) {
       setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 
 interface ProcessMessageProps {
   type: 'AUTH_REQUEST' | 'AUTH_RESPONSE' | 'SYSTEM' | 'CHAT';
-  payload: any;
+  payload: string | Record<string, any>;
   timestamp: string;
   status?: string;
 }
@@ -18,11 +18,11 @@ const ProcessMessage: React.FC<ProcessMessageProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Parse payload if it's a string
-  let parsedPayload = payload;
+  let parsedPayload: any = payload;
   if (typeof payload === 'string') {
     try {
       parsedPayload = JSON.parse(payload);
-    } catch (e) {
+    } catch (_e) {
       parsedPayload = { content: payload };
     }
   }

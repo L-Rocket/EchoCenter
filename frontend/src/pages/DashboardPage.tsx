@@ -64,7 +64,7 @@ const DashboardPage = () => {
       setLoading(false)
       setLoadingMore(false)
       setError(null)
-    } catch (err: any) {
+    } catch (_err: any) {
       if (err.response?.status === 401) {
         logout()
       }
@@ -89,7 +89,7 @@ const DashboardPage = () => {
       // Avoid synchronous setState in effect
       const timer = setTimeout(() => {
         setMessages(prev => {
-          const latest = wsLogs[0];
+          const _latest = wsLogs[0];
           if (latest && !prev.some(m => m.id === latest.id)) {
             return [latest, ...prev].slice(0, 50);
           }

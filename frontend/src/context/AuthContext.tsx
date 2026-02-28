@@ -141,8 +141,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             payload: msg.payload, // This is the AuthRequest object
           });
         }
-      } catch (err) {
-        console.error('WS parse error:', err);
+      } catch (_err) {
+        console.error('WS parse error:', _err);
       }
     };
 
@@ -152,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socketRef.current = null;
       }
     };
-  }, [addChatMessage]);
+  }, [addChatMessage, appendStreamChunk, setThinking]);
 
   useEffect(() => {
     const initAuth = () => {
@@ -170,7 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(JSON.parse(savedUser));
             connectWs(savedToken);
           }
-        } catch (err) {
+        } catch (_err) {
           handleLogout();
         }
       }
@@ -232,7 +232,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             payload.status = approved ? 'APPROVED' : 'REJECTED';
             return { ...msg, payload: JSON.stringify(payload) };
           }
-        } catch (e) {
+        } catch (_e) {
           // Ignore parse errors for non-auth messages
         }
       }
@@ -265,7 +265,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 payload.status = 'PENDING';
                 return { ...msg, payload: JSON.stringify(payload) };
               }
-            } catch (e) {
+            } catch (_e) {
               // Ignore parse errors during revert
             }
           }

@@ -42,7 +42,7 @@ export const useWebSocket = (token: string | null, onLogReceived?: (log: any) =>
         } else if (msg.type === 'SYSTEM_LOG' && onLogReceived) {
            onLogReceived(msg.payload);
         }
-      } catch (err) {
+      } catch (_err) {
         console.error('Failed to parse WS message:', err);
       }
     };
