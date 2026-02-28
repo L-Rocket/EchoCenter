@@ -12,8 +12,9 @@ describe('App Component', () => {
     await act(async () => {
         render(<App />);
     });
-    // The new login form has "EchoCenter" title and "Sign In" button
-    expect(screen.getAllByText('EchoCenter')[0]).toBeInTheDocument();
-    expect(screen.getByText('Sign In')).toBeInTheDocument();
+    // The new login form has "Echo" and "Center" title components and "Establish Link" button
+    expect(screen.getByText('Echo')).toBeInTheDocument();
+    expect(screen.getByText('Center')).toBeInTheDocument();
+    expect(screen.getByText('Establish Link')).toBeInTheDocument();
   });
 });

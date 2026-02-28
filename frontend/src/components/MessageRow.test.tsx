@@ -20,18 +20,18 @@ describe('MessageRow', () => {
 
   it('applies correct background for INFO level', () => {
     const { container } = render(<MessageRow message={mockMessage} />);
-    expect(container.firstChild).toHaveClass('bg-blue-50/50');
+    expect(container.firstChild).toHaveClass('bg-primary/5');
   });
 
   it('applies correct background for ERROR level', () => {
     const errorMsg = { ...mockMessage, level: 'ERROR' };
     const { container } = render(<MessageRow message={errorMsg} />);
-    expect(container.firstChild).toHaveClass('bg-red-50/50');
+    expect(container.firstChild).toHaveClass('bg-destructive/5');
   });
 
   it('applies correct background for WARNING level', () => {
     const warnMsg = { ...mockMessage, level: 'WARNING' };
     const { container } = render(<MessageRow message={warnMsg} />);
-    expect(container.firstChild).toHaveClass('bg-amber-50/50');
+    expect(container.firstChild).toHaveClass('bg-amber-500/5');
   });
 });
