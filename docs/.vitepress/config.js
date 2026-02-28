@@ -64,6 +64,7 @@ export default defineConfig({
           items: [
             { text: 'Setup', link: '/development/setup' },
             { text: 'Testing', link: '/development/testing' },
+            { text: 'Agent Integration', link: '/development/agent-integration' },
             { text: 'Contributing', link: '/development/contributing' }
           ]
         }
@@ -160,6 +161,7 @@ export default defineConfig({
               items: [
                 { text: '环境设置', link: '/zh/development/setup' },
                 { text: '测试指南', link: '/zh/development/testing' },
+                { text: 'Agent 接入', link: '/zh/development/agent-integration' },
                 { text: '贡献指南', link: '/zh/development/contributing' }
               ]
             }

@@ -3,6 +3,7 @@ backend/backend
 backend/echocenter
 backend/echocenter_server
 backend/server.log
+backend/bin/
 *.exe
 *.exe~
 *.dll
@@ -13,6 +14,7 @@ backend/server.log
 vendor/
 echocenter.db
 echocenter.db-journal
+bin/
 
 # Node.js
 node_modules/
@@ -23,6 +25,10 @@ build/
 .vscode/
 .idea/
 .DS_Store
+
+# Documentation & AI
+GEMINI.md
+docs/.vitepress/cache/
 
 # Universal
 Thumbs.db
