@@ -10,7 +10,7 @@
 API_URL="http://localhost:8080/api"
 ADMIN_USER="admin"
 ADMIN_PASS="admin123"
-DB_FILE="echocenter.db"
+DB_FILE="../echocenter.db"
 
 echo "--- EchoCenter Seeder ---"
 
@@ -77,13 +77,13 @@ for agent in "${AGENTS[@]}"; do
     # Get ID for this agent
     AGENT_ID=$(sqlite3 $DB_FILE "SELECT id FROM users WHERE username='$agent';")
     
-    if [ ! -z "$AGENT_ID" ]; then
+    if [ -z "$AGENT_ID" ]; then
+        echo "  > ERROR: Agent '$agent' not found in database!"
+    else
         echo "  > Adding history for $agent (ID: $AGENT_ID)"
-        sqlite3 $DB_FILE <<EOF
-INSERT INTO chat_messages (sender_id, receiver_id, content) VALUES ($AGENT_ID, $ADMIN_ID, 'Initial link established with $agent.');
-INSERT INTO chat_messages (sender_id, receiver_id, content) VALUES ($ADMIN_ID, $AGENT_ID, 'Acknowledged. Report status.');
-INSERT INTO chat_messages (sender_id, receiver_id, content) VALUES ($AGENT_ID, $ADMIN_ID, 'Status: NOMINAL. Ready for commands.');
-EOF
+        sqlite3 $DB_FILE "INSERT INTO chat_messages (sender_id, receiver_id, content) VALUES ($AGENT_ID, $ADMIN_ID, 'Initial link established with $agent.');"
+        sqlite3 $DB_FILE "INSERT INTO chat_messages (sender_id, receiver_id, content) VALUES ($ADMIN_ID, $AGENT_ID, 'Acknowledged. Report status.');"
+        sqlite3 $DB_FILE "INSERT INTO chat_messages (sender_id, receiver_id, content) VALUES ($AGENT_ID, $ADMIN_ID, 'Status: NOMINAL. Ready for commands.');"
     fi
 done
 

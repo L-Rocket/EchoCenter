@@ -74,8 +74,11 @@ make install
 # 构建项目
 make build
 
-# 启动所有服务 (后端, 数据初始化, 代理)
-make run-full
+# 使用 mock 数据和代理启动 (首次运行推荐)
+make mock-start
+
+# 或者仅运行后端和前端 (开发模式)
+make dev
 ```
 
 输入 `make help` 可以查看所有可用的便捷命令。
@@ -189,18 +192,34 @@ python3 mock_agents/storage_custodian.py
 
 ## 启动脚本
 
-### 使用启动脚本
+### 使用 Makefile (推荐)
 
 ```bash
-cd scripts
-./start_with_custodian.sh
+# 使用 mock 数据和代理启动 (后端 + 数据初始化 + 代理 + 前端)
+make mock-start
 ```
 
-这个脚本会：
+这个命令会：
 1. 启动后端服务
-2. 初始化数据库
-3. 注册代理
+2. 使用 mock 数据初始化数据库
+3. 注册所有 mock 代理
 4. 启动 Storage-Custodian 代理
+5. 启动前端
+
+### 手动启动
+
+如果你更喜欢手动启动服务：
+
+```bash
+# 终端 1: 后端
+cd backend && go run cmd/server/main.go
+
+# 终端 2: 前端
+cd frontend && npm run dev
+
+# 终端 3: 代理 (可选)
+cd backend && python3 mock_agents/storage_custodian.py
+```
 
 ### 停止服务
 

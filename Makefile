@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-backend dev-frontend build lint test seed clean run-full
+.PHONY: help install dev dev-backend dev-frontend build lint test clean mock-start
 
 # Default goal
 .DEFAULT_GOAL := help
@@ -24,11 +24,8 @@ dev: ## Run both backend and frontend in parallel
 	@echo "Starting backend and frontend... (Press Ctrl+C to stop)"
 	@trap 'kill 0' INT; (cd backend && go run cmd/server/main.go) & (cd frontend && npm run dev)
 
-run-full: ## Launch backend, seed data, and start mock agent
-	cd backend/scripts && ./start_with_custodian.sh
-
-seed: ## Seed the database with mock data
-	cd backend/scripts && ./seed_mock_data.sh
+mock-start: ## Launch full stack with mock data and agents
+	cd backend/scripts && ./mock-start.sh
 
 build: ## Build both backend and frontend
 	@echo "Building backend..."
@@ -48,8 +45,8 @@ test: ## Run backend and frontend tests
 	@echo "Running frontend tests..."
 	cd frontend && npm test
 
-clean: ## Clean up build artifacts and logs
-	rm -rf backend/bin/
-	rm -rf frontend/dist/
-	rm -rf docs/.vitepress/dist/
-	find . -name "*.log" -delete
+clean: ## Clean build artifacts
+	@echo "Cleaning..."
+	rm -rf backend/bin
+	rm -rf frontend/dist
+	@echo "Clean complete"

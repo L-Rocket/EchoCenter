@@ -62,11 +62,14 @@ make install
 # 3. Setup Environment
 # Edit backend/.env and add your BUTLER_API_TOKEN and JWT_SECRET
 
-# 4. Launch with one command (includes auto-build and seeding)
-make run-full
+# 4. Launch with mock data and agents (recommended for first run)
+make mock-start
+
+# Or run backend + frontend only (for development)
+make dev
 ```
 
-You can also use `make dev` to run backend and frontend in parallel for active development. Run `make help` to see all available commands.
+Run `make help` to see all available commands.
 
 The system will be available at `http://localhost:5173`. Default admin credentials: `admin` / `admin123`.
 

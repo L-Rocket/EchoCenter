@@ -62,11 +62,14 @@ make install
 # 3. 环境配置
 # 编辑 backend/.env 文件，添加你的 BUTLER_API_TOKEN 和 JWT_SECRET
 
-# 4. 一键启动 (包含自动构建和数据初始化)
-make run-full
+# 4. 使用 mock 数据和代理启动 (首次运行推荐)
+make mock-start
+
+# 或者仅运行后端和前端 (开发模式)
+make dev
 ```
 
-你也可以使用 `make dev` 来同时并行运行后端和前端。输入 `make help` 可以查看所有可用命令。
+输入 `make help` 可以查看所有可用命令。
 
 系统启动后可访问 `http://localhost:5173`。默认管理员凭据：`admin` / `admin123`。
 

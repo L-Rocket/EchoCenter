@@ -74,8 +74,11 @@ make install
 # Build the project
 make build
 
-# Run everything (Backend, Seed data, and Agent)
-make run-full
+# Run with mock data and agents (recommended for first run)
+make mock-start
+
+# Or run backend + frontend only (for development)
+make dev
 ```
 
 Run `make help` to see all available convenience commands.
@@ -189,18 +192,34 @@ python3 mock_agents/storage_custodian.py
 
 ## Startup Scripts
 
-### Using Startup Scripts
+### Using Makefile (Recommended)
 
 ```bash
-cd scripts
-./start_with_custodian.sh
+# Run with mock data and agents (backend + seed + agents + frontend)
+make mock-start
 ```
 
-This script will:
-1. Start the backend service.
-2. Initialize the database.
-3. Register the agent.
-4. Start the Storage-Custodian agent.
+This command will:
+1. Start the backend service
+2. Initialize the database with mock data
+3. Register all mock agents
+4. Start the Storage-Custodian agent
+5. Start the frontend
+
+### Manual Startup
+
+If you prefer to start services manually:
+
+```bash
+# Terminal 1: Backend
+cd backend && go run cmd/server/main.go
+
+# Terminal 2: Frontend
+cd frontend && npm run dev
+
+# Terminal 3: Agent (optional)
+cd backend && python3 mock_agents/storage_custodian.py
+```
 
 ### Stop Services
 Press `Ctrl+C` to stop all services.

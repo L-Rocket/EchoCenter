@@ -69,11 +69,11 @@ func New(cfg *config.DatabaseConfig) (Repository, error) {
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to open database", err)
 	}
 
-	        // Configure connection pool
-	        // With WAL mode, we can have multiple readers and one writer
-	        db.SetMaxOpenConns(cfg.MaxOpenConns)
-	        db.SetMaxIdleConns(cfg.MaxIdleConns)
-	        db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
+	// Configure connection pool
+	// With WAL mode, we can have multiple readers and one writer
+	db.SetMaxOpenConns(cfg.MaxOpenConns)
+	db.SetMaxIdleConns(cfg.MaxIdleConns)
+	db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
 	// Test connection
 	if err := db.Ping(); err != nil {
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to ping database", err)
@@ -259,8 +259,13 @@ func (r *sqliteRepository) GetMessages(ctx context.Context, filter MessageFilter
 
 // CreateUser creates a new user
 func (r *sqliteRepository) CreateUser(ctx context.Context, user *models.User) error {
-	query := `INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)`
-	_, err := r.db.ExecContext(ctx, query, user.Username, user.PasswordHash, user.Role)
+	var apiToken string
+	if user.Role == "AGENT" {
+		apiToken = fmt.Sprintf("agent-%s-token-%d", user.Username, time.Now().Unix())
+	}
+
+	query := `INSERT INTO users (username, password_hash, api_token, role) VALUES (?, ?, ?, ?)`
+	_, err := r.db.ExecContext(ctx, query, user.Username, user.PasswordHash, apiToken, user.Role)
 	if err != nil {
 		if isUniqueConstraintError(err) {
 			return apperrors.Wrap(apperrors.ErrConflict, "username already exists", err)
