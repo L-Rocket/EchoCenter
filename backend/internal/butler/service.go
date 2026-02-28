@@ -349,6 +349,20 @@ func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID stri
 	}
 
 	if !approved {
+		// Update original AUTH_REQUEST status in database
+		if err := s.repo.UpdateAuthRequestStatus(ctx, streamID, "REJECTED"); err != nil {
+			log.Printf("[Butler] Failed to update AUTH_REQUEST status: %v", err)
+		}
+
+		// Broadcast status update to all clients
+		s.hub.BroadcastGeneric(map[string]any{
+			"type": "AUTH_STATUS_UPDATE",
+			"payload": map[string]any{
+				"action_id": streamID,
+				"status":    "REJECTED",
+			},
+		})
+
 		// User rejected the command
 		s.hub.BroadcastGeneric(map[string]any{
 			"type":        "CHAT",
@@ -369,6 +383,20 @@ func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID stri
 		})
 		return
 	}
+
+	// Update original AUTH_REQUEST status in database
+	if err := s.repo.UpdateAuthRequestStatus(ctx, streamID, "APPROVED"); err != nil {
+		log.Printf("[Butler] Failed to update AUTH_REQUEST status: %v", err)
+	}
+
+	// Broadcast status update to all clients
+	s.hub.BroadcastGeneric(map[string]any{
+		"type": "AUTH_STATUS_UPDATE",
+		"payload": map[string]any{
+			"action_id": streamID,
+			"status":    "APPROVED",
+		},
+	})
 
 	// Execute the command and stream the result
 	_, err := s.brain.ExecuteCommand(ctx, result, func(chunk string) error {

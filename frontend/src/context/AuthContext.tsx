@@ -110,6 +110,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             type: 'AUTH_REQUEST',
             payload: msg.payload, 
           });
+        } else if (msg.type === 'AUTH_STATUS_UPDATE') {
+          const payload = (typeof msg.payload === 'string' ? JSON.parse(msg.payload) : msg.payload) as Record<string, unknown>;
+          const actionId = payload.action_id as string;
+          const status = payload.status as string;
+          
+          const butlerId = 2;
+          const currentMessages = useChatStore.getState().messages[butlerId] || [];
+          const updatedMessages = currentMessages.map(m => {
+            if (m.type === 'AUTH_REQUEST' || m.type === 'SYSTEM') {
+              try {
+                const p = (typeof m.payload === 'string' ? JSON.parse(m.payload) : m.payload) as Record<string, unknown>;
+                if (p.action_id === actionId) {
+                  return { ...m, payload: { ...p, status } };
+                }
+              } catch (_e) {
+                // Ignore
+              }
+            }
+            return m;
+          });
+          useChatStore.getState().setHistory(butlerId, updatedMessages);
         }
       } catch (_err) {
         console.error('WS parse error:', _err);

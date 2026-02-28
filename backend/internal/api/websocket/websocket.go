@@ -40,6 +40,7 @@ const (
 	MessageTypeChatStreamEnd MessageType = "CHAT_STREAM_END"
 	MessageTypeAuthRequest   MessageType = "AUTH_REQUEST"
 	MessageTypeAuthResponse  MessageType = "AUTH_RESPONSE"
+	MessageTypeAuthStatusUpdate MessageType = "AUTH_STATUS_UPDATE"
 )
 
 // Message represents a WebSocket message

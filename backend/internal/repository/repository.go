@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -34,6 +35,7 @@ type Repository interface {
 	// Chat
 	SaveChatMessage(ctx context.Context, msg *models.ChatMessage) error
 	GetChatHistory(ctx context.Context, user1ID, user2ID int, limit int) ([]models.ChatMessage, error)
+	UpdateAuthRequestStatus(ctx context.Context, actionID string, status string) error
 
 	// Butler
 	SaveAuthorization(ctx context.Context, auth *models.ButlerAuthorization) error
@@ -461,6 +463,43 @@ func (r *sqliteRepository) GetChatHistory(ctx context.Context, user1ID, user2ID 
 	}
 
 	return messages, nil
+}
+
+// UpdateAuthRequestStatus updates the status of an AUTH_REQUEST message in chat history
+func (r *sqliteRepository) UpdateAuthRequestStatus(ctx context.Context, actionID string, status string) error {
+	// 1. Find the message with type AUTH_REQUEST that contains the actionID in its payload
+	pattern := fmt.Sprintf(`%%"action_id":"%s"%%`, actionID)
+	
+	rows, err := r.db.QueryContext(ctx, "SELECT id, content FROM chat_messages WHERE type = 'AUTH_REQUEST' AND content LIKE ?", pattern)
+	if err != nil {
+		return apperrors.Wrap(apperrors.ErrDatabase, "failed to query AUTH_REQUEST message", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int
+		var content string
+		if err := rows.Scan(&id, &content); err != nil {
+			continue
+		}
+
+		var payload map[string]any
+		if err := json.Unmarshal([]byte(content), &payload); err != nil {
+			continue
+		}
+
+		if payload["action_id"] == actionID {
+			payload["status"] = status
+			newContent, _ := json.Marshal(payload)
+			
+			_, err = r.db.ExecContext(ctx, "UPDATE chat_messages SET content = ? WHERE id = ?", string(newContent), id)
+			if err != nil {
+				log.Printf("[Repository] Failed to update message %d: %v", id, err)
+			}
+		}
+	}
+
+	return nil
 }
 
 // SaveAuthorization saves a butler authorization
