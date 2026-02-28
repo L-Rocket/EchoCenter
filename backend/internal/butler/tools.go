@@ -235,10 +235,14 @@ func ExecuteCommandDirect(ctx context.Context, targetAgentID int, command string
 }
 
 // ResolveAction resumes a pending tool execution or command
+// Returns true if the action was found and resolved
 func ResolveAction(actionID string, approved bool) bool {
-	// First check pendingActions (for tool execution)
+	// Check pendingActions (for tool execution)
 	actionsMu.Lock()
 	ch, ok := pendingActions[actionID]
+	if ok {
+		delete(pendingActions, actionID)
+	}
 	actionsMu.Unlock()
 
 	if ok {
@@ -253,20 +257,7 @@ func ResolveAction(actionID string, approved bool) bool {
 		}
 	}
 
-	// Check pendingCommands (for service-level commands)
-	pendingCommandsMu.RLock()
-	_, ok = pendingCommands[actionID]
-	pendingCommandsMu.RUnlock()
-
-	if ok {
-		log.Printf("[Butler ResolveAction] Found action %s in pendingCommands", actionID)
-		// Execute the pending command
-		// We need to get the butler service instance to execute it
-		// This will be handled by the service's ExecutePendingCommand method
-		return true
-	}
-
-	log.Printf("[Butler ResolveAction] Action %s not found in pending actions or commands", actionID)
+	log.Printf("[Butler ResolveAction] Action %s not found in pendingActions", actionID)
 	return false
 }
 
