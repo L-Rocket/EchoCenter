@@ -469,10 +469,8 @@ func (r *sqliteRepository) GetChatHistory(ctx context.Context, user1ID, user2ID 
 
 // UpdateAuthRequestStatus updates the status of an AUTH_REQUEST message in chat history
 func (r *sqliteRepository) UpdateAuthRequestStatus(ctx context.Context, actionID string, status string) error {
-	// 1. Find the message with type AUTH_REQUEST that contains the actionID in its payload
-	pattern := fmt.Sprintf(`%%"action_id":"%s"%%`, actionID)
-	
-	rows, err := r.db.QueryContext(ctx, "SELECT id, content FROM chat_messages WHERE type = 'AUTH_REQUEST' AND content LIKE ?", pattern)
+	// Fetch all AUTH_REQUEST messages
+	rows, err := r.db.QueryContext(ctx, "SELECT id, content FROM chat_messages WHERE type = 'AUTH_REQUEST'")
 	if err != nil {
 		return apperrors.Wrap(apperrors.ErrDatabase, "failed to query AUTH_REQUEST message", err)
 	}
@@ -490,14 +488,18 @@ func (r *sqliteRepository) UpdateAuthRequestStatus(ctx context.Context, actionID
 			continue
 		}
 
-		if payload["action_id"] == actionID {
+		// Robust check for action_id (could be parsed as string)
+		if aid, ok := payload["action_id"].(string); ok && aid == actionID {
 			payload["status"] = status
 			newContent, _ := json.Marshal(payload)
 			
 			_, err = r.db.ExecContext(ctx, "UPDATE chat_messages SET content = ? WHERE id = ?", string(newContent), id)
 			if err != nil {
 				log.Printf("[Repository] Failed to update message %d: %v", id, err)
+			} else {
+				log.Printf("[Repository] Successfully updated AuthRequest %s to %s (MsgID: %d)", actionID, status, id)
 			}
+			return nil // Found and updated, we can return early
 		}
 	}
 

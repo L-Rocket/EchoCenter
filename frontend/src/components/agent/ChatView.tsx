@@ -142,14 +142,16 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
 
             if (isAuthRequest && typeof payload === 'object' && payload !== null && 'action_id' in payload) {
               const p = payload as Record<string, unknown>;
-              if (p.status === 'APPROVED' || p.status === 'REJECTED') {
+              const normalizedStatus = String(p.status || 'PENDING').toUpperCase();
+              
+              if (normalizedStatus === 'APPROVED' || normalizedStatus === 'REJECTED') {
                 return (
                   <ProcessMessage
                     key={msg.id || i}
                     type={msg.type}
                     payload={p}
                     timestamp={msg.timestamp}
-                    status={p.status as string}
+                    status={normalizedStatus}
                   />
                 );
               }
@@ -163,7 +165,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
                       reason={p.reason as string}
                       onApprove={(id) => sendAuthResponse(id, true)}
                       onReject={(id) => sendAuthResponse(id, false)}
-                      status={(p.status as 'PENDING' | 'APPROVED' | 'REJECTED') || 'PENDING'}
+                      status={normalizedStatus as 'PENDING' | 'APPROVED' | 'REJECTED'}
                     />
                   </div>
                 </div>

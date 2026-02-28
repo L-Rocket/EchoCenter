@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -399,7 +400,7 @@ func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID stri
 	})
 
 	// Execute the command and stream the result
-	_, err := s.brain.ExecuteCommand(ctx, result, func(chunk string) error {
+	execResult, err := s.brain.ExecuteCommand(ctx, result, func(chunk string) error {
 		msg := map[string]any{
 			"type":        "CHAT_STREAM",
 			"sender_id":   s.butlerID,
@@ -415,6 +416,18 @@ func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID stri
 
 	if err != nil {
 		log.Printf("[Butler] Error executing command: %v", err)
+	} else {
+		execContent := strings.TrimSpace(execResult)
+		if execContent != "" {
+			err = s.repo.SaveChatMessage(ctx, &models.ChatMessage{
+				SenderID:   s.butlerID,
+				ReceiverID: senderID,
+				Payload:    execContent,
+			})
+			if err != nil {
+				log.Printf("[Butler] Failed to persist execution result: %v", err)
+			}
+		}
 	}
 
 	s.hub.BroadcastGeneric(map[string]any{
