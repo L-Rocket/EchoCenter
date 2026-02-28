@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lea/echocenter/backend/internal/butler"
+	"github.com/lea/echocenter/backend/internal/models"
 	"github.com/lea/echocenter/backend/internal/repository"
 	apperrors "github.com/lea/echocenter/backend/pkg/errors"
 )
@@ -38,8 +39,16 @@ func (h *Handler) GetChatHistory(c *gin.Context) {
 		return
 	}
 
+	// Filter out AUTH_RESPONSE messages to avoid duplicate cards
+	filteredHistory := make([]models.ChatMessage, 0, len(history))
+	for _, msg := range history {
+		if msg.Type != "AUTH_RESPONSE" {
+			filteredHistory = append(filteredHistory, msg)
+		}
+	}
+
 	// Enrich Butler messages with current authorization status
-	for i, msg := range history {
+	for i, msg := range filteredHistory {
 		var payload map[string]interface{}
 		if err := json.Unmarshal([]byte(msg.Payload), &payload); err == nil {
 			if actionID, ok := payload["action_id"].(string); ok {
@@ -47,13 +56,13 @@ func (h *Handler) GetChatHistory(c *gin.Context) {
 				if auth != nil {
 					payload["status"] = auth.Status
 					newPayload, _ := json.Marshal(payload)
-					history[i].Payload = string(newPayload)
+					filteredHistory[i].Payload = string(newPayload)
 				}
 			}
 		}
 	}
 
-	c.JSON(http.StatusOK, history)
+	c.JSON(http.StatusOK, filteredHistory)
 }
 
 // AuthResponseRequest represents an authorization response request
