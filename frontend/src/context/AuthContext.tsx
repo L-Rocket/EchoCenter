@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useRef, useCallback } from 'react';
 import { jwtDecode } from 'jwt-decode';
-import { useChatStore, ChatMessage } from '@/store/useChatStore';
+import { useChatStore } from '@/store/useChatStore';
+import type { ChatMessage } from '@/store/useChatStore';
 
 interface User {
   id: number;
