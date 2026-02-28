@@ -336,9 +336,9 @@ func (r *sqliteRepository) GetAgentByToken(ctx context.Context, token string) (*
 	return &user, nil
 }
 
-// GetAgents retrieves all agents
+// GetAgents retrieves all agents (including Butler)
 func (r *sqliteRepository) GetAgents(ctx context.Context) ([]models.User, error) {
-	query := `SELECT id, username, role, created_at FROM users WHERE role = 'AGENT'`
+	query := `SELECT id, username, role, created_at FROM users WHERE role IN ('AGENT', 'BUTLER')`
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to query agents", err)

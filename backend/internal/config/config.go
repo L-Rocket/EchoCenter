@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -129,7 +130,7 @@ func getEnvAsDuration(key string, defaultValue time.Duration) time.Duration {
 // getEnvAsSlice gets environment variable as slice with default value
 func getEnvAsSlice(key string, defaultValue []string) []string {
 	if value := os.Getenv(key); value != "" {
-		return []string{value}
+		return strings.Split(value, ",")
 	}
 	return defaultValue
 }
