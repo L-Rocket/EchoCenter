@@ -1,14 +1,14 @@
 # Storage-Custodian
 
-## Overview
+## 概述
 
-Storage-Custodian is the storage management agent of EchoCenter, responsible for monitoring and managing the storage system. It is a Python agent that communicates with the backend via WebSocket.
+Storage-Custodian 是 EchoCenter 的存储管理代理，负责监控和管理存储系统。它是一个 Python 代理，通过 WebSocket 与后端通信。
 
-## Features
+## 功能特性
 
-### 1. Storage Monitoring
+### 1. 存储监控
 
-Storage-Custodian monitors files and disk space in the storage directory:
+Storage-Custodian 监控存储目录的文件和磁盘空间：
 
 ```python
 def get_storage_stats():
@@ -31,9 +31,9 @@ def get_storage_stats():
     }
 ```
 
-### 2. System Log
+### 2. 系统日志
 
-Storage-Custodian periodically sends system logs:
+Storage-Custodian 定期发送系统日志：
 
 ```python
 stats = get_storage_stats()
@@ -46,9 +46,9 @@ await ws.send(json.dumps({
 }))
 ```
 
-### 3. Respond to Instructions
+### 3. 响应指令
 
-Storage-Custodian can respond to Butler's instructions:
+Storage-Custodian 可以响应 Butler 的指令：
 
 ```python
 async def handle_command(command):
@@ -56,27 +56,27 @@ async def handle_command(command):
         stats = get_storage_stats()
         return f"Storage Status: {stats['total_files']} files, {stats['total_size']} bytes"
     elif command.startswith("list_files"):
-        # List files
+        # 列出文件
         pass
     elif command.startswith("get_file"):
-        # Get file
+        # 获取文件
         pass
 ```
 
-## Configuration
+## 配置
 
-### Environment Variables
+### 环境变量
 
 ```env
-# Butler Configuration (Storage-Custodian uses the same Butler configuration)
+# Butler 配置（Storage-Custodian 使用相同的 Butler 配置）
 BUTLER_BASE_URL=https://api.siliconflow.cn/v1
 BUTLER_API_TOKEN=your_api_token_here
 BUTLER_MODEL=gpt-3.5-turbo
 ```
 
-### Storage Directory
+### 存储目录
 
-Storage-Custodian uses `mock_agents/hive_storage` as the storage directory:
+Storage-Custodian 使用 `mock_agents/hive_storage` 作为存储目录：
 
 ```python
 # Use a path relative to the script location
@@ -86,9 +86,9 @@ if not os.path.exists(STORAGE_DIR):
     os.makedirs(STORAGE_DIR)
 ```
 
-## Connection
+## 连接
 
-### Connection Address
+### 连接地址
 
 ```python
 import asyncio
@@ -100,7 +100,7 @@ ECHOCENTER_WS_URL = "ws://localhost:8080/api/ws"
 async def agent_loop(api_token):
     uri = f"{ECHOCENTER_WS_URL}?token={api_token}"
     async with websockets.connect(uri) as ws:
-        # Send system log
+        # 发送系统日志
         stats = get_storage_stats()
         await ws.send(json.dumps({
             "type": "SYSTEM_LOG",
@@ -110,29 +110,29 @@ async def agent_loop(api_token):
             }
         }))
         
-        # Receive messages
+        # 接收消息
         async for message in ws:
             msg = json.loads(message)
             await handle_message(msg)
 ```
 
-### Connection Flow
+### 连接流程
 
 ```
-1. Start Storage-Custodian
+1. 启动 Storage-Custodian
    ↓
-2. Connect to WebSocket server
+2. 连接到 WebSocket 服务器
    ↓
-3. Validate API token
+3. 验证 API 令牌
    ↓
-4. Send system log
+4. 发送系统日志
    ↓
-5. Start receiving messages
+5. 开始接收消息
 ```
 
-## Message Processing
+## 消息处理
 
-### System Log
+### 系统日志
 
 ```json
 {
@@ -147,7 +147,7 @@ async def agent_loop(api_token):
 }
 ```
 
-### Respond to Instruction
+### 响应指令
 
 ```json
 {
@@ -161,24 +161,30 @@ async def agent_loop(api_token):
 }
 ```
 
-## Commands
+## 命令
 
 ### get_status
-Get storage status:
+
+获取存储状态：
+
 ```bash
 get_status
 ```
-Response:
+
+响应：
 ```
 Storage Status: 10 files, 102400 bytes
 ```
 
 ### list_files
-List files:
+
+列出文件：
+
 ```bash
 list_files
 ```
-Response:
+
+响应：
 ```
 Files:
 - file1.txt (1024 bytes)
@@ -186,28 +192,31 @@ Files:
 ```
 
 ### get_file
-Get file:
+
+获取文件：
+
 ```bash
 get_file filename
 ```
-Response:
+
+响应：
 ```
 File content...
 ```
 
-## Example
+## 示例
 
-### Start Storage-Custodian
+### 启动 Storage-Custodian
 
 ```bash
 cd backend
 python3 mock_agents/storage_custodian.py
 ```
 
-### Check Storage Status
+### 查看存储状态
 
 ```python
-# Storage-Custodian sends system log automatically after startup
+# Storage-Custodian 启动后自动发送系统日志
 {
   "type": "SYSTEM_LOG",
   "sender_id": 7,
@@ -220,9 +229,9 @@ python3 mock_agents/storage_custodian.py
 }
 ```
 
-### Query Storage Status
+### 查询存储状态
 
-Butler can send instructions:
+Butler 可以发送指令：
 
 ```json
 {
@@ -236,7 +245,7 @@ Butler can send instructions:
 }
 ```
 
-Storage-Custodian responds:
+Storage-Custodian 响应：
 
 ```json
 {
@@ -250,9 +259,9 @@ Storage-Custodian responds:
 }
 ```
 
-## Best Practices
+## 最佳实践
 
-### 1. Error Handling
+### 1. 错误处理
 
 ```python
 async def handle_message(msg):
@@ -272,7 +281,7 @@ async def handle_message(msg):
         log.error(f"Error handling message: {e}")
 ```
 
-### 2. Logging
+### 2. 日志记录
 
 ```python
 import logging
@@ -282,10 +291,10 @@ logger = logging.getLogger(__name__)
 
 async def handle_message(msg):
     logger.info(f"Received message: {msg}")
-    # Process message
+    # 处理消息
 ```
 
-### 3. Status Monitoring
+### 3. 状态监控
 
 ```python
 def get_storage_stats():
@@ -312,45 +321,52 @@ def get_storage_stats():
         return {"error": str(e)}
 ```
 
-## Scalability
+## 扩展性
 
-### Adding New Commands
-1. Add command parsing in `handle_command`.
-2. Implement command logic.
-3. Return response.
+### 添加新命令
 
-### Adding New Features
-1. Add new functions in `get_storage_stats`.
-2. Update message handling.
-3. Test functionality.
+1. 在 `handle_command` 中添加命令解析
+2. 实现命令逻辑
+3. 返回响应
 
-## Performance Optimization
-- Asynchronous processing
-- Connection pool
-- Caching
-- Concurrent processing
+### 添加新功能
 
-## Security
-- API token validation
-- Input validation
-- Error handling
+1. 在 `get_storage_stats` 中添加新功能
+2. 更新消息处理
+3. 测试功能
 
-## Troubleshooting
+## 性能优化
 
-### Connection Failed
-Check:
-1. Backend service is running.
-2. WebSocket URL is correct.
-3. API token is valid.
+- 异步处理
+- 连接池
+- 缓存
+- 并发处理
 
-### Message Not Sent
-Check:
-1. WebSocket connection is normal.
-2. Message format is correct.
-3. Network is normal.
+## 安全性
 
-### Storage Directory Does Not Exist
-Storage-Custodian will automatically create the storage directory:
+- API 令牌验证
+- 输入验证
+- 错误处理
+
+## 故障排除
+
+### 连接失败
+
+检查：
+1. 后端服务是否运行
+2. WebSocket URL 是否正确
+3. API 令牌是否有效
+
+### 消息未发送
+
+检查：
+1. WebSocket 连接是否正常
+2. 消息格式是否正确
+3. 网络是否正常
+
+### 存储目录不存在
+
+Storage-Custodian 会自动创建存储目录：
 
 ```python
 if not os.path.exists(STORAGE_DIR):

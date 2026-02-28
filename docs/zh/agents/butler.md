@@ -1,21 +1,21 @@
 # Butler
 
-## Overview
+## 概述
 
-Butler is the core agent of EchoCenter, responsible for coordinating other agents and handling user requests. It is an AI-driven agent capable of understanding user intent and executing complex tasks.
+Butler 是 EchoCenter 的核心代理，负责协调其他代理和处理用户请求。它是一个 AI 驱动的代理，能够理解用户意图并执行复杂的任务。
 
-## Features
+## 功能特性
 
-### 1. Message Processing
+### 1. 消息处理
 
-Butler receives user messages, analyzes intent, and decides how to respond.
+Butler 接收用户消息，分析意图，并决定如何响应。
 
 ```go
 func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, payload string) {
-    // Analyze message
+    // 分析消息
     response, err := s.brain.ChatStream(ctx, payload)
     
-    // Send response
+    // 发送响应
     s.hub.BroadcastGeneric(map[string]interface{}{
         "type":        "CHAT",
         "sender_id":   s.butlerID,
@@ -27,17 +27,17 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 }
 ```
 
-### 2. Command Execution
+### 2. 命令执行
 
-Butler can execute commands, including:
-- Querying system status
-- Managing agents
-- Executing operations
+Butler 可以执行命令，包括：
+- 查询系统状态
+- 管理代理
+- 执行操作
 
 ```go
 func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID string, senderID int, approved bool) {
     if !approved {
-        // User rejected the command
+        // 用户拒绝命令
         s.hub.BroadcastGeneric(map[string]interface{}{
             "type":        "CHAT",
             "sender_id":   s.butlerID,
@@ -49,9 +49,9 @@ func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID stri
         return
     }
     
-    // Execute command
+    // 执行命令
     _, err := s.brain.ExecuteCommand(ctx, result, func(chunk string) error {
-        // Stream return
+        // 流式返回
         s.hub.BroadcastGeneric(map[string]interface{}{
             "type":        "CHAT_STREAM",
             "sender_id":   s.butlerID,
@@ -66,9 +66,9 @@ func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID stri
 }
 ```
 
-### 3. Authorization Request
+### 3. 授权请求
 
-When sensitive operations need to be performed, Butler sends an authorization request.
+当需要执行敏感操作时，Butler 会发送授权请求。
 
 ```go
 func (s *ButlerService) RequestAuthorization(actionID string, targetID int, command, reasoning string) {
@@ -85,85 +85,85 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
 }
 ```
 
-### 4. Agent Coordination
+### 4. 代理协调
 
-Butler can coordinate other agents to perform tasks.
+Butler 可以协调其他代理执行任务。
 
 ```go
 func (s *ButlerService) ProcessLog(ctx context.Context, msg models.Message) {
-    // Process system logs
+    // 处理系统日志
     s.brain.ProcessLog(msg)
 }
 ```
 
-## Workflow
+## 工作流程
 
-### User Request Flow
-
-```
-1. User sends a message to Butler
-   ↓
-2. Butler receives the message
-   ↓
-3. AI brain analyzes the message
-   ↓
-4. Decides the response method
-   ↓
-5. Sends response to the user
-```
-
-### Command Execution Flow
+### 用户请求流程
 
 ```
-1. Butler detects a command needs to be executed
+1. 用户发送消息给 Butler
    ↓
-2. Sends authorization request to the admin
+2. Butler 接收消息
    ↓
-3. Waits for admin approval/rejection
+3. AI 大脑分析消息
    ↓
-4. If approved, executes the command
+4. 决定响应方式
    ↓
-5. Streams the result back to the admin
+5. 发送响应给用户
 ```
 
-### Agent Coordination Flow
+### 命令执行流程
 
 ```
-1. Butler needs an agent to perform a task
+1. Butler 检测到需要执行命令
    ↓
-2. Sends instruction to the agent
+2. 发送授权请求给管理员
    ↓
-3. Agent performs the task
+3. 等待管理员批准/拒绝
    ↓
-4. Agent returns the result
+4. 如果批准，执行命令
    ↓
-5. Butler processes the result
-   ↓
-6. Sends final response to the user
+5. 流式返回结果给管理员
 ```
 
-## Configuration
+### 代理协调流程
 
-### Environment Variables
+```
+1. Butler 需要代理执行任务
+   ↓
+2. 发送指令给代理
+   ↓
+3. 代理执行任务
+   ↓
+4. 代理返回结果
+   ↓
+5. Butler 处理结果
+   ↓
+6. 发送最终响应给用户
+```
+
+## 配置
+
+### 环境变量
 
 ```env
-# Butler AI Configuration
+# Butler AI 配置
 BUTLER_BASE_URL=https://api.siliconflow.cn/v1
 BUTLER_API_TOKEN=your_api_token_here
 BUTLER_MODEL=gpt-3.5-turbo
 ```
 
-### Configuration Description
+### 配置说明
 
-- `BUTLER_BASE_URL` - AI API base URL
-- `BUTLER_API_TOKEN` - AI API token
-- `BUTLER_MODEL` - AI model name
+- `BUTLER_BASE_URL` - AI API 基础 URL
+- `BUTLER_API_TOKEN` - AI API 令牌
+- `BUTLER_MODEL` - AI 模型名称
 
-## Message Types
+## 消息类型
 
 ### CHAT
 
-Regular chat message:
+普通聊天消息：
 
 ```json
 {
@@ -179,7 +179,7 @@ Regular chat message:
 
 ### CHAT_STREAM
 
-Streaming chat message:
+流式聊天消息：
 
 ```json
 {
@@ -195,7 +195,7 @@ Streaming chat message:
 
 ### CHAT_STREAM_END
 
-Stream end message:
+流结束消息：
 
 ```json
 {
@@ -211,7 +211,7 @@ Stream end message:
 
 ### AUTH_REQUEST
 
-Authorization request:
+授权请求：
 
 ```json
 {
@@ -227,11 +227,11 @@ Authorization request:
 }
 ```
 
-## AI Brain
+## AI 大脑
 
 ### EinoBrain
 
-Butler uses Eino as the AI brain:
+Butler 使用 Eino 作为 AI 大脑：
 
 ```go
 type EinoBrain struct {
@@ -241,62 +241,62 @@ type EinoBrain struct {
 }
 ```
 
-**Functions**:
-- Call AI API
-- Analyze messages
-- Generate responses
-- Execute commands
+**功能**：
+- 调用 AI API
+- 分析消息
+- 生成响应
+- 执行命令
 
 ### ChatStream
 
-Streaming chat:
+流式聊天：
 
 ```go
 func (b *EinoBrain) ChatStream(ctx context.Context, prompt string) (string, error) {
-    // Call AI API
-    // Stream return response
+    // 调用 AI API
+    // 流式返回响应
 }
 ```
 
 ### ExecuteCommand
 
-Execute command:
+执行命令：
 
 ```go
 func (b *EinoBrain) ExecuteCommand(ctx context.Context, command string, callback func(string) error) error {
-    // Parse command
-    // Execute command
-    // Stream return result
+    // 解析命令
+    // 执行命令
+    // 流式返回结果
 }
 ```
 
-## Tool Functions
+## 工具函数
 
 ### ExecuteCommandDirect
 
-Directly execute command:
+直接执行命令：
 
 ```go
 func ExecuteCommandDirect(ctx context.Context, command string) (string, error) {
-    // Execute command
-    // Return result
+    // 执行命令
+    // 返回结果
 }
 ```
 
 ### RegisterAgentResponse
 
-Register agent response:
+注册代理响应：
 
 ```go
 func RegisterAgentResponse(agentID int, response string) error {
-    // Register response
-    // Notify waiting commands
+    // 注册响应
+    // 通知等待的命令
 }
 ```
 
-## Best Practices
+## 最佳实践
 
-### 1. Error Handling
+### 1. 错误处理
 
 ```go
 func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, payload string) {
@@ -325,14 +325,14 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 }
 ```
 
-### 2. Timeout Handling
+### 2. 超时处理
 
 ```go
 func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID string, senderID int, approved bool) {
     ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
     defer cancel()
     
-    // Execute command
+    // 执行命令
     _, err := s.brain.ExecuteCommand(ctx, result, func(chunk string) error {
         // ...
     })
@@ -343,7 +343,7 @@ func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID stri
 }
 ```
 
-### 3. Logging
+### 3. 日志记录
 
 ```go
 func (s *ButlerService) RequestAuthorization(actionID string, targetID int, command, reasoning string) {
@@ -364,12 +364,12 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
 }
 ```
 
-## Example
+## 示例
 
-### Handling User Message
+### 处理用户消息
 
 ```go
-// User sends message
+// 用户发送消息
 {
   "type": "CHAT",
   "sender_id": 1,
@@ -380,7 +380,7 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
   "timestamp": "2024-01-01T00:00:00Z"
 }
 
-// Butler processes message
+// Butler 处理消息
 {
   "type": "CHAT",
   "sender_id": 2,
@@ -391,7 +391,7 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
   "timestamp": "2024-01-01T00:00:01Z"
 }
 
-// Butler sends authorization request
+// Butler 发送授权请求
 {
   "type": "AUTH_REQUEST",
   "action_id": "cmd_123",
@@ -404,7 +404,7 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
   "timestamp": "2024-01-01T00:00:02Z"
 }
 
-// Admin approves
+// 管理员批准
 {
   "type": "AUTH_RESPONSE",
   "action_id": "cmd_123",
@@ -416,7 +416,7 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
   "timestamp": "2024-01-01T00:00:03Z"
 }
 
-// Butler executes command
+// Butler 执行命令
 {
   "type": "CHAT_STREAM",
   "sender_id": 2,
@@ -448,26 +448,30 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
 }
 ```
 
-## Scalability
+## 扩展性
 
-### Adding New Commands
-1. Add command parsing in EinoBrain.
-2. Add command execution in tools.go.
-3. Test the command.
+### 添加新命令
 
-### Adding New Message Types
-1. Define the message type.
-2. Add message handling logic.
-3. Test message processing.
+1. 在 EinoBrain 中添加命令解析
+2. 在 tools.go 中添加命令执行
+3. 测试命令
 
-## Performance Optimization
-- Asynchronous processing
-- Connection pool
-- Caching
-- Concurrent processing
+### 添加新消息类型
 
-## Security
-- Authorization request
-- Command validation
-- Input filtering
-- Error handling
+1. 定义消息类型
+2. 在处理逻辑中添加消息处理
+3. 测试消息处理
+
+## 性能优化
+
+- 异步处理
+- 连接池
+- 缓存
+- 并发处理
+
+## 安全性
+
+- 授权请求
+- 命令验证
+- 输入过滤
+- 错误处理

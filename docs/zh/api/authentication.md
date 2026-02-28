@@ -2,15 +2,15 @@
 outline: deep
 ---
 
-# Authentication
+# 认证
 
-## Overview
+## 概述
 
-EchoCenter uses JWT (JSON Web Token) for user authentication. After logging in, users receive a token, which must be carried in the `Authorization` header for subsequent requests.
+EchoCenter 使用 JWT (JSON Web Token) 进行用户认证。用户登录后会获得一个令牌，后续请求需要在 `Authorization` 头中携带该令牌。
 
-## Login Flow
+## 登录流程
 
-### Request
+### 请求
 
 ```
 POST /api/auth/login
@@ -22,7 +22,7 @@ Content-Type: application/json
 }
 ```
 
-### Response
+### 响应
 
 ```json
 {
@@ -30,7 +30,7 @@ Content-Type: application/json
 }
 ```
 
-### Token Structure
+### 令牌结构
 
 ```
 {
@@ -39,9 +39,9 @@ Content-Type: application/json
 }
 ```
 
-## Registration Flow
+## 注册流程
 
-### Request
+### 请求
 
 ```
 POST /api/auth/register
@@ -53,7 +53,7 @@ Content-Type: application/json
 }
 ```
 
-### Response
+### 响应
 
 ```json
 {
@@ -61,9 +61,9 @@ Content-Type: application/json
 }
 ```
 
-## Token Validation
+## 令牌验证
 
-### Middleware
+### 中间件
 
 ```go
 func AuthMiddleware() gin.HandlerFunc {
@@ -82,7 +82,7 @@ func AuthMiddleware() gin.HandlerFunc {
             return []byte(config.JWTSecret), nil
         })
 
-        if err != nil || !token.Valid {
+        if err != !nil || !token.Valid {
             c.JSON(http.StatusUnauthorized, ErrorResponse{
                 Error: Error{Code: "INVALID_TOKEN", Message: "Invalid token"}
             })
@@ -106,15 +106,15 @@ func AuthMiddleware() gin.HandlerFunc {
 }
 ```
 
-## API Endpoints
+## API 端点
 
-### Login
+### 登录
 
 ```
 POST /api/auth/login
 ```
 
-**Request Body**
+**请求体**
 ```json
 {
   "username": "string",
@@ -122,20 +122,20 @@ POST /api/auth/login
 }
 ```
 
-**Response**
+**响应**
 ```json
 {
   "token": "string"
 }
 ```
 
-### Register
+### 注册
 
 ```
 POST /api/auth/register
 ```
 
-**Request Body**
+**请求体**
 ```json
 {
   "username": "string",
@@ -143,38 +143,38 @@ POST /api/auth/register
 }
 ```
 
-**Response**
+**响应**
 ```json
 {
   "token": "string"
 }
 ```
 
-## Permissions
+## 权限控制
 
-### Roles
+### 角色
 
-- `admin` - Administrator
-- `user` - Regular user
+- `admin` - 管理员
+- `user` - 普通用户
 
-### Access Control
+### 权限
 
-- `admin` - All permissions
-- `user` - Limited permissions
+- `admin` - 所有权限
+- `user` - 有限权限
 
-## Security
+## 安全性
 
-### Password Hashing
+### 密码哈希
 
-Bcrypt is used for password hashing:
+使用 Bcrypt 进行密码哈希：
 
 ```go
 passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 ```
 
-### Token Expiration
+### 令牌过期
 
-Tokens expire after 24 hours by default:
+令牌默认 24 小时过期：
 
 ```go
 exp := time.Now().Add(time.Hour * 24).Unix()
@@ -182,7 +182,7 @@ exp := time.Now().Add(time.Hour * 24).Unix()
 
 ### CORS
 
-CORS protection configuration:
+配置 CORS 保护：
 
 ```go
 app.Use(cors.New(cors.Config{
@@ -192,9 +192,9 @@ app.Use(cors.New(cors.Config{
 }))
 ```
 
-## Error Handling
+## 错误处理
 
-### Invalid Credentials
+### 无效凭据
 
 ```json
 {
@@ -205,7 +205,7 @@ app.Use(cors.New(cors.Config{
 }
 ```
 
-### Unauthorized
+### 未授权
 
 ```json
 {
@@ -216,7 +216,7 @@ app.Use(cors.New(cors.Config{
 }
 ```
 
-### Invalid Token
+### 无效令牌
 
 ```json
 {
@@ -227,9 +227,9 @@ app.Use(cors.New(cors.Config{
 }
 ```
 
-## Frontend Integration
+## 前端集成
 
-### Login
+### 登录
 
 ```javascript
 const response = await fetch('/api/auth/login', {
@@ -247,7 +247,7 @@ const data = await response.json()
 localStorage.setItem('token', data.token)
 ```
 
-### Sending Requests
+### 发送请求
 
 ```javascript
 const token = localStorage.getItem('token')
@@ -259,24 +259,24 @@ const response = await fetch('/api/users', {
 })
 ```
 
-## Best Practices
+## 最佳实践
 
-### 1. Token Storage
+### 1. 令牌存储
 
-- Use `localStorage` or `sessionStorage`.
-- Do not store in cookies (to prevent CSRF).
+- 使用 `localStorage` 或 `sessionStorage`
+- 不要存储在 cookie 中（防止 CSRF）
 
-### 2. Token Refresh
+### 2. 令牌刷新
 
-- Refresh tokens before they expire.
-- Use refresh tokens (future plan).
+- 令牌过期前刷新
+- 使用 refresh token（未来）
 
-### 3. Token Revocation
+### 3. 令牌撤销
 
-- Clear token on logout.
-- Server-side revocation (future plan).
+- 登出时清除令牌
+- 服务器端撤销令牌（未来）
 
-### 4. Secure Transmission
+### 4. 安全传输
 
-- Use HTTPS.
-- Do not pass tokens in URLs.
+- 使用 HTTPS
+- 不要在 URL 中传递令牌

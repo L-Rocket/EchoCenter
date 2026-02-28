@@ -2,151 +2,151 @@
 outline: deep
 ---
 
-# 系统架构概述
+# System Architecture Overview
 
-## 架构概览
+## Architecture Overview
 
-EchoCenter 采用分层架构设计，主要包含以下组件：
+EchoCenter adopts a layered architecture design, mainly consisting of the following components:
 
-### 核心组件
+### Core Components
 
-1. **后端服务** (Go + Gin)
-   - HTTP API 服务
-   - WebSocket 通信
-   - 业务逻辑处理
+1. **Backend Service** (Go + Gin)
+   - HTTP API service
+   - WebSocket communication
+   - Business logic processing
 
-2. **前端应用** (React + TypeScript)
-   - 用户界面
-   - 实时消息展示
-   - 状态管理
+2. **Frontend Application** (React + TypeScript)
+   - User interface
+   - Real-time message display
+   - State management
 
-3. **Butler 服务** (Go)
-   - 核心代理
-   - 消息处理
-   - 命令执行
+3. **Butler Service** (Go)
+   - Core agent
+   - Message processing
+   - Command execution
 
-4. **代理模拟器** (Python)
+4. **Agent Simulators** (Python)
    - Storage-Custodian
-   - 其他模拟代理
+   - Other simulated agents
 
-5. **数据库** (SQLite)
-   - 用户数据
-   - 聊天记录
-   - 系统配置
+5. **Database** (SQLite)
+   - User data
+   - Chat history
+   - System configuration
 
-## 架构图
+## Architecture Diagram
 
 :::demo
 ```mermaid
 graph TD
-    A[用户] --> B[前端应用]
-    B --> C[后端服务]
-    C --> D[数据库]
-    C --> E[Butler 服务]
-    E --> F[代理]
+    A[User] --> B[Frontend Application]
+    B --> C[Backend Service]
+    C --> D[Database]
+    C --> E[Butler Service]
+    E --> F[Agents]
 ```
 :::
 
-## 数据流
+## Data Flow
 
-### 用户请求流程
+### User Request Flow
 
 ```
-用户
+User
   ↓
-HTTP 请求 → 后端 API → 处理器 → 业务逻辑 → 数据库
+HTTP Request → Backend API → Handler → Business Logic → Database
   ↑
-响应 ←───────────────────────────────────────┘
+Response ←───────────────────────────────────────┘
 ```
 
-### 实时通信流程
+### Real-time Communication Flow
 
 ```
-用户/代理
+User/Agent
   ↓
-WebSocket 连接
+WebSocket Connection
   ↓
-Hub (消息分发)
+Hub (Message Distribution)
   ↓
-消息处理器
+Message Handler
   ↓
-Butler 服务
+Butler Service
   ↓
-AI 大脑 (Eino)
+AI Brain (Eino)
   ↓
-代理
+Agents
 ```
 
-## 技术栈
+## Tech Stack
 
-### 后端
-- **Go 1.21+** - 编程语言
-- **Gin** - HTTP 框架
-- **Gorilla WebSocket** - WebSocket 实现
-- **SQLite** - 数据库
-- **Eino** - AI 推理引擎
+### Backend
+- **Go 1.21+** - Programming Language
+- **Gin** - HTTP Framework
+- **Gorilla WebSocket** - WebSocket implementation
+- **SQLite** - Database
+- **Eino** - AI Inference Engine
 
-### 前端
-- **React 18+** - UI 框架
-- **TypeScript** - 类型安全
-- **Tailwind CSS** - 样式框架
-- **Vite** - 构建工具
+### Frontend
+- **React 18+** - UI Framework
+- **TypeScript** - Type Safety
+- **Tailwind CSS** - Styling Framework
+- **Vite** - Build Tool
 
-### 代理
-- **Python 3.9+** - 编程语言
-- **OpenAI SDK** - AI 接口
-- **WebSockets** - 通信库
+### Agents
+- **Python 3.9+** - Programming Language
+- **OpenAI SDK** - AI Interface
+- **WebSockets** - Communication library
 
-## 组件职责
+## Component Responsibilities
 
-### 后端服务
-- 提供 REST API
-- 管理 WebSocket 连接
-- 处理用户认证
-- 协调代理通信
-- 数据持久化
+### Backend Service
+- Provide REST API
+- Manage WebSocket connections
+- Handle user authentication
+- Coordinate agent communication
+- Data persistence
 
-### 前端应用
-- 用户界面
-- 实时消息展示
-- 状态管理
-- 代理监控
+### Frontend Application
+- User interface
+- Real-time message display
+- State management
+- Agent monitoring
 
-### Butler 服务
-- 核心代理协调
-- 消息处理
-- 命令执行
-- 授权请求
+### Butler Service
+- Core agent coordination
+- Message processing
+- Command execution
+- Authorization requests
 
-### 代理模拟器
-- 模拟真实代理
-- 提供测试数据
-- 验证系统功能
+### Agent Simulator
+- Simulate real agents
+- Provide test data
+- Verify system functionality
 
-## 扩展性
+## Extensibility
 
-### 添加新代理
-1. 创建新的 Python 代理脚本
-2. 实现 WebSocket 通信
-3. 注册到数据库
-4. 启动代理
+### Adding New Agents
+1. Create a new Python agent script
+2. Implement WebSocket communication
+3. Register in the database
+4. Start the agent
 
-### 添加新 API 端点
-1. 在 `handler` 中添加处理器
-2. 在 `router` 中添加路由
-3. 添加中间件（如需要）
-4. 测试端点
+### Adding New API Endpoints
+1. Add a handler in `handler`
+2. Add a route in `router`
+3. Add middleware (if needed)
+4. Test the endpoint
 
-## 性能考虑
+## Performance Considerations
 
-- **并发处理** - 使用 goroutine 处理并发请求
-- **连接池** - WebSocket 连接池管理
-- **数据库优化** - 连接池和索引优化
-- **缓存** - 未来可添加 Redis 缓存
+- **Concurrency** - Use goroutines to handle concurrent requests
+- **Connection Pool** - WebSocket connection pool management
+- **Database Optimization** - Connection pool and index optimization
+- **Caching** - Redis caching can be added in the future
 
-## 安全性
+## Security
 
-- **JWT 认证** - 令牌认证
-- **密码哈希** - Bcrypt 哈希
-- **CORS 配置** - 跨域保护
-- **输入验证** - 请求验证
+- **JWT Authentication** - Token authentication
+- **Password Hashing** - Bcrypt hashing
+- **CORS Configuration** - Cross-origin protection
+- **Input Validation** - Request validation

@@ -1,13 +1,33 @@
-# EchoCenter 文档
+---
+layout: home
 
-智能代理中心系统文档
+hero:
+  name: EchoCenter
+  text: 智能代理中心文档
+  tagline: 模块化、可扩展的智能代理管理系统
+  actions:
+    - theme: brand
+      text: 快速开始
+      link: /zh/architecture/overview
+    - theme: alt
+      text: GitHub
+      link: https://github.com/L-Rocket/EchoCenter
+
+features:
+  - title: 核心代理 Butler
+    details: 负责协调各个子代理，提供智能化的中心管理。
+  - title: 实时通信
+    details: 基于 WebSocket 的低延迟双向消息传输。
+  - title: 灵活扩展
+    details: 轻松接入自定义代理，支持多种开发语言。
+---
 
 ## 快速开始
 
-- [架构](/architecture/overview) - 系统架构和组件说明
-- [API](/api/authentication) - API 文档
-- [代理](/agents/butler) - 代理文档
-- [开发](/development/setup) - 开发指南
+- [架构](/zh/architecture/overview) - 系统架构和组件说明
+- [API](/zh/api/authentication) - API 文档
+- [代理](/zh/agents/butler) - 代理文档
+- [开发](/zh/development/setup) - 开发指南
 
 ## 文档结构
 

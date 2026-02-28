@@ -1,86 +1,74 @@
-# 贡献指南
+# Contributing Guide
 
-## 概述
+## Overview
 
-欢迎为 EchoCenter 贡献代码！本文档介绍如何参与项目开发。
+Welcome to contributing to EchoCenter! This document describes how to participate in project development.
 
-## 开发流程
+## Development Process
 
-### 1. Fork 仓库
+### 1. Fork the Repository
+Click the "Fork" button on GitHub.
 
-点击 GitHub 上的 "Fork" 按钮。
-
-### 2. 克隆仓库
-
+### 2. Clone the Repository
 ```bash
 git clone https://github.com/YOUR_USERNAME/EchoCenter.git
 cd EchoCenter
 ```
 
-### 3. 添加上游远程
-
+### 3. Add Upstream Remote
 ```bash
 git remote add upstream https://github.com/L-Rocket/EchoCenter.git
 ```
 
-### 4. 创建分支
-
+### 4. Create a Branch
 ```bash
 git checkout -b feature/your-feature
-# 或
+# or
 git checkout -b fix/your-fix
 ```
 
-### 5. 开发
+### 5. Develop
+Perform your development work.
 
-进行你的开发工作。
-
-### 6. 提交
-
+### 6. Commit
 ```bash
 git add .
 git commit -m "feat: add your feature"
-# 或
+# or
 git commit -m "fix: fix your bug"
 ```
 
-### 7. 推送
-
+### 7. Push
 ```bash
 git push origin feature/your-feature
 ```
 
-### 8. 创建 Pull Request
+### 8. Create a Pull Request
+Create a Pull Request on GitHub.
 
-在 GitHub 上创建 Pull Request。
+## Code Standards
 
-## 代码规范
+### Go Code Standards
+- Use `gofmt` to format code.
+- Follow Go naming conventions.
+- Add comments.
+- Use error handling.
 
-### Go 代码规范
+### Python Code Standards
+- Use `black` to format code.
+- Follow PEP 8.
+- Add type hints.
+- Use docstrings.
 
-- 使用 `gofmt` 格式化代码
-- 遵循 Go 命名约定
-- 添加注释
-- 使用错误处理
+### JavaScript/TypeScript Code Standards
+- Use `prettier` to format code.
+- Follow Airbnb JavaScript Style Guide.
+- Add comments.
+- Use TypeScript.
 
-### Python 代码规范
+## Commit Message Convention
 
-- 使用 `black` 格式化代码
-- 遵循 PEP 8
-- 添加类型提示
-- 使用 docstring
-
-### JavaScript/TypeScript 代码规范
-
-- 使用 `prettier` 格式化代码
-- 遵循 Airbnb JavaScript Style Guide
-- 添加注释
-- 使用 TypeScript
-
-## 提交规范
-
-### 格式
-
+### Format
 ```
 <type>: <description>
 
@@ -89,18 +77,16 @@ git push origin feature/your-feature
 [optional footer]
 ```
 
-### 类型
+### Types
+- `feat` - New feature
+- `fix` - Bug fix
+- `docs` - Documentation
+- `style` - Code format
+- `refactor` - Refactoring
+- `test` - Testing
+- `chore` - Build process or auxiliary tool changes
 
-- `feat` - 新功能
-- `fix` - 修复 bug
-- `docs` - 文档
-- `style` - 代码格式
-- `refactor` - 重构
-- `test` - 测试
-- `chore` - 构建过程或辅助工具变动
-
-### 示例
-
+### Examples
 ```
 feat: add new agent type
 
@@ -125,16 +111,14 @@ Added detailed guide for contributors.
 
 ## Pull Request
 
-### PR 标题
-
+### PR Title
 ```
 feat: add new feature
 fix: fix bug
 docs: update documentation
 ```
 
-### PR 描述
-
+### PR Description
 ```
 ## Description
 Describe your changes.
@@ -160,59 +144,40 @@ Add screenshots if applicable.
 - [ ] No warnings or errors
 ```
 
-## 代码审查
+## Code Review
 
-### 审查标准
+### Review Criteria
+1. **Code Quality**: Is the code clear? Does it follow standards? Are there comments?
+2. **Functionality**: Is the function correct? Are there edge cases? Is there error handling?
+3. **Performance**: Are there performance issues? Memory leaks? Resource leaks?
+4. **Security**: Are there security issues? Sensitive information leaks? Input validation?
 
-1. **代码质量**
-   - 代码是否清晰
-   - 是否遵循规范
-   - 是否有注释
+### Review Process
+1. Submit PR.
+2. Code review.
+3. Modify code.
+4. Resubmit.
+5. Merge PR.
 
-2. **功能**
-   - 功能是否正确
-   - 是否有边界情况
-   - 是否有错误处理
+## Issue Tracking
 
-3. **性能**
-   - 是否有性能问题
-   - 是否有内存泄漏
-   - 是否有资源泄漏
+### Create an Issue
+Use GitHub Issues to create issues.
 
-4. **安全**
-   - 是否有安全问题
-   - 是否有敏感信息泄露
-   - 是否有输入验证
-
-### 审查流程
-
-1. 提交 PR
-2. 代码审查
-3. 修改代码
-4. 重新提交
-5. 合并 PR
-
-## 问题跟踪
-
-### 创建 Issue
-
-使用 GitHub Issues 创建问题。
-
-### Issue 模板
-
+### Issue Template
 ```
 ## Description
 Describe the issue.
 
-## Steps to reproduce
+## Steps to Reproduce
 1. Go to ...
 2. Click on ...
 3. See error
 
-## Expected behavior
+## Expected Behavior
 Describe what you expected.
 
-## Actual behavior
+## Actual Behavior
 Describe what actually happened.
 
 ## Environment
@@ -223,14 +188,12 @@ Describe what actually happened.
 ## Screenshots
 Add screenshots if applicable.
 
-## Additional context
+## Additional Context
 Add any additional context.
 ```
 
-## 许可证
+## License
+By contributing, you agree that your contribution follows the MIT License.
 
-通过贡献，你同意你的贡献遵循 MIT 许可证。
-
-## 认可
-
-感谢所有贡献者！
+## Recognition
+Thanks to all contributors!

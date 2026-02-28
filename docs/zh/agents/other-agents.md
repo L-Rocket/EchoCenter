@@ -1,85 +1,85 @@
-# Other Agents
+# 其他代理
 
-## Overview
+## 概述
 
-EchoCenter supports multiple agents, each responsible for specific functions.
+EchoCenter 支持多个代理，每个代理负责特定的功能。
 
-## Agent List
+## 代理列表
 
 ### 1. Weather-Sentinel
 
-**Role**: Weather monitoring agent
+**角色**：天气监控代理
 
-**Features**:
-- Monitor weather data
-- Send weather reports
-- Analyze weather trends
+**功能**：
+- 监控天气数据
+- 发送天气报告
+- 分析天气趋势
 
-**Configuration**:
+**配置**：
 ```env
 WEATHER_API_KEY=your_weather_api_key
 WEATHER_LOCATION=Beijing
 ```
 
-**Message Types**:
-- `SYSTEM_LOG` - Weather report
-- `WEATHER_UPDATE` - Weather update
+**消息类型**：
+- `SYSTEM_LOG` - 天气报告
+- `WEATHER_UPDATE` - 天气更新
 
 ### 2. Code-Reviewer-AI
 
-**Role**: Code review agent
+**角色**：代码审查代理
 
-**Features**:
-- Review code
-- Identify potential issues
-- Provide improvement suggestions
+**功能**：
+- 审查代码
+- 发现潜在问题
+- 提供改进建议
 
-**Configuration**:
+**配置**：
 ```env
 CODE_REVIEW_API_KEY=your_api_key
 ```
 
-**Message Types**:
-- `SYSTEM_LOG` - Review report
-- `CODE_REVIEW` - Code review
+**消息类型**：
+- `SYSTEM_LOG` - 审查报告
+- `CODE_REVIEW` - 代码审查
 
 ### 3. Security-Audit-Bot
 
-**Role**: Security audit agent
+**角色**：安全审计代理
 
-**Features**:
-- Audit system security
-- Discover security vulnerabilities
-- Send security reports
+**功能**：
+- 审计系统安全
+- 发现安全漏洞
+- 发送安全报告
 
-**Configuration**:
+**配置**：
 ```env
 SECURITY_API_KEY=your_api_key
 ```
 
-**Message Types**:
-- `SYSTEM_LOG` - Security report
-- `SECURITY_ALERT` - Security alert
+**消息类型**：
+- `SYSTEM_LOG` - 安全报告
+- `SECURITY_ALERT` - 安全警报
 
 ### 4. Echo-Bot
 
-**Role**: Echo agent
+**角色**：回显代理
 
-**Features**:
-- Echo user messages
-- Test communication
-- Debugging tool
+**功能**：
+- 回显用户消息
+- 测试通信
+- 调试工具
 
-**Configuration**:
-None
+**配置**：
+无特殊配置
 
-**Message Types**:
-- `SYSTEM_LOG` - Connection status
-- `CHAT` - Echoed message
+**消息类型**：
+- `SYSTEM_LOG` - 连接状态
+- `CHAT` - 回显消息
 
-## Agent Registration
+## 代理注册
 
-### Register via API
+### 通过 API 注册
 
 ```bash
 curl -X POST http://localhost:8080/api/users/agents \
@@ -88,18 +88,18 @@ curl -X POST http://localhost:8080/api/users/agents \
   -d '{"username": "Weather-Sentinel"}'
 ```
 
-### Register via Script
+### 通过脚本注册
 
 ```bash
 cd backend/scripts
 ./seed_mock_data.sh
 ```
 
-## Agent Communication
+## 代理通信
 
-### Inter-agent Communication
+### 代理间通信
 
-Agents can communicate through Butler:
+代理之间可以通过 Butler 进行通信：
 
 ```json
 {
@@ -113,9 +113,9 @@ Agents can communicate through Butler:
 }
 ```
 
-### Broadcast Messages
+### 广播消息
 
-Agents can send broadcast messages:
+代理可以发送广播消息：
 
 ```json
 {
@@ -128,26 +128,28 @@ Agents can send broadcast messages:
 }
 ```
 
-## Agent Management
+## 代理管理
 
-### Get Agent List
+### 获取代理列表
 
 ```bash
 curl -X GET http://localhost:8080/api/users/agents \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
-### Delete Agent
+### 删除代理
 
 ```bash
 curl -X DELETE http://localhost:8080/api/users/agents/7 \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
-## Best Practices
+## 最佳实践
 
-### 1. Agent Naming
-Use meaningful names:
+### 1. 代理命名
+
+使用有意义的名称：
+
 ```
 Weather-Sentinel
 Code-Reviewer-AI
@@ -155,22 +157,26 @@ Security-Audit-Bot
 Echo-Bot
 ```
 
-### 2. Agent Roles
-Clearly define agent roles:
-- `AGENT` - Regular agent
-- `BUTLER` - Core agent
+### 2. 代理角色
 
-### 3. Agent Communication
-Use Butler for inter-agent communication:
+明确代理的角色：
+
+- `AGENT` - 普通代理
+- `BUTLER` - 核心代理
+
+### 3. 代理通信
+
+使用 Butler 进行代理间通信：
+
 ```
-Agent → Butler → Agent
+代理 → Butler → 代理
 ```
 
-## Example
+## 示例
 
-### Create a New Agent
+### 创建新代理
 
-1. Create a Python script
+1. 创建 Python 脚本
 
 ```python
 import asyncio
@@ -180,7 +186,7 @@ import json
 async def new_agent_loop(api_token):
     uri = "ws://localhost:8080/api/ws?token=" + api_token
     async with websockets.connect(uri) as ws:
-        # Send system log
+        # 发送系统日志
         await ws.send(json.dumps({
             "type": "SYSTEM_LOG",
             "sender_id": 8,
@@ -192,13 +198,13 @@ async def new_agent_loop(api_token):
             }
         }))
         
-        # Receive message
+        # 接收消息
         async for message in ws:
             msg = json.loads(message)
             await handle_message(msg)
 ```
 
-2. Register the agent
+2. 注册代理
 
 ```bash
 curl -X POST http://localhost:8080/api/users/agents \
@@ -207,28 +213,31 @@ curl -X POST http://localhost:8080/api/users/agents \
   -d '{"username": "New-Agent"}'
 ```
 
-3. Start the agent
+3. 启动代理
 
 ```bash
 python3 mock_agents/new_agent.py
 ```
 
-## Troubleshooting
+## 故障排除
 
-### Agent Not Connected
-Check:
-1. Agent script is correct.
-2. API token is valid.
-3. Network is normal.
+### 代理未连接
 
-### Agent Not Responding
-Check:
-1. WebSocket connection is normal.
-2. Message handling logic is correct.
-3. Check error logs.
+检查：
+1. 代理脚本是否正确
+2. API 令牌是否有效
+3. 网络是否正常
 
-### Agent Registration Failed
-Check:
-1. API token has permissions.
-2. Agent name is unique.
-3. Database is normal.
+### 代理未响应
+
+检查：
+1. WebSocket 连接是否正常
+2. 消息处理逻辑是否正确
+3. 是否有错误日志
+
+### 代理注册失败
+
+检查：
+1. API 令牌是否有权限
+2. 代理名称是否唯一
+3. 数据库是否正常

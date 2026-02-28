@@ -2,38 +2,38 @@
 outline: deep
 ---
 
-# WebSocket Communication
+# WebSocket 通信
 
-## Overview
+## 概述
 
-EchoCenter uses WebSocket for real-time bidirectional communication. All agents and the frontend connect to the backend through WebSocket.
+EchoCenter 使用 WebSocket 进行实时双向通信。所有代理和前端都通过 WebSocket 连接到后端。
 
-## Connection
+## 连接
 
-### Connection Address
+### 连接地址
 
 ```
 ws://localhost:8080/api/ws?token=your_jwt_token
 ```
 
-### Connection Parameters
+### 连接参数
 
-- `token` - JWT Token (Required)
+- `token` - JWT 令牌（必需）
 
-### Connection Flow
+### 连接流程
 
 ```
-1. Client connects to the WebSocket server.
-2. Server validates the JWT token.
-3. Server registers the client.
-4. Client starts sending/receiving messages.
+1. 客户端连接到 WebSocket 服务器
+2. 服务器验证 JWT 令牌
+3. 服务器注册客户端
+4. 客户端开始发送/接收消息
 ```
 
-## Message Types
+## 消息类型
 
 ### 1. SYSTEM_LOG
 
-System log messages:
+系统日志消息：
 
 ```json
 {
@@ -50,7 +50,7 @@ System log messages:
 
 ### 2. CHAT
 
-Chat messages:
+聊天消息：
 
 ```json
 {
@@ -66,7 +66,7 @@ Chat messages:
 
 ### 3. AUTH_REQUEST
 
-Authorization request:
+授权请求：
 
 ```json
 {
@@ -85,7 +85,7 @@ Authorization request:
 
 ### 4. AUTH_RESPONSE
 
-Authorization response:
+授权响应：
 
 ```json
 {
@@ -104,7 +104,7 @@ Authorization response:
 
 ### 5. AGENT_RESPONSE
 
-Agent response:
+代理响应：
 
 ```json
 {
@@ -122,9 +122,9 @@ Agent response:
 }
 ```
 
-## Message Format
+## 消息格式
 
-### General Format
+### 通用格式
 
 ```json
 {
@@ -138,21 +138,21 @@ Agent response:
 }
 ```
 
-### Field Description
+### 字段说明
 
-| Field | Type | Required | Description |
-|------|------|----------|-------------|
-| type | string | Yes | Message type |
-| sender_id | integer | Yes | Sender ID |
-| sender_name | string | Yes | Sender name |
-| sender_role | string | Yes | Sender role |
-| target_id | integer | No | Target ID |
-| payload | object | Yes | Message payload |
-| timestamp | string | Yes | Timestamp |
+| 字段 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| type | string | 是 | 消息类型 |
+| sender_id | integer | 是 | 发送者 ID |
+| sender_name | string | 是 | 发送者名称 |
+| sender_role | string | 是 | 发送者角色 |
+| target_id | integer | 否 | 目标 ID |
+| payload | object | 是 | 消息负载 |
+| timestamp | string | 是 | 时间戳 |
 
-## Hub Management
+## Hub 管理
 
-### Connection Management
+### 连接管理
 
 ```go
 type Hub struct {
@@ -163,7 +163,7 @@ type Hub struct {
 }
 ```
 
-### Message Distribution
+### 消息分发
 
 ```go
 func (h *Hub) run() {
@@ -190,9 +190,9 @@ func (h *Hub) run() {
 }
 ```
 
-## Agent Connection
+## 代理连接
 
-### Connection Example
+### 连接示例
 
 ```python
 import asyncio
@@ -202,7 +202,7 @@ import json
 async def agent_loop(api_token):
     uri = f"ws://localhost:8080/api/ws?token={api_token}"
     async with websockets.connect(uri) as ws:
-        # Send message
+        # 发送消息
         await ws.send(json.dumps({
             "type": "SYSTEM_LOG",
             "sender_id": 7,
@@ -214,15 +214,21 @@ async def agent_loop(api_token):
             }
         }))
         
-        # Receive message
+        # 接收消息
         async for message in ws:
             msg = json.loads(message)
             await handle_message(msg)
 ```
 
-## Frontend Connection
+### 连接参数
 
-### Connection Example
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| token | string | 是 | JWT 令牌 |
+
+## 前端连接
+
+### 连接示例
 
 ```javascript
 const token = localStorage.getItem('token')
@@ -246,9 +252,59 @@ ws.onerror = (error) => {
 }
 ```
 
-## Error Handling
+### 连接状态
 
-### Connection Error
+- `CONNECTING` - 连接中
+- `OPEN` - 已连接
+- `CLOSING` - 关闭中
+- `CLOSED` - 已关闭
+
+## 消息处理
+
+### 代理消息处理
+
+```python
+async def handle_message(msg):
+    if msg["type"] == "CHAT":
+        response = await process_command(msg["payload"])
+        await ws.send(json.dumps({
+            "type": "CHAT",
+            "sender_id": 7,
+            "sender_name": "Storage-Custodian",
+            "sender_role": "AGENT",
+            "target_id": msg["sender_id"],
+            "payload": response,
+            "timestamp": datetime.utcnow().isoformat()
+        }))
+```
+
+### 前端消息处理
+
+```javascript
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'SYSTEM_LOG':
+      console.log('System log:', msg.payload)
+      break
+    case 'CHAT':
+      console.log('Chat message:', msg.payload)
+      break
+    case 'AUTH_REQUEST':
+      console.log('Authorization request:', msg.payload)
+      break
+    case 'AUTH_RESPONSE':
+      console.log('Authorization response:', msg.payload)
+      break
+    case 'AGENT_RESPONSE':
+      console.log('Agent response:', msg.payload)
+      break
+  }
+}
+```
+
+## 错误处理
+
+### 连接错误
 
 ```json
 {
@@ -260,7 +316,7 @@ ws.onerror = (error) => {
 }
 ```
 
-### Message Error
+### 消息错误
 
 ```json
 {
@@ -272,24 +328,28 @@ ws.onerror = (error) => {
 }
 ```
 
-## Best Practices
+## 最佳实践
 
-### 1. Connection Management
-- Maintain connection.
-- Reconnection mechanism.
-- Heartbeat detection.
+### 1. 连接管理
 
-### 2. Message Processing
-- Asynchronous processing.
-- Error handling.
-- Logging.
+- 保持连接
+- 重连机制
+- 心跳检测
 
-### 3. Security
-- Use HTTPS.
-- Token validation.
-- Input validation.
+### 2. 消息处理
 
-### 4. Performance
-- Connection pool.
-- Message queue.
-- Concurrent processing.
+- 异步处理
+- 错误处理
+- 日志记录
+
+### 3. 安全性
+
+- 使用 HTTPS
+- 令牌验证
+- 输入验证
+
+### 4. 性能
+
+- 连接池
+- 消息队列
+- 并发处理

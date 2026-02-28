@@ -1,10 +1,10 @@
-# Environment Setup
+# 环境设置
 
-## Overview
+## 概述
 
-This guide describes how to set up the development environment for EchoCenter.
+本指南介绍如何设置 EchoCenter 的开发环境。
 
-## Prerequisites
+## 前置要求
 
 ### Go 1.21+
 
@@ -19,7 +19,7 @@ sudo apt-get install golang-go
 sudo yum install golang
 ```
 
-Verify installation:
+验证安装：
 ```bash
 go version
 ```
@@ -37,7 +37,7 @@ sudo apt-get install python3
 sudo yum install python3
 ```
 
-Verify installation:
+验证安装：
 ```bash
 python3 --version
 ```
@@ -57,140 +57,141 @@ curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
 sudo yum install nodejs
 ```
 
-Verify installation:
+验证安装：
 ```bash
 node --version
 npm --version
 ```
 
-## Backend Setup
+## 后端设置
 
-### 1. Clone Repository
+### 1. 克隆仓库
 
 ```bash
 git clone https://github.com/L-Rocket/EchoCenter.git
 cd EchoCenter/backend
 ```
 
-### 2. Install Dependencies
+### 2. 安装依赖
 
 ```bash
 go mod download
 ```
 
-### 3. Configure Environment Variables
+### 3. 配置环境变量
 
-Create `.env` file:
+创建 `.env` 文件：
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env`:
+编辑 `.env`：
 
 ```env
-# Server Configuration
+# 服务器配置
 SERVER_HOST=0.0.0.0
 SERVER_PORT=8080
 
-# Database Configuration
+# 数据库配置
 DB_PATH=./echocenter.db
 
-# Butler Configuration
+# Butler 配置
 BUTLER_BASE_URL=https://api.siliconflow.cn/v1
 BUTLER_API_TOKEN=your_api_token_here
 BUTLER_MODEL=gpt-3.5-turbo
 
-# JWT Configuration
+# JWT 配置
 JWT_SECRET=your_jwt_secret_here_at_least_32_characters_long
 JWT_TOKEN_EXPIRATION=24h
 
-# Initial Administrator
+# 初始管理员
 INITIAL_ADMIN_USER=admin
 INITIAL_ADMIN_PASS=admin123
 
-# CORS Configuration
+# CORS 配置
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 CORS_ALLOWED_METHODS=GET,POST,PUT,DELETE,OPTIONS
 CORS_ALLOWED_HEADERS=Origin,Content-Type,Authorization
 CORS_MAX_AGE=86400
 ```
 
-### 4. Run Backend
+### 4. 运行后端
 
 ```bash
-# Development mode
+# 开发模式
 go run cmd/server/main.go
 
-# Build and run
+# 构建并运行
 go build -o bin/server ./cmd/server
 ./bin/server
 ```
 
-## Frontend Setup
+## 前端设置
 
-### 1. Clone Repository
+### 1. 克隆仓库
 
 ```bash
 cd ../frontend
 ```
 
-### 2. Install Dependencies
+### 2. 安装依赖
 
 ```bash
 npm install
 ```
 
-### 3. Configure Environment Variables
+### 3. 配置环境变量
 
-Create `.env.local` file:
+创建 `.env.local` 文件：
 
 ```env
 VITE_API_URL=http://localhost:8080
 ```
 
-### 4. Run Frontend
+### 4. 运行前端
 
 ```bash
 npm run dev
 ```
 
-The frontend will run at `http://localhost:5173`.
+前端将在 `http://localhost:5173` 运行。
 
-## Agent Setup
+## 代理设置
 
-### 1. Install Python Dependencies
+### 1. 安装 Python 依赖
 
 ```bash
 cd ../backend
 pip install -r requirements.txt
 ```
 
-### 2. Run Agent
+### 2. 运行代理
 
 ```bash
 python3 mock_agents/storage_custodian.py
 ```
 
-## Startup Scripts
+## 启动脚本
 
-### Using Startup Scripts
+### 使用启动脚本
 
 ```bash
 cd scripts
 ./start_with_custodian.sh
 ```
 
-This script will:
-1. Start the backend service.
-2. Initialize the database.
-3. Register the agent.
-4. Start the Storage-Custodian agent.
+这个脚本会：
+1. 启动后端服务
+2. 初始化数据库
+3. 注册代理
+4. 启动 Storage-Custodian 代理
 
-### Stop Services
-Press `Ctrl+C` to stop all services.
+### 停止服务
 
-## Docker Setup
+按 `Ctrl+C` 停止所有服务。
+
+## Docker 设置
 
 ### Dockerfile
 
@@ -254,33 +255,37 @@ services:
       - backend
 ```
 
-### Run Docker
+### 运行 Docker
 
 ```bash
 docker-compose up --build
 ```
 
-## Troubleshooting
+## 故障排除
 
-### Go Module Download Failed
+### Go 模块下载失败
+
 ```bash
 go mod tidy
 go mod download
 ```
 
-### Python Dependency Installation Failed
+### Python 依赖安装失败
+
 ```bash
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### Frontend Dependency Installation Failed
+### 前端依赖安装失败
+
 ```bash
 npm cache clean --force
 npm install
 ```
 
-### Port Occupied
+### 端口被占用
+
 ```bash
 # macOS
 lsof -ti:8080 | xargs kill -9
@@ -289,15 +294,17 @@ lsof -ti:8080 | xargs kill -9
 lsof -ti:8080 | xargs kill -9
 ```
 
-### Database Connection Failed
-Check:
-1. Database path is correct.
-2. Database file has correct permissions.
-3. Database is not occupied by another process.
+### 数据库连接失败
 
-## Best Practices
+检查：
+1. 数据库路径是否正确
+2. 数据库文件是否有权限
+3. 数据库是否被其他进程占用
 
-### 1. Use Virtual Environment
+## 最佳实践
+
+### 1. 使用虚拟环境
+
 ```bash
 # Go
 export GOPATH=$HOME/go
@@ -308,21 +315,25 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-### 2. Use Environment Variables
-Do not commit sensitive information to the repository.
+### 2. 使用环境变量
 
-### 3. Use Version Control
+不要将敏感信息提交到代码仓库。
+
+### 3. 使用版本控制
+
 ```bash
 git checkout -b feature/your-feature
-# Develop
+# 开发
 git add .
 git commit -m "Add your feature"
 git push origin feature/your-feature
 ```
 
-### 4. Use Docker
-Ensure environment consistency.
+### 4. 使用 Docker
 
-## Next Steps
-- [Testing Guide](./testing.md)
-- [Contributing Guide](./contributing.md)
+确保环境一致性。
+
+## 下一步
+
+- [测试指南](./testing.md)
+- [贡献指南](./contributing.md)

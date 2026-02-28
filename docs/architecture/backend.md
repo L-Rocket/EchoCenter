@@ -2,90 +2,90 @@
 outline: deep
 ---
 
-# 后端架构
+# Backend Architecture
 
-## 概述
+## Overview
 
-后端服务是 EchoCenter 的核心，负责处理 HTTP 请求、WebSocket 通信、业务逻辑和数据持久化。
+The backend service is the core of EchoCenter, responsible for handling HTTP requests, WebSocket communication, business logic, and data persistence.
 
-## 项目结构
+## Project Structure
 
 ```
 backend/
 ├── cmd/
 │   └── server/
-│       └── main.go          # 入口点
+│       └── main.go          # Entry point
 ├── internal/
-│   ├── api/                 # API 层
-│   │   ├── handler/        # 处理器
-│   │   ├── middleware/     # 中间件
-│   │   ├── router/         # 路由
+│   ├── api/                 # API layer
+│   │   ├── handler/        # Handlers
+│   │   ├── middleware/     # Middleware
+│   │   ├── router/         # Routing
 │   │   └── websocket/      # WebSocket
-│   ├── auth/               # 认证
-│   ├── butler/             # Butler 服务
-│   ├── config/             # 配置
-│   ├── models/             # 数据模型
-│   └── repository/         # 数据存储
-├── pkg/                    # 公共包
-│   └── errors/            # 错误处理
-└── scripts/               # 启动脚本
+│   ├── auth/               # Authentication
+│   ├── butler/             # Butler service
+│   ├── config/             # Configuration
+│   ├── models/             # Data models
+│   └── repository/         # Data storage
+├── pkg/                    # Public packages
+│   └── errors/            # Error handling
+└── scripts/               # Startup scripts
 ```
 
-## 核心组件
+## Core Components
 
-### 1. HTTP API 服务
+### 1. HTTP API Service
 
-- **路由** - RESTful API 路由
-- **处理器** - 请求处理逻辑
-- **中间件** - 认证、日志、错误处理
-- **响应** - 统一响应格式
+- **Routing** - RESTful API routing
+- **Handlers** - Request processing logic
+- **Middleware** - Authentication, logging, error handling
+- **Response** - Unified response format
 
-### 2. WebSocket 服务
+### 2. WebSocket Service
 
-- **Hub** - 连接管理
-- **消息处理器** - 消息分发
-- **代理注册** - 代理连接管理
-- **消息广播** - 多播消息
+- **Hub** - Connection management
+- **Message Handler** - Message distribution
+- **Agent Registration** - Agent connection management
+- **Message Broadcast** - Multicast messaging
 
-### 3. 认证服务
+### 3. Authentication Service
 
-- **JWT** - 令牌生成和验证
-- **中间件** - 路由保护
-- **用户管理** - 用户 CRUD
+- **JWT** - Token generation and validation
+- **Middleware** - Route protection
+- **User Management** - User CRUD
 
-### 4. Butler 服务
+### 4. Butler Service
 
-- **消息处理** - 接收和处理消息
-- **命令执行** - 执行用户命令
-- **授权请求** - 发送授权请求
-- **响应处理** - 处理代理响应
+- **Message Processing** - Receiving and processing messages
+- **Command Execution** - Executing user commands
+- **Authorization Request** - Sending authorization requests
+- **Response Handling** - Processing agent responses
 
-### 5. 数据存储
+### 5. Data Storage
 
-- **SQLite** - 本地数据库
-- **Repository** - 数据访问层
-- **模型** - 数据模型定义
+- **SQLite** - Local database
+- **Repository** - Data access layer
+- **Models** - Data model definitions
 
-## 架构图
+## Architecture Diagram
 
 :::demo
 ```mermaid
 graph TD
-    A[HTTP 客户端] --> B[Gin Router]
+    A[HTTP Client] --> B[Gin Router]
     B --> C[Middleware]
     C --> D[Handler]
     D --> E[Service]
     E --> F[Repository]
     F --> G[SQLite]
     
-    H[WebSocket 客户端] --> I[WebSocket Hub]
+    H[WebSocket Client] --> I[WebSocket Hub]
     I --> J[Message Handler]
     J --> K[Butler Service]
     K --> L[Agent]
 ```
 :::
 
-## 数据模型
+## Data Models
 
 ### User
 
@@ -123,51 +123,51 @@ type Agent struct {
 }
 ```
 
-## API 路由
+## API Routes
 
-### 认证
+### Authentication
 
-- `POST /api/auth/login` - 登录
-- `POST /api/auth/register` - 注册
+- `POST /api/auth/login` - Login
+- `POST /api/auth/register` - Register
 
-### 用户
+### Users
 
-- `GET /api/users` - 获取用户列表
-- `GET /api/users/:id` - 获取用户详情
-- `POST /api/users/agents` - 注册代理
-- `DELETE /api/users/agents/:id` - 删除代理
+- `GET /api/users` - Get user list
+- `GET /api/users/:id` - Get user details
+- `POST /api/users/agents` - Register agent
+- `DELETE /api/users/agents/:id` - Delete agent
 
-### 消息
+### Messages
 
-- `GET /api/messages` - 获取消息列表
-- `POST /api/messages` - 发送消息
+- `GET /api/messages` - Get message list
+- `POST /api/messages` - Send message
 
-## 中间件
+## Middleware
 
-### 认证中间件
+### Auth Middleware
 
 ```go
 func AuthMiddleware() gin.HandlerFunc {
     return func(c *gin.Context) {
         token := c.GetHeader("Authorization")
-        // 验证 token
+        // Validate token
     }
 }
 ```
 
-### 日志中间件
+### Logger Middleware
 
 ```go
 func LoggerMiddleware() gin.HandlerFunc {
     return func(c *gin.Context) {
-        // 记录请求日志
+        // Log request
     }
 }
 ```
 
-## 错误处理
+## Error Handling
 
-### 统一错误格式
+### Unified Error Format
 
 ```json
 {
@@ -178,57 +178,57 @@ func LoggerMiddleware() gin.HandlerFunc {
 }
 ```
 
-### 错误码
+### Error Codes
 
-- `INVALID_CREDENTIALS` - 无效凭据
-- `UNAUTHORIZED` - 未授权
-- `NOT_FOUND` - 未找到
-- `INTERNAL_ERROR` - 内部错误
+- `INVALID_CREDENTIALS` - Invalid credentials
+- `UNAUTHORIZED` - Unauthorized
+- `NOT_FOUND` - Not found
+- `INTERNAL_ERROR` - Internal error
 
-## 性能优化
+## Performance Optimization
 
-### 数据库优化
+### Database Optimization
 
-- 连接池
-- 索引优化
-- 查询优化
+- Connection pool
+- Index optimization
+- Query optimization
 
-### 缓存
+### Caching
 
-- Redis（未来）
-- 内存缓存
+- Redis (future)
+- In-memory cache
 
-### 并发处理
+### Concurrency
 
-- Goroutine
-- Channel
+- Goroutines
+- Channels
 
-## 安全性
+## Security
 
-### 输入验证
+### Input Validation
 
-- 结构体验证
-- 类型验证
+- Struct validation
+- Type validation
 
-### SQL 注入防护
+### SQL Injection Protection
 
-- 参数化查询
-- ORM 使用
+- Parameterized queries
+- ORM usage
 
-### XSS 防护
+### XSS Protection
 
-- HTML 转义
-- 输入验证
+- HTML escaping
+- Input validation
 
-## 部署
+## Deployment
 
-### 构建
+### Build
 
 ```bash
 go build -o bin/server ./cmd/server
 ```
 
-### 运行
+### Run
 
 ```bash
 ./bin/server

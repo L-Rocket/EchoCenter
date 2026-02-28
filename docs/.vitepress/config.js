@@ -1,11 +1,11 @@
-import { defaultTheme } from 'vitepress'
+import { defineConfig } from 'vitepress'
 
 /** @type {import('vitepress').Config} */
-export default {
-  base: '/EchoCenter/',
-  lang: 'zh-CN',
-  title: 'EchoCenter 文档',
-  description: '智能代理中心系统文档',
+export default defineConfig({
+  base: process.env.NODE_ENV === 'production' ? '/EchoCenter/' : '/',
+  lang: 'en-US',
+  title: 'EchoCenter Docs',
+  description: 'Documentation for the Intelligent Agent Center System',
   
   head: [
     ['link', { rel: 'icon', href: '/logo.png' }],
@@ -14,13 +14,13 @@ export default {
   
   themeConfig: {
     nav: [
-      { text: '首页', link: '/' },
-      { text: '架构', link: '/architecture/overview' },
+      { text: 'Home', link: '/' },
+      { text: 'Architecture', link: '/architecture/overview' },
       { text: 'API', link: '/api/authentication' },
-      { text: '代理', link: '/agents/butler' },
-      { text: '开发', link: '/development/setup' },
+      { text: 'Agents', link: '/agents/butler' },
+      { text: 'Development', link: '/development/setup' },
       {
-        text: '链接',
+        text: 'Links',
         items: [
           { text: 'GitHub', link: 'https://github.com/L-Rocket/EchoCenter' }
         ]
@@ -30,11 +30,11 @@ export default {
     sidebar: {
       '/architecture/': [
         {
-          text: '架构',
+          text: 'Architecture',
           items: [
-            { text: '概述', link: '/architecture/overview' },
-            { text: '后端', link: '/architecture/backend' },
-            { text: '前端', link: '/architecture/frontend' }
+            { text: 'Overview', link: '/architecture/overview' },
+            { text: 'Backend', link: '/architecture/backend' },
+            { text: 'Frontend', link: '/architecture/frontend' }
           ]
         }
       ],
@@ -42,29 +42,29 @@ export default {
         {
           text: 'API',
           items: [
-            { text: '认证', link: '/api/authentication' },
+            { text: 'Authentication', link: '/api/authentication' },
             { text: 'WebSocket', link: '/api/websocket' },
-            { text: '端点', link: '/api/endpoints' }
+            { text: 'Endpoints', link: '/api/endpoints' }
           ]
         }
       ],
       '/agents/': [
         {
-          text: '代理',
+          text: 'Agents',
           items: [
             { text: 'Butler', link: '/agents/butler' },
             { text: 'Storage-Custodian', link: '/agents/storage-custodian' },
-            { text: '其他代理', link: '/agents/other-agents' }
+            { text: 'Other Agents', link: '/agents/other-agents' }
           ]
         }
       ],
       '/development/': [
         {
-          text: '开发',
+          text: 'Development',
           items: [
-            { text: '环境设置', link: '/development/setup' },
-            { text: '测试指南', link: '/development/testing' },
-            { text: '贡献指南', link: '/development/contributing' }
+            { text: 'Setup', link: '/development/setup' },
+            { text: 'Testing', link: '/development/testing' },
+            { text: 'Contributing', link: '/development/contributing' }
           ]
         }
       ]
@@ -84,7 +84,7 @@ export default {
     },
     
     lastUpdated: {
-      text: '最后更新',
+      text: 'Last Updated',
       formatOptions: {
         dateStyle: 'short',
         timeStyle: 'medium'
@@ -93,12 +93,12 @@ export default {
     
     editLink: {
       pattern: 'https://github.com/L-Rocket/EchoCenter/edit/main/docs/:path',
-      text: '在 GitHub 上编辑此页'
+      text: 'Edit this page on GitHub'
     },
     
     docFooter: {
-      prev: '上一页',
-      next: '下一页'
+      prev: 'Previous Page',
+      next: 'Next Page'
     },
     
     search: {
@@ -108,13 +108,64 @@ export default {
   
   locales: {
     root: {
-      label: '简体中文',
-      lang: 'zh-CN'
-    },
-    en: {
       label: 'English',
-      lang: 'en',
-      link: '/en/'
+      lang: 'en-US'
+    },
+    zh: {
+      label: '简体中文',
+      lang: 'zh-CN',
+      link: '/zh/',
+      themeConfig: {
+        nav: [
+          { text: '首页', link: '/zh/' },
+          { text: '架构', link: '/zh/architecture/overview' },
+          { text: 'API', link: '/zh/api/authentication' },
+          { text: '代理', link: '/zh/agents/butler' },
+          { text: '开发', link: '/zh/development/setup' }
+        ],
+        sidebar: {
+          '/zh/architecture/': [
+            {
+              text: '架构',
+              items: [
+                { text: '概述', link: '/zh/architecture/overview' },
+                { text: '后端', link: '/zh/architecture/backend' },
+                { text: '前端', link: '/zh/architecture/frontend' }
+              ]
+            }
+          ],
+          '/zh/api/': [
+            {
+              text: 'API',
+              items: [
+                { text: '认证', link: '/zh/api/authentication' },
+                { text: 'WebSocket', link: '/zh/api/websocket' },
+                { text: '端点', link: '/zh/api/endpoints' }
+              ]
+            }
+          ],
+          '/zh/agents/': [
+            {
+              text: '代理',
+              items: [
+                { text: 'Butler', link: '/zh/agents/butler' },
+                { text: 'Storage-Custodian', link: '/zh/agents/storage-custodian' },
+                { text: '其他代理', link: '/zh/agents/other-agents' }
+              ]
+            }
+          ],
+          '/zh/development/': [
+            {
+              text: '开发',
+              items: [
+                { text: '环境设置', link: '/zh/development/setup' },
+                { text: '测试指南', link: '/zh/development/testing' },
+                { text: '贡献指南', link: '/zh/development/contributing' }
+              ]
+            }
+          ]
+        }
+      }
     }
   }
-}
+})
