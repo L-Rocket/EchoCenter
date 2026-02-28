@@ -23,7 +23,24 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const WS_URL = 'ws://localhost:8080/api/ws';
+const getWsUrl = () => {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.hostname === 'localhost' ? 'localhost:8080' : window.location.host;
+  if (window.location.port === '5173' || window.location.port === '3000') {
+    return `${protocol}//localhost:8080/api/ws`;
+  }
+  return `${protocol}//${host}/api/ws`;
+};
+
+const getApiUrl = (path: string) => {
+  const host = window.location.hostname === 'localhost' ? 'http://localhost:8080' : window.location.origin;
+  if (window.location.port === '5173' || window.location.port === '3000') {
+    return `http://localhost:8080${path}`;
+  }
+  return `${host}${path}`;
+};
+
+const WS_URL = getWsUrl();
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -225,7 +242,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('[AuthContext] Sending to server...');
     import('axios').then(axios => {
       const token = localStorage.getItem('token');
-      axios.default.post('http://localhost:8080/api/chat/auth/response', {
+      axios.default.post(getApiUrl('/api/chat/auth/response'), {
         action_id: actionId,
         approved
       }, {

@@ -40,6 +40,7 @@ type Repository interface {
 
 	// Admin
 	InitializeAdmin(ctx context.Context, username, password string, bcryptCost int) error
+	InitializeButler(ctx context.Context) (*models.User, error)
 
 	// Close
 	Close() error
@@ -533,6 +534,41 @@ func (r *sqliteRepository) InitializeAdmin(ctx context.Context, username, passwo
 	}
 
 	return nil
+}
+
+// InitializeButler ensures the Butler agent exists in the database
+func (r *sqliteRepository) InitializeButler(ctx context.Context) (*models.User, error) {
+	var user models.User
+	query := `SELECT id, username, role, api_token FROM users WHERE username = 'Butler' AND role = 'BUTLER' LIMIT 1`
+	err := r.db.QueryRowContext(ctx, query).Scan(&user.ID, &user.Username, &user.Role, &user.APIToken)
+
+	if err == nil {
+		return &user, nil // Already exists
+	}
+
+	if err != sql.ErrNoRows {
+		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to check for Butler", err)
+	}
+
+	// Create Butler
+	log.Println("[Init] Creating default Butler agent...")
+	token := "butler-core-token-automatically-generated"
+	// Use a dummy password since Butler logs in via token
+	dummyHash := "$2a$12$ve.vOPXLOXQ.XOnIDovYnu.id.X6Z.id.X6Z.id.X6Z.id.X6Z"
+
+	query = `INSERT INTO users (username, password_hash, api_token, role) VALUES ('Butler', ?, ?, 'BUTLER')`
+	res, err := r.db.ExecContext(ctx, query, dummyHash, token)
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to create Butler", err)
+	}
+
+	id, _ := res.LastInsertId()
+	user.ID = int(id)
+	user.Username = "Butler"
+	user.Role = "BUTLER"
+	user.APIToken = token
+
+	return &user, nil
 }
 
 // Close closes the database connection

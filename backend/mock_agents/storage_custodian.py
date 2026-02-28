@@ -141,6 +141,7 @@ User Instruction: {payload}"""
                             "target_id": sender_id,
                             "stream_id": stream_id,
                             "sender_id": 7,
+                            "sender_name": "Storage-Custodian",
                             "sender_role": "AGENT"
                         }))
 

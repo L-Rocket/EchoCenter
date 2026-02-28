@@ -38,6 +38,8 @@ const (
 	MessageTypeChat          MessageType = "CHAT"
 	MessageTypeChatStream    MessageType = "CHAT_STREAM"
 	MessageTypeChatStreamEnd MessageType = "CHAT_STREAM_END"
+	MessageTypeAuthRequest   MessageType = "AUTH_REQUEST"
+	MessageTypeAuthResponse  MessageType = "AUTH_RESPONSE"
 )
 
 // Message represents a WebSocket message
@@ -225,6 +227,9 @@ func (h *hub) BroadcastGeneric(msg interface{}) {
 		}
 		if t, ok := data["type"].(string); ok {
 			m.Type = MessageType(t)
+		} else {
+			log.Printf("[WebSocket Hub] Generic broadcast failed: missing or invalid 'type' field")
+			return
 		}
 		// Handle both int and float64 for numeric fields (JSON numbers are float64)
 		if sid, ok := data["sender_id"].(int); ok {
@@ -232,11 +237,13 @@ func (h *hub) BroadcastGeneric(msg interface{}) {
 		} else if sid, ok := data["sender_id"].(float64); ok {
 			m.SenderID = int(sid)
 		}
+		
 		if tid, ok := data["target_id"].(int); ok {
 			m.TargetID = tid
 		} else if tid, ok := data["target_id"].(float64); ok {
 			m.TargetID = int(tid)
 		}
+		
 		if sname, ok := data["sender_name"].(string); ok {
 			m.SenderName = sname
 		}
@@ -250,6 +257,8 @@ func (h *hub) BroadcastGeneric(msg interface{}) {
 			m.Payload = payload
 		}
 		h.Broadcast(m)
+	} else {
+		log.Printf("[WebSocket Hub] Generic broadcast failed: unsupported message type %T", msg)
 	}
 }
 

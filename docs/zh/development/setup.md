@@ -178,7 +178,7 @@ npm run dev
 
 ```bash
 cd ../backend
-pip install -r requirements.txt
+pip install -r mock_agents/requirements.txt
 ```
 
 ### 2. 运行代理

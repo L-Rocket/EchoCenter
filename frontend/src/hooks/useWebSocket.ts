@@ -2,7 +2,17 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useChatStore } from '../store/useChatStore';
 import type { ChatMessage } from '../store/useChatStore';
 
-const WS_URL = 'ws://localhost:8080/api/ws';
+const getWsUrl = () => {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.hostname === 'localhost' ? 'localhost:8080' : window.location.host;
+  // Fallback for development if Vite is on 5173 but backend is on 8080
+  if (window.location.port === '5173' || window.location.port === '3000') {
+    return `${protocol}//localhost:8080/api/ws`;
+  }
+  return `${protocol}//${host}/api/ws`;
+};
+
+const WS_URL = getWsUrl();
 
 export const useWebSocket = (token: string | null, onLogReceived?: (log: any) => void) => {
   const [isConnected, setIsConnected] = useState(false);

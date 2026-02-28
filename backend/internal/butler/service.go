@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lea/echocenter/backend/internal/models"
@@ -68,11 +69,44 @@ func InitButler(id int, name string, hub HubInterface, repo repository.Repositor
 		}
 		// Set global service for command execution
 		SetGlobalService(instance)
+		
+		// Start cleanup goroutine
+		go instance.startCleanupLoop()
+		
 		log.Printf("Butler service initialized for agent: %s (ID: %d)", name, id)
 		if baseURL != "" {
 			log.Printf("Butler brain connected to: %s", baseURL)
 		}
 	})
+}
+
+// startCleanupLoop periodically removes expired pending commands
+func (s *ButlerService) startCleanupLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		s.cleanupExpiredCommands()
+	}
+}
+
+func (s *ButlerService) cleanupExpiredCommands() {
+	pendingCommandsMu.Lock()
+	defer pendingCommandsMu.Unlock()
+
+	now := time.Now()
+	expiredCount := 0
+	for id, cmd := range pendingCommands {
+		// Clean up commands older than 30 minutes
+		if now.Sub(cmd.CreatedAt) > 30*time.Minute {
+			delete(pendingCommands, id)
+			expiredCount++
+		}
+	}
+
+	if expiredCount > 0 {
+		log.Printf("[Butler] Cleaned up %d expired pending commands", expiredCount)
+	}
 }
 
 // GetButler returns the singleton instance

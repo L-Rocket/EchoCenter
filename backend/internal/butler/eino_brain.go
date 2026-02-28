@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/compose"
@@ -164,6 +165,7 @@ type ChatStreamResult struct {
 	Command    map[string]interface{} // The detected command (if any)
 	HasCommand bool                   // Whether a command was detected
 	SessionID  string                 // Session ID for continuation
+	CreatedAt  time.Time              // When this result was created
 }
 
 // ChatStream streams the response and detects commands
@@ -176,6 +178,7 @@ func (b *EinoBrain) ChatStream(ctx context.Context, sessionID string, input stri
 			Content:    reply,
 			HasCommand: false,
 			SessionID:  sessionID,
+			CreatedAt:  time.Now(),
 		}, nil
 	}
 
@@ -228,6 +231,7 @@ RULES:
 				Content:    fullReply.String(),
 				HasCommand: false,
 				SessionID:  sessionID,
+				CreatedAt:  time.Now(),
 			}, err
 		}
 		if chunk != nil && chunk.Content != "" {
@@ -307,6 +311,7 @@ RULES:
 				Command:    cmdMap,
 				HasCommand: true,
 				SessionID:  sessionID,
+				CreatedAt:  time.Now(),
 			}, nil
 		}
 	}
@@ -320,6 +325,7 @@ RULES:
 		Content:    content,
 		HasCommand: false,
 		SessionID:  sessionID,
+		CreatedAt:  time.Now(),
 	}, nil
 }
 

@@ -47,6 +47,51 @@ func (h *AgentResponseHandler) HandleMessage(ctx context.Context, msg *Message) 
 	butler.RegisterAgentResponse(msg.SenderID, payloadStr)
 }
 
+// AuthResponseHandler handles authorization responses from users
+type AuthResponseHandler struct {
+	butlerID int
+}
+
+// NewAuthResponseHandler creates a new handler for auth responses
+func NewAuthResponseHandler(butlerID int) *AuthResponseHandler {
+	return &AuthResponseHandler{butlerID: butlerID}
+}
+
+// HandleMessage processes AUTH_RESPONSE messages from users
+func (h *AuthResponseHandler) HandleMessage(ctx context.Context, msg *Message) {
+	if msg == nil {
+		return
+	}
+
+	// Only handle AUTH_RESPONSE messages sent to Butler
+	if msg.Type != MessageTypeAuthResponse || msg.TargetID != h.butlerID {
+		return
+	}
+
+	// Get Butler service
+	butlerService := butler.GetButler()
+	if butlerService == nil {
+		log.Println("[AuthResponseHandler] Butler service not initialized")
+		return
+	}
+
+	// Parse payload
+	var payload struct {
+		ActionID string `json:"action_id"`
+		Approved bool   `json:"approved"`
+	}
+
+	if err := msg.ParsePayload(&payload); err != nil {
+		log.Printf("[AuthResponseHandler] Failed to parse payload: %v", err)
+		return
+	}
+
+	log.Printf("[AuthResponseHandler] Processing AUTH_RESPONSE for action %s: approved=%v", payload.ActionID, payload.Approved)
+
+	// Execute or cancel the pending command
+	go butlerService.ExecutePendingCommand(ctx, payload.ActionID, msg.SenderID, payload.Approved)
+}
+
 // ButlerMessageHandler handles messages sent to Butler
 type ButlerMessageHandler struct {
 	butlerID int

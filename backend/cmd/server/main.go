@@ -45,9 +45,9 @@ func main() {
 	// Initialize authentication service
 	authSvc := auth.NewService(&cfg.Auth, repo)
 
-	// Initialize Butler Service first to get Butler ID
+	// Initialize Butler Agent automatically if missing
 	butler.SetRepository(repo)
-	agent, err := repo.GetUserByUsername(context.Background(), "Butler")
+	agent, err := repo.InitializeButler(context.Background())
 
 	// Initialize WebSocket hub with Butler and persistence handlers
 	persistHandler := websocket.NewPersistingMessageHandler(repo)
@@ -57,7 +57,8 @@ func main() {
 		// Initialize WebSocket hub with Butler handlers
 		butlerUserHandler := websocket.NewButlerMessageHandler(agent.ID)
 		agentResponseHandler := websocket.NewAgentResponseHandler()
-		hub = websocket.NewHub(websocket.NewCompositeHandler(persistHandler, butlerUserHandler, agentResponseHandler))
+		authResponseHandler := websocket.NewAuthResponseHandler(agent.ID)
+		hub = websocket.NewHub(websocket.NewCompositeHandler(persistHandler, butlerUserHandler, agentResponseHandler, authResponseHandler))
 
 		// Initialize Butler service with hub
 		butler.InitButler(agent.ID, agent.Username, hub, repo)
