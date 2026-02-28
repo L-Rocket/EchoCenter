@@ -1,15 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
-import axios from 'axios'
-import MessageList from '@/components/MessageList'
-import type { Message } from '@/components/MessageRow'
+import MessageList from '@/components/log/MessageList'
 import { useAuth } from '@/context/AuthContext'
 import { Badge } from '@/components/ui/badge'
 import { Terminal, Activity, ChevronDown } from 'lucide-react'
 import { useDebounce } from '@/hooks/useDebounce'
 import { Button } from '@/components/ui/button'
-import LogFilterBar from '@/components/LogFilterBar'
-
-const API_BASE_URL = 'http://localhost:8080'
+import LogFilterBar from '@/components/log/LogFilterBar'
+import { LogMessage } from '@/types'
+import { messageService } from '@/services/messageService'
 
 export interface LogFilterState {
   agentID: string;
@@ -18,7 +16,7 @@ export interface LogFilterState {
 }
 
 const DashboardPage = () => {
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<LogMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -40,17 +38,15 @@ const DashboardPage = () => {
 
       const currentOffset = isLoadMore ? offset : 0;
       
-      const response = await axios.get<Message[]>(`${API_BASE_URL}/api/messages`, {
-        params: {
-          agent_id: filters.agentID,
-          level: filters.level,
-          q: debouncedQuery,
-          offset: currentOffset,
-          limit: 50
-        }
+      const data = await messageService.getMessages({
+        agent_id: filters.agentID,
+        level: filters.level,
+        q: debouncedQuery,
+        offset: currentOffset,
+        limit: 50
       })
 
-      const newMessages = Array.isArray(response.data) ? response.data : []
+      const newMessages = Array.isArray(data) ? data : []
       
       if (isLoadMore) {
         setMessages(prev => [...prev, ...newMessages])
@@ -77,7 +73,6 @@ const DashboardPage = () => {
   }, [filters.agentID, filters.level, debouncedQuery, offset, logout])
 
   useEffect(() => {
-    // Avoid synchronous setState in effect
     const timer = setTimeout(() => {
       fetchMessages(false)
     }, 0)
@@ -87,10 +82,9 @@ const DashboardPage = () => {
   useEffect(() => {
     const isFiltering = filters.agentID || filters.level || debouncedQuery;
     if (!isFiltering && wsLogs.length > 0) {
-      // Avoid synchronous setState in effect
       const timer = setTimeout(() => {
         setMessages(prev => {
-          const latest = wsLogs[0] as unknown as Message;
+          const latest = wsLogs[0] as unknown as LogMessage;
           if (latest && !prev.some(m => m.id === latest.id)) {
             return [latest, ...prev].slice(0, 50);
           }

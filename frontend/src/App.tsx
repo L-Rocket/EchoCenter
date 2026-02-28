@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import axios from 'axios'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeProvider'
 import { MainLayout } from './components/layout/MainLayout'
@@ -10,17 +9,6 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import AgentsPage from './pages/AgentsPage'
 import TeamPage from './pages/TeamPage'
-
-// Axios interceptor for tokens
-axios.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-}, (error) => {
-  return Promise.reject(error);
-});
 
 function App() {
   return (

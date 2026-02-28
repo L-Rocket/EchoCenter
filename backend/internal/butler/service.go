@@ -17,7 +17,7 @@ import (
 
 // HubInterface defines the interface for WebSocket hub
 type HubInterface interface {
-	BroadcastGeneric(msg interface{})
+	BroadcastGeneric(msg any)
 }
 
 // Service defines the butler service interface
@@ -157,7 +157,7 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
 	}
 
 	// Persist AUTH_REQUEST to database
-	payloadMap := map[string]interface{}{
+	payloadMap := map[string]any{
 		"action_id":         actionID,
 		"target_agent_id":   targetID,
 		"target_agent_name": targetName,
@@ -193,7 +193,7 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
 
 	// Broadcast via WebSocket
 	if s.hub != nil {
-		msg := map[string]interface{}{
+		msg := map[string]any{
 			"type":        "AUTH_REQUEST",
 			"sender_id":   s.butlerID,
 			"sender_name": s.butlerName,
@@ -233,7 +233,7 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 
 	// Step 1: Stream the initial response and detect if there's a command
 	result, err := s.brain.ChatStream(ctx, sessionID, payload, systemState, func(chunk string) error {
-		msg := map[string]interface{}{
+		msg := map[string]any{
 			"type":        "CHAT_STREAM",
 			"sender_id":   s.butlerID,
 			"sender_name": s.butlerName,
@@ -280,7 +280,7 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 		}
 
 		// Send AUTH_REQUEST to user
-		authPayload := map[string]interface{}{
+		authPayload := map[string]any{
 			"action_id":         streamID,
 			"target_agent_name": fmt.Sprintf("Agent %d", agentID),
 			"command":           result.Command["command"],
@@ -299,7 +299,7 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 			log.Printf("[Butler] Failed to persist AUTH_REQUEST: %v", err)
 		}
 
-		s.hub.BroadcastGeneric(map[string]interface{}{
+		s.hub.BroadcastGeneric(map[string]any{
 			"type":        "AUTH_REQUEST",
 			"sender_id":   s.butlerID,
 			"sender_name": s.butlerName,
@@ -309,7 +309,7 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 		})
 
 		// Send CHAT_STREAM_END to stop the processing indicator
-		s.hub.BroadcastGeneric(map[string]interface{}{
+		s.hub.BroadcastGeneric(map[string]any{
 			"type":        "CHAT_STREAM_END",
 			"sender_id":   s.butlerID,
 			"sender_name": s.butlerName,
@@ -323,7 +323,7 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 	}
 
 	// No command, end the stream normally
-	s.hub.BroadcastGeneric(map[string]interface{}{
+	s.hub.BroadcastGeneric(map[string]any{
 		"type":        "CHAT_STREAM_END",
 		"sender_id":   s.butlerID,
 		"sender_name": s.butlerName,
@@ -350,7 +350,7 @@ func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID stri
 
 	if !approved {
 		// User rejected the command
-		s.hub.BroadcastGeneric(map[string]interface{}{
+		s.hub.BroadcastGeneric(map[string]any{
 			"type":        "CHAT",
 			"sender_id":   s.butlerID,
 			"sender_name": s.butlerName,
@@ -358,7 +358,7 @@ func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID stri
 			"target_id":   senderID,
 			"payload":     "Command cancelled by user.",
 		})
-		s.hub.BroadcastGeneric(map[string]interface{}{
+		s.hub.BroadcastGeneric(map[string]any{
 			"type":        "CHAT_STREAM_END",
 			"sender_id":   s.butlerID,
 			"sender_name": s.butlerName,
@@ -372,7 +372,7 @@ func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID stri
 
 	// Execute the command and stream the result
 	_, err := s.brain.ExecuteCommand(ctx, result, func(chunk string) error {
-		msg := map[string]interface{}{
+		msg := map[string]any{
 			"type":        "CHAT_STREAM",
 			"sender_id":   s.butlerID,
 			"sender_name": s.butlerName,
@@ -389,7 +389,7 @@ func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID stri
 		log.Printf("[Butler] Error executing command: %v", err)
 	}
 
-	s.hub.BroadcastGeneric(map[string]interface{}{
+	s.hub.BroadcastGeneric(map[string]any{
 		"type":        "CHAT_STREAM_END",
 		"sender_id":   s.butlerID,
 		"sender_name": s.butlerName,

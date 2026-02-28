@@ -120,7 +120,7 @@ RULES:
 	if len(match) > 1 {
 		jsonParams := match[1]
 		// Validate JSON to avoid crash
-		var tmp map[string]interface{}
+		var tmp map[string]any
 		if err := json.Unmarshal([]byte(jsonParams), &tmp); err != nil {
 			log.Printf("[Butler Brain] Invalid command JSON: %v", err)
 			return content, nil
@@ -162,7 +162,7 @@ RULES:
 // ChatStreamResult represents the result of a chat stream
 type ChatStreamResult struct {
 	Content    string                 // The natural language content streamed to user
-	Command    map[string]interface{} // The detected command (if any)
+	Command    map[string]any // The detected command (if any)
 	HasCommand bool                   // Whether a command was detected
 	SessionID  string                 // Session ID for continuation
 	CreatedAt  time.Time              // When this result was created
@@ -297,7 +297,7 @@ RULES:
 	match := commandRegex.FindStringSubmatch(cmdStr)
 	if len(match) > 1 {
 		jsonParams := match[1]
-		var cmdMap map[string]interface{}
+		var cmdMap map[string]any
 		if err := json.Unmarshal([]byte(jsonParams), &cmdMap); err == nil {
 			log.Printf("[Butler Brain] Detected command: %s", jsonParams)
 

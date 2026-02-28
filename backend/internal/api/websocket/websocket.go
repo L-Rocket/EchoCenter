@@ -49,7 +49,7 @@ type Message struct {
 	SenderName string      `json:"sender_name"`
 	SenderRole string      `json:"sender_role"`
 	TargetID   int         `json:"target_id,omitempty"`
-	Payload    interface{} `json:"payload"`
+	Payload    any `json:"payload"`
 	Timestamp  string      `json:"timestamp"`
 	StreamID   string      `json:"stream_id,omitempty"`
 }
@@ -61,7 +61,7 @@ type Hub interface {
 	Register(client *Client)
 	Unregister(client *Client)
 	GetClient(userID int) (*Client, bool)
-	BroadcastGeneric(msg interface{})
+	BroadcastGeneric(msg any)
 }
 
 // MessageHandler handles incoming messages
@@ -213,7 +213,7 @@ func (h *hub) GetClient(userID int) (*Client, bool) {
 }
 
 // BroadcastGeneric broadcasts a generic message (for compatibility with butler package)
-func (h *hub) BroadcastGeneric(msg interface{}) {
+func (h *hub) BroadcastGeneric(msg any) {
 	// Try to convert to *Message
 	if m, ok := msg.(*Message); ok {
 		h.Broadcast(m)
@@ -221,7 +221,7 @@ func (h *hub) BroadcastGeneric(msg interface{}) {
 	}
 
 	// Try to convert map to Message
-	if data, ok := msg.(map[string]interface{}); ok {
+	if data, ok := msg.(map[string]any); ok {
 		m := &Message{
 			Timestamp: time.Now().Format(time.RFC3339),
 		}
@@ -442,7 +442,7 @@ func (m *Message) JSONString() (string, error) {
 }
 
 // ParsePayload parses the payload into the given struct
-func (m *Message) ParsePayload(v interface{}) error {
+func (m *Message) ParsePayload(v any) error {
 	if m.Payload == nil {
 		return nil
 	}

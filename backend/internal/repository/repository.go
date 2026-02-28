@@ -225,7 +225,7 @@ func (r *sqliteRepository) CreateMessage(ctx context.Context, msg *models.Messag
 // GetMessages retrieves messages with filtering
 func (r *sqliteRepository) GetMessages(ctx context.Context, filter MessageFilter) ([]models.Message, error) {
 	query := `SELECT id, agent_id, level, content, timestamp FROM messages WHERE 1=1`
-	var args []interface{}
+	var args []any
 
 	if filter.AgentID != "" {
 		query += ` AND agent_id = ?`

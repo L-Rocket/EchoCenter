@@ -75,6 +75,6 @@ func Is(err, target error) bool {
 }
 
 // As finds the first error in err's chain that matches target
-func As(err error, target interface{}) bool {
+func As(err error, target any) bool {
 	return errors.As(err, target)
 }

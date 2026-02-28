@@ -1,22 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
-import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, Bot, Terminal, Shield, Loader2, XCircle } from 'lucide-react';
 import { useChatStore } from '@/store/useChatStore';
-import type { ChatMessage } from '@/store/useChatStore';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
-import type { Agent } from './AgentList';
+import type { Agent } from '@/types';
 import AuthRequestCard from './AuthRequestCard';
 import ProcessMessage from './ProcessMessage';
+import { userService } from '@/services/userService';
+import { ChatMessage } from '@/types';
 
 interface ChatViewProps {
   agent: Agent;
 }
 
 const EMPTY_ARRAY: ChatMessage[] = [];
-const API_BASE_URL = 'http://localhost:8080';
 
 const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
   const [input, setInput] = useState('');
@@ -41,8 +40,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
       
       setIsHistoryLoading(true);
       try {
-        const response = await axios.get<ChatMessage[]>(`${API_BASE_URL}/api/chat/history/${agent.id}`);
-        const historyData = response.data || [];
+        const historyData = await userService.getChatHistory(agent.id);
         const history = historyData.map((m) => ({
           ...m,
           type: m.type || 'CHAT',
@@ -142,10 +140,8 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
               }
             }
 
-            // Render AUTH_REQUEST card for pending approvals
             if (isAuthRequest && typeof payload === 'object' && payload !== null && 'action_id' in payload) {
               const p = payload as Record<string, unknown>;
-              // If already approved/rejected, show as collapsible process message
               if (p.status === 'APPROVED' || p.status === 'REJECTED') {
                 return (
                   <ProcessMessage
@@ -157,7 +153,6 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
                   />
                 );
               }
-              // If pending, show interactive auth card
               return (
                 <div key={msg.id || i} className="flex justify-start">
                   <div className="my-1">
@@ -168,15 +163,14 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
                       reason={p.reason as string}
                       onApprove={(id) => sendAuthResponse(id, true)}
                       onReject={(id) => sendAuthResponse(id, false)}
-                      status={(p.status as 'PENDING' | 'APPROVED' | 'REJECTED') || 'PENDING'}
+                      status={(p.status as string) || 'PENDING'}
                     />
                   </div>
                 </div>
               );
             }
 
-            // Render other process messages (AUTH_RESPONSE, SYSTEM, SYSTEM_LOG) as collapsible
-            if (isAuthResponse || isSystem || msg.type === 'SYSTEM_LOG') {
+            if (isAuthResponse || isSystem) {
               const p = payload as Record<string, unknown>;
               return (
                 <ProcessMessage
@@ -189,7 +183,6 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
               );
             }
 
-            // Regular chat messages
             return (
               <div key={msg.id || i} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
                 <div className={cn(
