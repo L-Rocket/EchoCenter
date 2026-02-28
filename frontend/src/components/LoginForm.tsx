@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Loader2, Lock, User } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface LoginResponse {
   token: string;
@@ -23,6 +24,8 @@ const LoginForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +40,10 @@ const LoginForm = () => {
 
       const { token, user } = response.data;
       login(token, user);
+      
+      // Redirect to the page they were trying to access, or dashboard
+      const from = location.state?.from?.pathname || "/dashboard";
+      navigate(from, { replace: true });
     } catch (err) {
       const axiosError = err as { response?: { data?: { error?: string } } };
       setError(axiosError.response?.data?.error || 'Login failed. Please check your credentials.');
