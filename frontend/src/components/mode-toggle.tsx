@@ -1,5 +1,6 @@
 import { Moon, Sun, Monitor } from "lucide-react"
-import { useTheme } from "@/components/theme-provider"
+import { useTheme } from "@/hooks/useTheme"
+import type { Theme } from "@/context/ThemeProvider"
 import {
   Select,
   SelectContent,
@@ -12,7 +13,7 @@ export function ModeToggle() {
   const { theme, setTheme } = useTheme()
 
   return (
-    <Select value={theme} onValueChange={(value) => setTheme(value as any)}>
+    <Select value={theme} onValueChange={(value: string) => setTheme(value as Theme)}>
       <SelectTrigger className="w-[110px]" size="sm">
         <SelectValue />
       </SelectTrigger>

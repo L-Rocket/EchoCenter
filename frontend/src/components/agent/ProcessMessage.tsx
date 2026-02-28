@@ -2,9 +2,24 @@ import React, { useState } from 'react';
 import { ChevronDown, ChevronRight, Shield, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+interface AuthRequestPayload {
+  action_id: string;
+  target_agent_name?: string;
+  target_agent_id?: number;
+  command: string;
+  reason?: string;
+  status?: string;
+}
+
+interface AuthResponsePayload {
+  action_id: string;
+  approved: boolean;
+  status?: string;
+}
+
 interface ProcessMessageProps {
-  type: 'AUTH_REQUEST' | 'AUTH_RESPONSE' | 'SYSTEM' | 'CHAT';
-  payload: any;
+  type: 'AUTH_REQUEST' | 'AUTH_RESPONSE' | 'SYSTEM' | 'CHAT' | 'SYSTEM_LOG' | 'CHAT_STREAM' | 'CHAT_STREAM_END';
+  payload: string | Record<string, unknown>;
   timestamp: string;
   status?: string;
 }
@@ -18,13 +33,15 @@ const ProcessMessage: React.FC<ProcessMessageProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Parse payload if it's a string
-  let parsedPayload = payload;
+  let parsedPayload: Record<string, unknown>;
   if (typeof payload === 'string') {
     try {
-      parsedPayload = JSON.parse(payload);
-    } catch (e) {
+      parsedPayload = JSON.parse(payload) as Record<string, unknown>;
+    } catch (_e) {
       parsedPayload = { content: payload };
     }
+  } else {
+    parsedPayload = payload;
   }
 
   const getIcon = () => {
@@ -55,13 +72,13 @@ const ProcessMessage: React.FC<ProcessMessageProps> = ({
 
   const getSummary = () => {
     if (type === 'AUTH_REQUEST' && parsedPayload.command) {
-      return `执行指令: ${parsedPayload.command}`;
+      return `执行指令: ${parsedPayload.command as string}`;
     }
     if (type === 'AUTH_RESPONSE') {
       return status === 'APPROVED' ? '执行已授权' : '执行被拒绝';
     }
-    return typeof parsedPayload === 'string' 
-      ? parsedPayload.substring(0, 50) 
+    return typeof parsedPayload.content === 'string' 
+      ? parsedPayload.content.substring(0, 50) 
       : JSON.stringify(parsedPayload).substring(0, 50);
   };
 
@@ -111,27 +128,27 @@ const ProcessMessage: React.FC<ProcessMessageProps> = ({
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">目标 Agent:</span>
-                  <span className="font-medium">{parsedPayload.target_agent_name || `ID: ${parsedPayload.target_agent_id}`}</span>
+                  <span className="font-medium">{(parsedPayload as unknown as AuthRequestPayload).target_agent_name || `ID: ${(parsedPayload as unknown as AuthRequestPayload).target_agent_id}`}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">指令:</span>
-                  <span className="font-medium font-mono">{parsedPayload.command}</span>
+                  <span className="font-medium font-mono">{(parsedPayload as unknown as AuthRequestPayload).command}</span>
                 </div>
-                {parsedPayload.reason && (
+                {(parsedPayload as unknown as AuthRequestPayload).reason && (
                   <div className="pt-2 border-t border-border/50">
                     <span className="text-muted-foreground block mb-1">原因:</span>
-                    <span className="text-foreground/80">{parsedPayload.reason}</span>
+                    <span className="text-foreground/80">{(parsedPayload as unknown as AuthRequestPayload).reason}</span>
                   </div>
                 )}
                 <div className="flex justify-between pt-2 border-t border-border/50">
                   <span className="text-muted-foreground">状态:</span>
                   <span className={cn(
                     "font-medium",
-                    parsedPayload.status === 'APPROVED' && "text-green-600",
-                    parsedPayload.status === 'REJECTED' && "text-red-600",
-                    parsedPayload.status === 'PENDING' && "text-amber-600"
+                    (parsedPayload as unknown as AuthRequestPayload).status === 'APPROVED' && "text-green-600",
+                    (parsedPayload as unknown as AuthRequestPayload).status === 'REJECTED' && "text-red-600",
+                    (parsedPayload as unknown as AuthRequestPayload).status === 'PENDING' && "text-amber-600"
                   )}>
-                    {parsedPayload.status || 'PENDING'}
+                    {(parsedPayload as unknown as AuthRequestPayload).status || 'PENDING'}
                   </span>
                 </div>
               </div>
@@ -141,24 +158,24 @@ const ProcessMessage: React.FC<ProcessMessageProps> = ({
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">操作 ID:</span>
-                  <span className="font-mono text-[10px]">{parsedPayload.action_id}</span>
+                  <span className="font-mono text-[10px]">{(parsedPayload as unknown as AuthResponsePayload).action_id}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">决定:</span>
                   <span className={cn(
                     "font-medium",
-                    parsedPayload.approved ? "text-green-600" : "text-red-600"
+                    (parsedPayload as unknown as AuthResponsePayload).approved ? "text-green-600" : "text-red-600"
                   )}>
-                    {parsedPayload.approved ? '已批准' : '已拒绝'}
+                    {(parsedPayload as unknown as AuthResponsePayload).approved ? '已批准' : '已拒绝'}
                   </span>
                 </div>
               </div>
             )}
 
-            {(type === 'SYSTEM' || !parsedPayload.command) && (
+            {(type === 'SYSTEM' || !(parsedPayload as unknown as AuthRequestPayload).command) && (
               <pre className="whitespace-pre-wrap break-words text-foreground/80">
-                {typeof parsedPayload === 'string' 
-                  ? parsedPayload 
+                {typeof parsedPayload.content === 'string' 
+                  ? parsedPayload.content 
                   : JSON.stringify(parsedPayload, null, 2)}
               </pre>
             )}

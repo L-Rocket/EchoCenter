@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, Bot, Terminal, Shield, Loader2, XCircle } from 'lucide-react';
 import { useChatStore } from '@/store/useChatStore';
+import type { ChatMessage } from '@/store/useChatStore';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import type { Agent } from './AgentList';
@@ -14,7 +15,7 @@ interface ChatViewProps {
   agent: Agent;
 }
 
-const EMPTY_ARRAY: any[] = [];
+const EMPTY_ARRAY: ChatMessage[] = [];
 const API_BASE_URL = 'http://localhost:8080';
 
 const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
@@ -40,9 +41,9 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
       
       setIsHistoryLoading(true);
       try {
-        const response = await axios.get(`${API_BASE_URL}/api/chat/history/${agent.id}`);
+        const response = await axios.get<ChatMessage[]>(`${API_BASE_URL}/api/chat/history/${agent.id}`);
         const historyData = response.data || [];
-        const history = historyData.map((m: any) => ({
+        const history = historyData.map((m) => ({
           ...m,
           type: m.type || 'CHAT',
           sender_name: m.sender_id === agent.id ? agent.username : (user?.username || 'Me')
@@ -56,7 +57,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
     };
 
     fetchHistory();
-  }, [agent.id, setHistory, user?.username]);
+  }, [agent.id, agent.username, setHistory, user?.username]);
 
   useEffect(() => {
     if (scrollRef.current && messages.length > 0) {
@@ -67,8 +68,8 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
     }
   }, [messages.length]);
 
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSend = (_e: React.FormEvent) => {
+    _e.preventDefault();
     if (!input.trim() || !user || !agent?.id) return;
     sendMessage(agent.id, input);
     setInput('');
@@ -136,22 +137,23 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
             if ((isSystem || isAuthRequest || isAuthResponse) && typeof payload === 'string') {
               try {
                 payload = JSON.parse(payload);
-              } catch (e) {
-                console.error("Failed to parse message payload", e);
+              } catch (_e) {
+                console.error("Failed to parse message payload", _e);
               }
             }
 
             // Render AUTH_REQUEST card for pending approvals
-            if (isAuthRequest && typeof payload === 'object' && payload.action_id) {
+            if (isAuthRequest && typeof payload === 'object' && payload !== null && 'action_id' in payload) {
+              const p = payload as Record<string, unknown>;
               // If already approved/rejected, show as collapsible process message
-              if (payload.status === 'APPROVED' || payload.status === 'REJECTED') {
+              if (p.status === 'APPROVED' || p.status === 'REJECTED') {
                 return (
                   <ProcessMessage
                     key={msg.id || i}
                     type={msg.type}
-                    payload={payload}
+                    payload={p}
                     timestamp={msg.timestamp}
-                    status={payload.status}
+                    status={p.status as string}
                   />
                 );
               }
@@ -160,28 +162,29 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
                 <div key={msg.id || i} className="flex justify-start">
                   <div className="my-1">
                     <AuthRequestCard
-                      actionId={payload.action_id}
-                      targetAgentName={payload.target_agent_name}
-                      command={payload.command}
-                      reason={payload.reason}
+                      actionId={p.action_id as string}
+                      targetAgentName={p.target_agent_name as string}
+                      command={p.command as string}
+                      reason={p.reason as string}
                       onApprove={(id) => sendAuthResponse(id, true)}
                       onReject={(id) => sendAuthResponse(id, false)}
-                      status={payload.status || 'PENDING'}
+                      status={(p.status as 'PENDING' | 'APPROVED' | 'REJECTED') || 'PENDING'}
                     />
                   </div>
                 </div>
               );
             }
 
-            // Render other process messages (AUTH_RESPONSE, SYSTEM) as collapsible
-            if (isAuthResponse || isSystem) {
+            // Render other process messages (AUTH_RESPONSE, SYSTEM, SYSTEM_LOG) as collapsible
+            if (isAuthResponse || isSystem || msg.type === 'SYSTEM_LOG') {
+              const p = payload as Record<string, unknown>;
               return (
                 <ProcessMessage
                   key={msg.id || i}
                   type={msg.type}
-                  payload={payload}
+                  payload={p}
                   timestamp={msg.timestamp}
-                  status={payload?.status}
+                  status={p?.status as string}
                 />
               );
             }

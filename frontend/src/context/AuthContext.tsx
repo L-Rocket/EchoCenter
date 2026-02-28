@@ -1,11 +1,17 @@
 import React, { createContext, useState, useContext, useEffect, useRef, useCallback } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import { useChatStore } from '@/store/useChatStore';
+import type { ChatMessage } from '@/store/useChatStore';
 
 interface User {
   id: number;
   username: string;
   role: string;
+}
+
+interface JWTPayload {
+  exp: number;
+  [key: string]: unknown;
 }
 
 interface AuthContextType {
@@ -19,7 +25,7 @@ interface AuthContextType {
   isWsConnected: boolean;
   sendMessage: (targetId: number, payload: string) => void;
   sendAuthResponse: (actionId: string, approved: boolean) => void;
-  wsLogs: any[];
+  wsLogs: Record<string, unknown>[];
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,7 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   
   const [isWsConnected, setIsWsConnected] = useState(false);
-  const [wsLogs, setWsLogs] = useState<any[]>([]);
+  const [wsLogs, setWsLogs] = useState<Record<string, unknown>[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
   const addChatMessage = useChatStore((state) => state.addMessage);
   const appendStreamChunk = useChatStore((state) => state.appendStreamChunk);
@@ -83,11 +89,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     ws.onmessage = (event) => {
       try {
-        const msg = JSON.parse(event.data);
+        const msg = JSON.parse(event.data) as ChatMessage;
         const currentUser = userRef.current;
         
         if (msg.type === 'SYSTEM_LOG') {
-          setWsLogs((prev) => [msg.payload, ...prev].slice(0, 50));
+          const payload = typeof msg.payload === 'string' ? JSON.parse(msg.payload) : msg.payload;
+          setWsLogs((prev) => [payload as Record<string, unknown>, ...prev].slice(0, 50));
         } else if (msg.type === 'CHAT') {
           // Determine peerId: if I'm the sender, it's target_id. Otherwise it's sender_id.
           const peerId = msg.sender_id === currentUser?.id ? msg.target_id : msg.sender_id;
@@ -100,30 +107,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setThinking(false);
         } else if (msg.type === 'CHAT_STREAM') {
           // Check if this is a process message from Butler (e.g., "Execution started...")
-          console.log('[WS] CHAT_STREAM from', msg.sender_id, 'payload:', msg.payload?.substring(0, 50));
-          if (msg.sender_role === 'BUTLER' && msg.payload && msg.payload.includes('Execution started')) {
+          if (msg.sender_name === 'Butler' && typeof msg.payload === 'string' && msg.payload.includes('Execution started')) {
             // This is a process message, add as SYSTEM type for folding
-            console.log('[WS] Adding execution_start process message');
             addChatMessage(msg.sender_id, {
               type: 'SYSTEM',
               sender_id: msg.sender_id,
               sender_name: msg.sender_name,
-              payload: JSON.stringify({
+              payload: {
                 type: 'execution_start',
                 message: msg.payload,
                 stream_id: msg.stream_id
-              }),
+              },
               timestamp: msg.timestamp || new Date().toISOString(),
             });
           } else {
             const peerId = msg.sender_id === currentUser?.id ? msg.target_id : msg.sender_id;
             if (peerId) {
               // Remove process messages when actual content starts streaming
-              console.log('[WS] Removing process messages for peer', peerId);
               useChatStore.getState().removeProcessMessages(peerId);
               appendStreamChunk(peerId, {
-                stream_id: msg.stream_id,
-                payload: msg.payload,
+                stream_id: msg.stream_id || 'unknown',
+                payload: msg.payload as string,
                 sender_id: msg.sender_id,
                 sender_name: msg.sender_name,
                 timestamp: msg.timestamp || new Date().toISOString()
@@ -132,7 +136,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } else if (msg.type === 'CHAT_STREAM_END') {
           setThinking(false);
-          console.log('Stream finished:', msg.stream_id);
         } else if (msg.type === 'AUTH_REQUEST') {
           setThinking(false); // Stop when waiting for user input
           addChatMessage(msg.sender_id, {
@@ -141,8 +144,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             payload: msg.payload, // This is the AuthRequest object
           });
         }
-      } catch (err) {
-        console.error('WS parse error:', err);
+      } catch (_err) {
+        console.error('WS parse error:', _err);
       }
     };
 
@@ -152,7 +155,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socketRef.current = null;
       }
     };
-  }, [addChatMessage]);
+  }, [addChatMessage, appendStreamChunk, setThinking]);
 
   useEffect(() => {
     const initAuth = () => {
@@ -161,16 +164,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (savedToken && savedUser) {
         try {
-          const decoded: any = jwtDecode(savedToken);
+          const decoded = jwtDecode<JWTPayload>(savedToken);
           const currentTime = Date.now() / 1000;
           if (decoded.exp < currentTime) {
             handleLogout();
           } else {
             setToken(savedToken);
-            setUser(JSON.parse(savedUser));
+            setUser(JSON.parse(savedUser) as User);
             connectWs(savedToken);
           }
-        } catch (err) {
+        } catch (_err) {
           handleLogout();
         }
       }
@@ -213,26 +216,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const sendAuthResponse = (actionId: string, approved: boolean) => {
-    console.log('[AuthContext] sendAuthResponse called:', { actionId, approved });
     if (approved) setThinking(true);
     
-    // Optimistic UI update: Immediately update the auth request status locally
-    // The Butler is ID 2
     const butlerId = 2;
     const currentMessages = useChatStore.getState().messages[butlerId] || [];
-    console.log('[AuthContext] Current messages count:', currentMessages.length);
     
     const updatedMessages = currentMessages.map(msg => {
-      // Check both AUTH_REQUEST type and legacy SYSTEM type
       if (msg.type === 'AUTH_REQUEST' || msg.type === 'SYSTEM') {
         try {
-          const payload = typeof msg.payload === 'string' ? JSON.parse(msg.payload) : msg.payload;
+          const payload = (typeof msg.payload === 'string' ? JSON.parse(msg.payload) : msg.payload) as Record<string, unknown>;
           if (payload.action_id === actionId) {
-            console.log('[AuthContext] Found matching message, updating status to:', approved ? 'APPROVED' : 'REJECTED');
             payload.status = approved ? 'APPROVED' : 'REJECTED';
-            return { ...msg, payload: JSON.stringify(payload) };
+            return { ...msg, payload };
           }
-        } catch (e) {
+        } catch (_e) {
           // Ignore parse errors for non-auth messages
         }
       }
@@ -241,31 +238,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useChatStore.getState().setHistory(butlerId, updatedMessages);
     
     // Send to server
-    console.log('[AuthContext] Sending to server...');
     import('axios').then(axios => {
-      const token = localStorage.getItem('token');
+      const savedToken = localStorage.getItem('token');
       axios.default.post(getApiUrl('/api/chat/auth/response'), {
         action_id: actionId,
         approved
       }, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${savedToken}`,
           'Content-Type': 'application/json'
         }
-      }).then(() => {
-        console.log('[AuthContext] Server response success');
-      }).catch(err => {
-        console.error('[AuthContext] Failed to send auth response:', err);
+      }).catch(_err => {
+        console.error('[AuthContext] Failed to send auth response:', _err);
         // Revert on error
         const revertMessages = currentMessages.map(msg => {
           if (msg.type === 'AUTH_REQUEST' || msg.type === 'SYSTEM') {
             try {
-              const payload = typeof msg.payload === 'string' ? JSON.parse(msg.payload) : msg.payload;
+              const payload = (typeof msg.payload === 'string' ? JSON.parse(msg.payload) : msg.payload) as Record<string, unknown>;
               if (payload.action_id === actionId) {
                 payload.status = 'PENDING';
-                return { ...msg, payload: JSON.stringify(payload) };
+                return { ...msg, payload };
               }
-            } catch (e) {
+            } catch (_e) {
               // Ignore parse errors during revert
             }
           }
