@@ -161,7 +161,13 @@ export const useChatStore = create<ChatState>((set) => ({
       })
 
       const newMessages = Array.from(merged.values())
-      newMessages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      newMessages.sort((a, b) => {
+        const timeA = new Date(a.timestamp).getTime()
+        const timeB = new Date(b.timestamp).getTime()
+        if (timeA !== timeB) return timeA - timeB
+        // Tie-breaker: use ID if available
+        return (a.id || 0) - (b.id || 0)
+      })
 
       return {
         messages: {

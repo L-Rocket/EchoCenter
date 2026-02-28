@@ -434,7 +434,7 @@ func (r *sqliteRepository) GetChatHistory(ctx context.Context, user1ID, user2ID 
 		SELECT id, sender_id, receiver_id, type, content, timestamp 
 		FROM chat_messages 
 		WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
-		ORDER BY timestamp ASC 
+		ORDER BY timestamp ASC, id ASC 
 		LIMIT ?
 	`
 	rows, err := r.db.QueryContext(ctx, query, user1ID, user2ID, user2ID, user1ID, limit)
