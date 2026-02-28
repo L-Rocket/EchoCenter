@@ -12,13 +12,13 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/lea/echocenter/backend/internal/api/router"
 	"github.com/lea/echocenter/backend/internal/api/handler"
+	"github.com/lea/echocenter/backend/internal/api/router"
+	"github.com/lea/echocenter/backend/internal/api/websocket"
 	"github.com/lea/echocenter/backend/internal/auth"
 	"github.com/lea/echocenter/backend/internal/butler"
 	"github.com/lea/echocenter/backend/internal/config"
 	"github.com/lea/echocenter/backend/internal/repository"
-	"github.com/lea/echocenter/backend/internal/api/websocket"
 )
 
 func main() {
@@ -54,20 +54,18 @@ func main() {
 	var hub websocket.Hub
 
 	if err == nil && agent != nil {
-		// Initialize Butler service
-		butler.InitButler(agent.ID, agent.Username, nil, repo)
-		b := butler.GetButler()
-
-		// Set up callback for agent responses
-		websocket.AgentResponseCallback = butler.RegisterAgentResponse
-
-		// Create Butler WebSocket handlers
-		butlerUserHandler := websocket.NewButlerMessageHandler(b)
+		// Initialize WebSocket hub with Butler handlers first
+		butlerUserHandler := websocket.NewButlerMessageHandler(agent.ID)
 		butlerWSHandler := websocket.NewButlerWebSocketHandler(agent.ID)
 		hub = websocket.NewHub(websocket.NewCompositeHandler(persistHandler, butlerUserHandler, butlerWSHandler))
 
-		// Update Butler with hub reference
+		// Initialize Butler service with hub
 		butler.InitButler(agent.ID, agent.Username, hub, repo)
+
+		// Set up callbacks for WebSocket handlers
+		websocket.ButlerMessageCallback = butler.GetButler().HandleUserMessage
+		websocket.AgentResponseCallback = butler.RegisterAgentResponse
+
 		log.Printf("Butler service initialized for agent: %s (ID: %d)", agent.Username, agent.ID)
 	} else {
 		hub = websocket.NewHub(websocket.NewCompositeHandler(persistHandler))

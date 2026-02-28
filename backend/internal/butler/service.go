@@ -80,6 +80,13 @@ func GetButler() *ButlerService {
 	return instance
 }
 
+// SetHub updates the hub reference (used after WebSocket hub is created)
+func (s *ButlerService) SetHub(hub HubInterface) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.hub = hub
+}
+
 // GetButlerID returns the butler's user ID
 func (s *ButlerService) GetButlerID() int {
 	return s.butlerID
