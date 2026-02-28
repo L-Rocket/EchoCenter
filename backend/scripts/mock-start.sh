@@ -23,10 +23,26 @@ FRONTEND_DIR="$PROJECT_DIR/frontend"
 
 echo "项目目录: $PROJECT_DIR"
 
-# 1. 清理端口
-echo -e "${YELLOW}[1/5] 清理端口...${NC}"
+# 1. 清理端口和旧数据库
+echo -e "${YELLOW}[1/5] 清理环境...${NC}"
 lsof -ti:8080 | xargs kill -9 2>/dev/null || true
 lsof -ti:5173 | xargs kill -9 2>/dev/null || true
+
+# 加载 .env 获取数据库路径
+if [ -f "$BACKEND_DIR/.env" ]; then
+    DB_PATH=$(grep DB_PATH "$BACKEND_DIR/.env" | cut -d '=' -f2)
+fi
+DB_FILE=${DB_PATH:-"./data/echo_center.db"}
+
+# 清理数据库文件 (如果是相对路径，相对于 backend 目录)
+cd "$BACKEND_DIR"
+if [ -f "$DB_FILE" ]; then
+    echo "  正在清理旧数据库: $DB_FILE"
+    rm -f "$DB_FILE"
+fi
+# 同时清理 WAL 模式产生的临时文件
+rm -f "${DB_FILE}-wal" "${DB_FILE}-shm"
+
 sleep 1
 
 # 2. 启动后端
