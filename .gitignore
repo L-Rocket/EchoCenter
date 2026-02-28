@@ -3,6 +3,8 @@ backend/bin/
 backend/logs/
 backend/data/*.db
 backend/data/*.db-journal
+backend/**/*.db
+backend/**/*.db-journal
 *.exe
 *.exe~
 *.dll
