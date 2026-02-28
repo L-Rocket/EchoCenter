@@ -8,12 +8,9 @@ import (
 	"sync"
 )
 
-// ButlerService defines the interface for Butler service
-// This avoids import cycle between websocket and butler packages
-type ButlerService interface {
-	GetButlerID() int
-	HandleUserMessage(ctx context.Context, senderID int, payload string)
-}
+// ButlerMessageCallback is called when a user sends a message to Butler
+// This is set by the butler package during initialization
+var ButlerMessageCallback func(ctx context.Context, senderID int, payload string)
 
 // AgentResponseCallback is called when an agent response is received
 // This is set by the butler package during initialization
@@ -22,33 +19,33 @@ var AgentResponseCallback func(agentID int, payload string) bool
 // ButlerMessageHandler handles WebSocket messages for the Butler
 // This bridges WebSocket messages to the Butler service
 type ButlerMessageHandler struct {
-	butlerService ButlerService
+	butlerID int
 }
 
 // NewButlerMessageHandler creates a new Butler message handler
-func NewButlerMessageHandler(service ButlerService) *ButlerMessageHandler {
+func NewButlerMessageHandler(butlerID int) *ButlerMessageHandler {
 	return &ButlerMessageHandler{
-		butlerService: service,
+		butlerID: butlerID,
 	}
 }
 
 // HandleMessage processes incoming WebSocket messages for Butler
 func (h *ButlerMessageHandler) HandleMessage(ctx context.Context, msg *Message) {
-	if msg == nil || h.butlerService == nil {
+	if msg == nil {
 		return
 	}
 
-	butlerID := h.butlerService.GetButlerID()
-
 	switch msg.Type {
 	case MessageTypeChat:
-		if msg.TargetID == butlerID && msg.SenderID != butlerID {
+		if msg.TargetID == h.butlerID && msg.SenderID != h.butlerID {
 			payload, ok := msg.Payload.(string)
 			if !ok {
 				return
 			}
 			log.Printf("[Butler Handler] Received chat from user %d: %s", msg.SenderID, payload)
-			go h.butlerService.HandleUserMessage(ctx, msg.SenderID, payload)
+			if ButlerMessageCallback != nil {
+				go ButlerMessageCallback(ctx, msg.SenderID, payload)
+			}
 		}
 
 	case MessageTypeSystemLog:
