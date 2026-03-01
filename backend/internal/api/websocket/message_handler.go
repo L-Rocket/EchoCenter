@@ -214,7 +214,13 @@ func NewCompositeHandler(handlers ...MessageHandler) *CompositeHandler {
 // HandleMessage calls all registered handlers
 func (h *CompositeHandler) HandleMessage(ctx context.Context, msg *Message) {
 	for _, handler := range h.handlers {
-		go handler.HandleMessage(ctx, msg)
+		if _, isPersist := handler.(*PersistingMessageHandler); isPersist {
+			// Run persistence synchronously so msg.ID is populated BEFORE broadcasting
+			handler.HandleMessage(ctx, msg)
+		} else {
+			// Run other handlers (like Butler LLM calls) asynchronously
+			go handler.HandleMessage(ctx, msg)
+		}
 	}
 }
 
