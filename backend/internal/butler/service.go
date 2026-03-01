@@ -272,6 +272,7 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 			s.hub.BroadcastGeneric(map[string]any{
 				"id":          chatMsg.ID,
 				"local_id":    chatMsg.LocalID,
+				"stream_id":   streamID,
 				"type":        "CHAT",
 				"sender_id":   chatMsg.SenderID,
 				"sender_name": s.butlerName,
@@ -463,6 +464,7 @@ func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID stri
 			s.hub.BroadcastGeneric(map[string]any{
 				"id":          chatMsg.ID,
 				"local_id":    chatMsg.LocalID,
+				"stream_id":   streamID,
 				"type":        "CHAT",
 				"sender_id":   s.butlerID,
 				"sender_name": s.butlerName,

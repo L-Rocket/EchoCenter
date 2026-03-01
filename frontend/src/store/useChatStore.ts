@@ -46,13 +46,16 @@ export const useChatStore = create<ChatState>((set) => ({
         }
       }
 
-      // 2. CHAT message deduplication and ID replacement using local_id
+      // 2. CHAT message deduplication and ID replacement using local_id or stream_id
       const localDuplicateIndex = existing.findIndex(m => {
         // Strict match by ID
         if (message.id && m.id === message.id) return true
         
         // Strict match by local_id (this is the core of the client UUID sync)
         if (message.local_id && m.local_id === message.local_id) return true
+
+        // Strict match by stream_id (replaces the streamed message with the final message)
+        if (message.stream_id && m.stream_id === message.stream_id) return true
         
         // Fallback for messages that might not have local_id (e.g. system generated)
         // Check for same content from same sender within a short time window
@@ -143,6 +146,7 @@ export const useChatStore = create<ChatState>((set) => ({
         return historyList.some(h => {
           if (m.id && h.id && m.id === h.id) return true
           if (m.local_id && h.local_id && m.local_id === h.local_id) return true
+          if (m.stream_id && h.stream_id && m.stream_id === h.stream_id) return true
           if (!m.local_id && !h.local_id && m.payload === h.payload && m.sender_id === h.sender_id && m.type === h.type) {
             const mTime = new Date(m.timestamp).getTime()
             const hTime = new Date(h.timestamp).getTime()
