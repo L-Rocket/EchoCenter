@@ -185,8 +185,9 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
               );
             }
 
-            // Skip rendering completely empty messages
-            if (typeof payload === 'string' && payload.trim() === '') {
+            // Skip rendering completely empty messages or empty objects
+            const renderContent = typeof payload === 'string' ? payload : JSON.stringify(payload);
+            if (!renderContent || renderContent.trim() === '' || renderContent === '{}') {
               return null;
             }
 
@@ -197,12 +198,12 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
                   isMe ? "items-end" : "items-start"
                 )}>
                   <div className={cn(
-                    "rounded-2xl px-4 py-2.5 text-sm shadow-sm border",
+                    "rounded-2xl px-4 py-2.5 text-sm shadow-sm border whitespace-pre-wrap break-words",
                     isMe 
                       ? "bg-indigo-600 text-white border-indigo-500 rounded-tr-none" 
                       : "bg-card text-card-foreground border rounded-tl-none"
                   )}>
-                    {typeof payload === 'string' ? payload : JSON.stringify(payload)}
+                    {renderContent}
                   </div>
                   <span className="text-[9px] text-muted-foreground mt-1 px-1 font-bold uppercase tracking-tighter">
                     {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending'}
