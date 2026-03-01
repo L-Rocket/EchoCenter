@@ -474,7 +474,12 @@ func (r *sqliteRepository) UpdateAuthRequestStatus(ctx context.Context, actionID
 	if err != nil {
 		return apperrors.Wrap(apperrors.ErrDatabase, "failed to query AUTH_REQUEST message", err)
 	}
-	defer rows.Close()
+
+	type updateOp struct {
+		id      int
+		content string
+	}
+	var updates []updateOp
 
 	for rows.Next() {
 		var id int
@@ -492,14 +497,17 @@ func (r *sqliteRepository) UpdateAuthRequestStatus(ctx context.Context, actionID
 		if aid, ok := payload["action_id"].(string); ok && aid == actionID {
 			payload["status"] = status
 			newContent, _ := json.Marshal(payload)
-			
-			_, err = r.db.ExecContext(ctx, "UPDATE chat_messages SET content = ? WHERE id = ?", string(newContent), id)
-			if err != nil {
-				log.Printf("[Repository] Failed to update message %d: %v", id, err)
-			} else {
-				log.Printf("[Repository] Successfully updated AuthRequest %s to %s (MsgID: %d)", actionID, status, id)
-			}
-			return nil // Found and updated, we can return early
+			updates = append(updates, updateOp{id: id, content: string(newContent)})
+		}
+	}
+	rows.Close() // Close rows BEFORE executing updates to prevent SQLITE_BUSY
+
+	for _, op := range updates {
+		_, err = r.db.ExecContext(ctx, "UPDATE chat_messages SET content = ? WHERE id = ?", op.content, op.id)
+		if err != nil {
+			log.Printf("[Repository] Failed to update message %d: %v", op.id, err)
+		} else {
+			log.Printf("[Repository] Successfully updated AuthRequest %s to %s (MsgID: %d)", actionID, status, op.id)
 		}
 	}
 
