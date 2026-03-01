@@ -260,6 +260,17 @@ func (h *hub) BroadcastGeneric(msg any) {
 		if payload, ok := data["payload"]; ok {
 			m.Payload = payload
 		}
+		if idVal, ok := data["id"].(int); ok {
+			m.ID = idVal
+		} else if idVal, ok := data["id"].(float64); ok {
+			m.ID = int(idVal)
+		}
+		if localID, ok := data["local_id"].(string); ok {
+			m.LocalID = localID
+		}
+		if ts, ok := data["timestamp"].(string); ok {
+			m.Timestamp = ts
+		}
 		h.Broadcast(m)
 	} else {
 		log.Printf("[WebSocket Hub] Generic broadcast failed: unsupported message type %T", msg)

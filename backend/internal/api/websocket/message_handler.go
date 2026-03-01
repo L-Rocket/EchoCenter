@@ -185,6 +185,13 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 		payloadStr = string(bytes)
 	}
 
+	// If the message already has an ID, it was saved upstream (e.g., by ButlerService).
+	// We should skip saving it again to prevent duplicates.
+	if msg.ID > 0 {
+		log.Printf("[PersistingMessageHandler] Message %s already has ID %d, skipping save", msg.LocalID, msg.ID)
+		return
+	}
+
 	// Save to database
 	chatMsg := &models.ChatMessage{
 		LocalID:    msg.LocalID,
