@@ -40,3 +40,4 @@ docs/.vitepress/cache/
 Thumbs.db
 *.tmp
 *.swp
+\n# Test Artifacts\nlogin.json

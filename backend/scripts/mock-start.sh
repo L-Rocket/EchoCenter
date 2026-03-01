@@ -30,12 +30,18 @@ lsof -ti:5173 | xargs kill -9 2>/dev/null || true
 
 # 加载 .env 获取数据库路径
 if [ -f "$BACKEND_DIR/.env" ]; then
-    DB_PATH=$(grep DB_PATH "$BACKEND_DIR/.env" | cut -d '=' -f2)
+    DB_PATH_VAL=$(grep DB_PATH "$BACKEND_DIR/.env" | cut -d '=' -f2)
 fi
-DB_FILE=${DB_PATH:-"./data/echo_center.db"}
+DB_FILE_REL=${DB_PATH_VAL:-"./data/echo_center.db"}
 
-# 清理数据库文件 (如果是相对路径，相对于 backend 目录)
-cd "$BACKEND_DIR"
+# Resolve absolute path for database file
+if [[ $DB_FILE_REL == /* ]]; then
+    DB_FILE="$DB_FILE_REL"
+else
+    DB_FILE="$BACKEND_DIR/$DB_FILE_REL"
+fi
+
+# 清理数据库文件
 if [ -f "$DB_FILE" ]; then
     echo "  正在清理旧数据库: $DB_FILE"
     rm -f "$DB_FILE"
