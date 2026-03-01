@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronRight, Shield, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { ChatMessage } from '@/types';
 
 interface AuthRequestPayload {
   action_id: string;
@@ -18,7 +19,7 @@ interface AuthResponsePayload {
 }
 
 interface ProcessMessageProps {
-  type: 'AUTH_REQUEST' | 'AUTH_RESPONSE' | 'SYSTEM' | 'CHAT' | 'SYSTEM_LOG' | 'CHAT_STREAM' | 'CHAT_STREAM_END';
+  type: ChatMessage['type'];
   payload: string | Record<string, unknown>;
   timestamp: string;
   status?: string;
