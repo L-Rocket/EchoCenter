@@ -46,6 +46,7 @@ const (
 // Message represents a WebSocket message
 type Message struct {
 	ID         int         `json:"id,omitempty"`
+	LocalID    string      `json:"local_id,omitempty"`
 	Type       MessageType `json:"type"`
 	SenderID   int         `json:"sender_id"`
 	SenderName string      `json:"sender_name"`

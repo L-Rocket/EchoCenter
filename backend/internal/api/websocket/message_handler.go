@@ -186,6 +186,7 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 
 	// Save to database
 	chatMsg := &models.ChatMessage{
+		LocalID:    msg.LocalID,
 		SenderID:   msg.SenderID,
 		ReceiverID: msg.TargetID,
 		Payload:    payloadStr,
@@ -198,6 +199,8 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 		// CRITICAL: Fill back the database ID and accurate timestamp into the broadcast message
 		msg.ID = chatMsg.ID
 		msg.Timestamp = chatMsg.Timestamp.Format(time.RFC3339Nano)
+		// Keep the LocalID in the broadcast so frontend can match it
+		msg.LocalID = chatMsg.LocalID
 	}
 }
 

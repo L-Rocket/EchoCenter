@@ -138,6 +138,7 @@ func (r *sqliteRepository) migrate() error {
 			name: "003_create_chat_messages_table",
 			sql: `CREATE TABLE IF NOT EXISTS chat_messages (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				local_id TEXT UNIQUE,
 				sender_id INTEGER NOT NULL,
 				receiver_id INTEGER NOT NULL,
 				type TEXT DEFAULT 'CHAT',
@@ -416,24 +417,55 @@ func (r *sqliteRepository) CreateAgent(ctx context.Context, username, token stri
 
 // SaveChatMessage saves a chat message
 func (r *sqliteRepository) SaveChatMessage(ctx context.Context, msg *models.ChatMessage) error {
-	query := `INSERT INTO chat_messages (sender_id, receiver_id, type, content, timestamp) VALUES (?, ?, ?, ?, ?)`
 	msgType := msg.Type
 	if msgType == "" {
 		msgType = "CHAT"
 	}
+
+	// 1. Idempotency check based on LocalID
+	if msg.LocalID != "" {
+		var existingID int
+		var existingTime time.Time
+		err := r.db.QueryRowContext(ctx, "SELECT id, timestamp FROM chat_messages WHERE local_id = ?", msg.LocalID).Scan(&existingID, &existingTime)
+		if err == nil {
+			// Message already exists, just return its assigned ID and Timestamp
+			msg.ID = existingID
+			msg.Timestamp = existingTime
+			return nil
+		}
+	}
+
 	// Use high-precision timestamp
 	timestamp := time.Now()
-	_, err := r.db.ExecContext(ctx, query, msg.SenderID, msg.ReceiverID, msgType, msg.Payload, timestamp)
+	
+	var err error
+	var result sql.Result
+	if msg.LocalID != "" {
+		query := `INSERT INTO chat_messages (local_id, sender_id, receiver_id, type, content, timestamp) VALUES (?, ?, ?, ?, ?, ?)`
+		result, err = r.db.ExecContext(ctx, query, msg.LocalID, msg.SenderID, msg.ReceiverID, msgType, msg.Payload, timestamp)
+	} else {
+		query := `INSERT INTO chat_messages (sender_id, receiver_id, type, content, timestamp) VALUES (?, ?, ?, ?, ?)`
+		result, err = r.db.ExecContext(ctx, query, msg.SenderID, msg.ReceiverID, msgType, msg.Payload, timestamp)
+	}
+
 	if err != nil {
 		return apperrors.Wrap(apperrors.ErrDatabase, "failed to save chat message", err)
 	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return apperrors.Wrap(apperrors.ErrDatabase, "failed to get last insert id", err)
+	}
+
+	msg.ID = int(id)
+	msg.Timestamp = timestamp
 	return nil
 }
 
 // GetChatHistory retrieves chat history between two users
 func (r *sqliteRepository) GetChatHistory(ctx context.Context, user1ID, user2ID int, limit int) ([]models.ChatMessage, error) {
 	query := `
-		SELECT id, sender_id, receiver_id, type, content, timestamp 
+		SELECT id, local_id, sender_id, receiver_id, type, content, timestamp 
 		FROM chat_messages 
 		WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
 		ORDER BY timestamp ASC, id ASC 
@@ -449,13 +481,17 @@ func (r *sqliteRepository) GetChatHistory(ctx context.Context, user1ID, user2ID 
 	for rows.Next() {
 		var m models.ChatMessage
 		var msgType sql.NullString
-		if err := rows.Scan(&m.ID, &m.SenderID, &m.ReceiverID, &msgType, &m.Payload, &m.Timestamp); err != nil {
+		var localID sql.NullString
+		if err := rows.Scan(&m.ID, &localID, &m.SenderID, &m.ReceiverID, &msgType, &m.Payload, &m.Timestamp); err != nil {
 			return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to scan chat message", err)
 		}
 		if msgType.Valid {
 			m.Type = msgType.String
 		} else {
 			m.Type = "CHAT"
+		}
+		if localID.Valid {
+			m.LocalID = localID.String
 		}
 		messages = append(messages, m)
 	}

@@ -46,23 +46,34 @@ export const useChatStore = create<ChatState>((set) => ({
         }
       }
 
-      // 2. CHAT message deduplication and ID replacement
+      // 2. CHAT message deduplication and ID replacement using local_id
       const localDuplicateIndex = existing.findIndex(m => {
+        // Strict match by ID
         if (message.id && m.id === message.id) return true
-        if (m.payload === message.payload && 
+        
+        // Strict match by local_id (this is the core of the client UUID sync)
+        if (message.local_id && m.local_id === message.local_id) return true
+        
+        // Fallback for messages that might not have local_id (e.g. system generated)
+        // Check for same content from same sender within a short time window
+        if (!message.local_id && !m.local_id &&
+            m.payload === message.payload && 
             m.sender_id === message.sender_id &&
             m.type === message.type) {
           const existingTime = new Date(m.timestamp).getTime()
           const newTime = new Date(message.timestamp).getTime()
-          return Math.abs(existingTime - newTime) < 10000
+          return Math.abs(existingTime - newTime) < 5000
         }
         return false
       })
 
       if (localDuplicateIndex > -1) {
-        if (message.id && !existing[localDuplicateIndex].id) {
+        // If the new message has an ID (server confirmed) and the old one didn't, or we are just updating
+        const oldMsg = existing[localDuplicateIndex]
+        if ((message.id && !oldMsg.id) || (message.id === oldMsg.id)) {
           const updated = [...existing]
-          updated[localDuplicateIndex] = message
+          // Merge properties, prioritizing server data (message) but keeping local_id if server didn't echo it
+          updated[localDuplicateIndex] = { ...oldMsg, ...message }
           updated.sort((a, b) => {
             const idA = a.id || Infinity;
             const idB = b.id || Infinity;
@@ -131,7 +142,8 @@ export const useChatStore = create<ChatState>((set) => ({
       const isDuplicateOfHistory = (m: ChatMessage, historyList: ChatMessage[]) => {
         return historyList.some(h => {
           if (m.id && h.id && m.id === h.id) return true
-          if (m.payload === h.payload && m.sender_id === h.sender_id && m.type === h.type) {
+          if (m.local_id && h.local_id && m.local_id === h.local_id) return true
+          if (!m.local_id && !h.local_id && m.payload === h.payload && m.sender_id === h.sender_id && m.type === h.type) {
             const mTime = new Date(m.timestamp).getTime()
             const hTime = new Date(h.timestamp).getTime()
             if (Math.abs(mTime - hTime) < 5000) return true

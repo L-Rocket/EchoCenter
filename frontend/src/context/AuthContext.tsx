@@ -181,9 +181,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const sendMessage = (targetId: number, payload: string) => {
     if (socketRef.current?.readyState === WebSocket.OPEN && user) {
       setThinking(true);
-      
+
       const now = new Date();
+      const localId = crypto.randomUUID();
+
       addChatMessage(targetId, {
+        local_id: localId,
         type: 'CHAT',
         sender_id: user.id,
         sender_name: user.username,
@@ -191,8 +194,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         payload: payload,
         timestamp: now.toISOString(),
       });
-      
+
       socketRef.current.send(JSON.stringify({
+        local_id: localId,
         type: 'CHAT',
         sender_id: user.id,
         sender_name: user.username,
@@ -201,6 +205,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }));
     }
   };
+
 
   const sendAuthResponse = (actionId: string, approved: boolean) => {
     if (approved) setThinking(true);

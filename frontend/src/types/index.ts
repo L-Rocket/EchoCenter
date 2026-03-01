@@ -14,6 +14,7 @@ export interface Agent extends User {
 
 export interface ChatMessage {
   id?: number;
+  local_id?: string;
   type: 'CHAT' | 'SYSTEM' | 'SYSTEM_LOG' | 'AUTH_REQUEST' | 'AUTH_RESPONSE' | 'CHAT_STREAM' | 'CHAT_STREAM_END' | 'AUTH_STATUS_UPDATE';
   sender_id: number;
   sender_name: string;

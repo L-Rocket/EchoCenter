@@ -255,13 +255,31 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 	// Save the initial response only if it's not empty
 	content := strings.TrimSpace(result.Content)
 	if content != "" {
-		err = s.repo.SaveChatMessage(ctx, &models.ChatMessage{
+		localID := uuid.New().String()
+		chatMsg := &models.ChatMessage{
+			LocalID:    localID,
 			SenderID:   s.butlerID,
 			ReceiverID: senderID,
 			Payload:    content,
-		})
+		}
+		err = s.repo.SaveChatMessage(ctx, chatMsg)
 		if err != nil {
 			log.Printf("[Butler] Failed to persist chat: %v", err)
+		}
+
+		// Broadcast the final complete chat message WITH ID to ensure frontend can sort correctly
+		if s.hub != nil {
+			s.hub.BroadcastGeneric(map[string]any{
+				"id":          chatMsg.ID,
+				"local_id":    chatMsg.LocalID,
+				"type":        "CHAT",
+				"sender_id":   chatMsg.SenderID,
+				"sender_name": s.butlerName,
+				"sender_role": "BUTLER",
+				"target_id":   chatMsg.ReceiverID,
+				"payload":     chatMsg.Payload,
+				"timestamp":   chatMsg.Timestamp.Format(time.RFC3339Nano),
+			})
 		}
 	}
 
@@ -294,22 +312,28 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 
 		// Persist AUTH_REQUEST to database
 		authPayloadBytes, _ := json.Marshal(authPayload)
-		if err := s.repo.SaveChatMessage(ctx, &models.ChatMessage{
+		authLocalID := uuid.New().String()
+		authChatMsg := &models.ChatMessage{
+			LocalID:    authLocalID,
 			SenderID:   s.butlerID,
 			ReceiverID: senderID,
 			Type:       "AUTH_REQUEST",
 			Payload:    string(authPayloadBytes),
-		}); err != nil {
+		}
+		if err := s.repo.SaveChatMessage(ctx, authChatMsg); err != nil {
 			log.Printf("[Butler] Failed to persist AUTH_REQUEST: %v", err)
 		}
 
 		s.hub.BroadcastGeneric(map[string]any{
+			"id":          authChatMsg.ID,
+			"local_id":    authChatMsg.LocalID,
 			"type":        "AUTH_REQUEST",
 			"sender_id":   s.butlerID,
 			"sender_name": s.butlerName,
 			"sender_role": "BUTLER",
 			"target_id":   senderID,
 			"payload":     authPayload,
+			"timestamp":   authChatMsg.Timestamp.Format(time.RFC3339Nano),
 		})
 
 		// Send CHAT_STREAM_END to stop the processing indicator
@@ -420,16 +444,33 @@ func (s *ButlerService) ExecutePendingCommand(ctx context.Context, streamID stri
 	if err != nil {
 		log.Printf("[Butler] Error executing command: %v", err)
 	} else {
+		// IMPORTANT: Save the execution result to the database ONLY if not empty
 		execContent := strings.TrimSpace(execResult)
 		if execContent != "" {
-			err = s.repo.SaveChatMessage(ctx, &models.ChatMessage{
+			execLocalID := uuid.New().String()
+			chatMsg := &models.ChatMessage{
+				LocalID:    execLocalID,
 				SenderID:   s.butlerID,
 				ReceiverID: senderID,
 				Payload:    execContent,
-			})
+			}
+			err = s.repo.SaveChatMessage(ctx, chatMsg)
 			if err != nil {
 				log.Printf("[Butler] Failed to persist execution result: %v", err)
 			}
+
+			// Broadcast WITH ID
+			s.hub.BroadcastGeneric(map[string]any{
+				"id":          chatMsg.ID,
+				"local_id":    chatMsg.LocalID,
+				"type":        "CHAT",
+				"sender_id":   s.butlerID,
+				"sender_name": s.butlerName,
+				"sender_role": "BUTLER",
+				"target_id":   senderID,
+				"payload":     execContent,
+				"timestamp":   chatMsg.Timestamp.Format(time.RFC3339Nano),
+			})
 		}
 	}
 

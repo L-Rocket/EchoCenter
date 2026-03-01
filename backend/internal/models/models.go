@@ -31,6 +31,7 @@ type LoginResponse struct {
 
 type ChatMessage struct {
 	ID         int       `json:"id" db:"id"`
+	LocalID    string    `json:"local_id" db:"local_id"`
 	SenderID   int       `json:"sender_id" db:"sender_id"`
 	ReceiverID int       `json:"receiver_id" db:"receiver_id"`
 	Type       string    `json:"type" db:"type"` // CHAT, AUTH_REQUEST, AUTH_RESPONSE
