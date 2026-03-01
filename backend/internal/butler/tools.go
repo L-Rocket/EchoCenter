@@ -96,7 +96,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 
 	// 4.5 Immediate feedback to UI
 	if b := GetButler(); b != nil {
-		b.hub.BroadcastGeneric(map[string]interface{}{
+		b.hub.BroadcastGeneric(map[string]any{
 			"type":        "CHAT_STREAM",
 			"sender_id":   b.butlerID,
 			"sender_name": b.butlerName,
@@ -126,7 +126,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 				Payload:    commandMsg,
 			})
 		}
-		b.hub.BroadcastGeneric(map[string]interface{}{
+		b.hub.BroadcastGeneric(map[string]any{
 			"type":        "CHAT",
 			"sender_id":   b.butlerID,
 			"sender_name": b.butlerName,
@@ -209,7 +209,7 @@ func ExecuteCommandDirect(ctx context.Context, targetAgentID int, command string
 				Payload:    commandMsg,
 			})
 		}
-		b.hub.BroadcastGeneric(map[string]interface{}{
+		b.hub.BroadcastGeneric(map[string]any{
 			"type":        "CHAT",
 			"sender_id":   b.butlerID,
 			"sender_name": b.butlerName,

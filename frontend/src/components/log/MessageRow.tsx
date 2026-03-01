@@ -4,17 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { StatusIndicator } from '@/components/ui/status-indicator';
 import { Info, AlertTriangle, AlertCircle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-export interface Message {
-  id: number;
-  agent_id: string;
-  level: string;
-  content: string;
-  timestamp: string;
-}
+import type { LogMessage } from '@/types';
 
 interface MessageRowProps {
-  message: Message;
+  message: LogMessage;
 }
 
 const MessageRow: React.FC<MessageRowProps> = ({ message }) => {
@@ -27,6 +20,7 @@ const MessageRow: React.FC<MessageRowProps> = ({ message }) => {
           icon: <AlertCircle className="h-4 w-4" />,
           bgColor: 'bg-destructive/5',
           borderColor: 'border-destructive/20',
+          badgeClass: '',
         };
       case 'WARNING':
         return {
@@ -45,6 +39,7 @@ const MessageRow: React.FC<MessageRowProps> = ({ message }) => {
           icon: <Info className="h-4 w-4" />,
           bgColor: 'bg-primary/5',
           borderColor: 'border-primary/20',
+          badgeClass: '',
         };
     }
   };

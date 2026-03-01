@@ -17,6 +17,7 @@ echocenter.db-journal
 backend/data/*
 !backend/data/.gitkeep
 bin/
+backend/bin/*
 
 # Node.js
 node_modules/

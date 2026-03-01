@@ -1,15 +1,5 @@
 import { create } from 'zustand'
-
-export interface ChatMessage {
-  id?: number
-  type: 'CHAT' | 'SYSTEM' | 'SYSTEM_LOG' | 'AUTH_REQUEST' | 'AUTH_RESPONSE' | 'CHAT_STREAM' | 'CHAT_STREAM_END'
-  sender_id: number
-  sender_name: string
-  target_id?: number
-  payload: string | Record<string, unknown>
-  timestamp: string
-  stream_id?: string 
-}
+import type { ChatMessage } from '@/types'
 
 interface ChatState {
   messages: Record<number, ChatMessage[]>
@@ -31,7 +21,6 @@ export const useChatStore = create<ChatState>((set) => ({
     set((state) => {
       const existing = state.messages[peerId] || []
       
-      // 1. SYSTEM and AUTH_REQUEST message deduplication by action_id
       if (message.type === 'SYSTEM' || message.type === 'AUTH_REQUEST') {
         try {
           const newPayload = typeof message.payload === 'string' ? JSON.parse(message.payload) : (message.payload as Record<string, unknown>)
@@ -42,7 +31,6 @@ export const useChatStore = create<ChatState>((set) => ({
                 const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : (m.payload as Record<string, unknown>)
                 return p && p.action_id === newPayload.action_id
               } catch (_e) {
-                // Ignore parse errors
                 return false
               }
             })
@@ -58,26 +46,60 @@ export const useChatStore = create<ChatState>((set) => ({
         }
       }
 
-      // 2. CHAT message deduplication by ID or content+sender+time proximity (within 5 seconds)
-      const isDuplicate = existing.some(m => {
+      // 2. CHAT message deduplication and ID replacement using local_id or stream_id
+      const localDuplicateIndex = existing.findIndex(m => {
+        // Strict match by ID
         if (message.id && m.id === message.id) return true
-        // Check for same content from same sender within 5 seconds (handles local+server echo)
-        if (m.payload === message.payload && 
+        
+        // Strict match by local_id (this is the core of the client UUID sync)
+        if (message.local_id && m.local_id === message.local_id) return true
+
+        // Strict match by stream_id (replaces the streamed message with the final message)
+        if (message.stream_id && m.stream_id === message.stream_id) return true
+        
+        // Fallback for messages that might not have local_id (e.g. system generated)
+        // Check for same content from same sender within a short time window
+        if (!message.local_id && !m.local_id &&
+            m.payload === message.payload && 
             m.sender_id === message.sender_id &&
             m.type === message.type) {
           const existingTime = new Date(m.timestamp).getTime()
           const newTime = new Date(message.timestamp).getTime()
-          if (Math.abs(existingTime - newTime) < 5000) return true
+          return Math.abs(existingTime - newTime) < 5000
         }
         return false
       })
 
-      if (isDuplicate) return state
+      if (localDuplicateIndex > -1) {
+        // If the new message has an ID (server confirmed) and the old one didn't, or we are just updating
+        const oldMsg = existing[localDuplicateIndex]
+        if ((message.id && !oldMsg.id) || (message.id === oldMsg.id)) {
+          const updated = [...existing]
+          // Merge properties, prioritizing server data (message) but keeping local_id if server didn't echo it
+          updated[localDuplicateIndex] = { ...oldMsg, ...message }
+          updated.sort((a, b) => {
+            const idA = a.id || Infinity;
+            const idB = b.id || Infinity;
+            if (idA !== idB) return idA - idB;
+            return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          })
+          return { messages: { ...state.messages, [peerId]: updated } }
+        }
+        return state
+      }
+
+      const newMessages = [...existing, message]
+      newMessages.sort((a, b) => {
+        const idA = a.id || Infinity;
+        const idB = b.id || Infinity;
+        if (idA !== idB) return idA - idB;
+        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      })
 
       return {
         messages: {
           ...state.messages,
-          [peerId]: [...existing, message],
+          [peerId]: newMessages,
         },
       }
     }),
@@ -118,17 +140,14 @@ export const useChatStore = create<ChatState>((set) => ({
   setHistory: (peerId, history) =>
     set((state) => {
       const current = state.messages[peerId] || []
-      
-      // Use a Map to deduplicate by ID or complex key
       const merged = new Map<string, ChatMessage>()
       
-      // Helper to check if a message is duplicate based on content + sender + time proximity
       const isDuplicateOfHistory = (m: ChatMessage, historyList: ChatMessage[]) => {
         return historyList.some(h => {
-          // If both have IDs, compare IDs
           if (m.id && h.id && m.id === h.id) return true
-          // Compare content + sender + time proximity (within 5 seconds)
-          if (m.payload === h.payload && m.sender_id === h.sender_id && m.type === h.type) {
+          if (m.local_id && h.local_id && m.local_id === h.local_id) return true
+          if (m.stream_id && h.stream_id && m.stream_id === h.stream_id) return true
+          if (!m.local_id && !h.local_id && m.payload === h.payload && m.sender_id === h.sender_id && m.type === h.type) {
             const mTime = new Date(m.timestamp).getTime()
             const hTime = new Date(h.timestamp).getTime()
             if (Math.abs(mTime - hTime) < 5000) return true
@@ -137,16 +156,16 @@ export const useChatStore = create<ChatState>((set) => ({
         })
       }
       
-      // Add history first (authoritative)
       history.forEach(m => {
         const payloadKey = typeof m.payload === 'string' ? m.payload.substring(0, 20) : JSON.stringify(m.payload).substring(0, 20)
         const key = m.id ? `id_${m.id}` : `vol_${m.timestamp}_${payloadKey}`
-        // Special key for SYSTEM requests to ensure they merge correctly
         if (m.type === 'SYSTEM') {
           try {
             const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : (m.payload as Record<string, unknown>)
-            merged.set(`sys_${p.action_id}`, m)
-            return
+            if (p.action_id) {
+              merged.set(`sys_${p.action_id as string}`, m)
+              return
+            }
           } catch (_e) {
             // Ignore parse errors
           }
@@ -154,21 +173,20 @@ export const useChatStore = create<ChatState>((set) => ({
         merged.set(key, m)
       })
 
-      // Merge current volatile messages, checking for duplicates against history
       current.forEach(m => {
         if (m.type === 'SYSTEM') {
           try {
             const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : (m.payload as Record<string, unknown>)
-            const key = `sys_${p.action_id}`
-            if (!merged.has(key)) merged.set(key, m)
-            return
+            if (p.action_id) {
+              const key = `sys_${p.action_id as string}`
+              if (!merged.has(key)) merged.set(key, m)
+              return
+            }
           } catch (_e) {
             // Ignore parse errors
           }
         }
         
-        // Skip if this message is a duplicate of any history message
-        // But keep messages without ID (not yet persisted) as they are local optimistic updates
         if (m.id && isDuplicateOfHistory(m, history)) {
           return
         }
@@ -181,7 +199,12 @@ export const useChatStore = create<ChatState>((set) => ({
       })
 
       const newMessages = Array.from(merged.values())
-      newMessages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      newMessages.sort((a, b) => {
+        const idA = a.id || Infinity;
+        const idB = b.id || Infinity;
+        if (idA !== idB) return idA - idB;
+        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      })
 
       return {
         messages: {
@@ -202,14 +225,11 @@ export const useChatStore = create<ChatState>((set) => ({
     set((state) => {
       const existing = state.messages[peerId] || []
       const filtered = existing.filter(m => {
-        // Keep non-system messages
         if (m.type !== 'SYSTEM') return true
-        // Remove execution_start messages
         try {
           const p = typeof m.payload === 'string' ? JSON.parse(m.payload) : (m.payload as Record<string, unknown>)
           return p.type !== 'execution_start'
         } catch (_e) {
-          // Ignore parse errors
           return true
         }
       })

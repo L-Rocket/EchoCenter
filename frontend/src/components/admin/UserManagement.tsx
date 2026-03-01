@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,15 +20,9 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-
-interface User {
-  id: number;
-  username: string;
-  role: string;
-  created_at: string;
-}
-
-const API_BASE_URL = 'http://localhost:8080';
+import { cn } from '@/lib/utils';
+import type { User } from '@/types';
+import { userService } from '@/services/userService';
 
 const UserManagement = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -42,8 +35,8 @@ const UserManagement = () => {
   const fetchUsers = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get<User[]>(`${API_BASE_URL}/api/users`);
-      setUsers(Array.isArray(response.data) ? response.data : []);
+      const data = await userService.getUsers();
+      setUsers(Array.isArray(data) ? data : []);
       setError('');
     } catch (_err) {
       setError('Neural link failure: Could not retrieve personnel data.');
@@ -63,9 +56,7 @@ const UserManagement = () => {
     
     setIsCreating(true);
     try {
-      await axios.post(`${API_BASE_URL}/api/users/agents`, {
-        username: newUsername,
-      });
+      await userService.createAgent(newUsername);
       setNewUsername('');
       fetchUsers();
     } catch (_err) {
@@ -85,7 +76,7 @@ const UserManagement = () => {
     if (!confirm('Proceed with unit decommissioning? This action is irreversible.')) return;
 
     try {
-      await axios.delete(`${API_BASE_URL}/api/users/agents/${id}`);
+      await userService.deleteAgent(id);
       fetchUsers();
     } catch (_err) {
       setError('Decommissioning protocol failed.');
@@ -231,10 +222,5 @@ const UserManagement = () => {
     </div>
   );
 };
-
-// Helper for conditional classes
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(' ');
-}
 
 export default UserManagement;

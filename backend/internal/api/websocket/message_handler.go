@@ -25,8 +25,8 @@ func (h *AgentResponseHandler) HandleMessage(ctx context.Context, msg *Message) 
 		return
 	}
 
-	// Only handle CHAT messages (responses to Butler commands)
-	if msg.Type != MessageTypeChat {
+	// Only handle CHAT messages from AGENTS (responses to Butler commands)
+	if msg.Type != MessageTypeChat || msg.SenderRole != "AGENT" {
 		return
 	}
 
@@ -108,8 +108,9 @@ func (h *ButlerMessageHandler) HandleMessage(ctx context.Context, msg *Message) 
 		return
 	}
 
-	// Only handle messages sent to Butler
-	if msg.TargetID != h.butlerID {
+	// Only handle messages sent to Butler, and IGNORE messages from AGENTs 
+	// to prevent infinite loops (Agents replying to Butler, Butler thinking it's a user prompt).
+	if msg.TargetID != h.butlerID || msg.SenderRole == "AGENT" {
 		return
 	}
 
@@ -184,8 +185,16 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 		payloadStr = string(bytes)
 	}
 
+	// If the message already has an ID, it was saved upstream (e.g., by ButlerService).
+	// We should skip saving it again to prevent duplicates.
+	if msg.ID > 0 {
+		log.Printf("[PersistingMessageHandler] Message %s already has ID %d, skipping save", msg.LocalID, msg.ID)
+		return
+	}
+
 	// Save to database
 	chatMsg := &models.ChatMessage{
+		LocalID:    msg.LocalID,
 		SenderID:   msg.SenderID,
 		ReceiverID: msg.TargetID,
 		Payload:    payloadStr,
@@ -194,7 +203,12 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 	if err := h.repo.SaveChatMessage(ctx, chatMsg); err != nil {
 		log.Printf("[PersistingMessageHandler] Failed to save message: %v", err)
 	} else {
-		log.Printf("[PersistingMessageHandler] Successfully saved message from %d to %d", msg.SenderID, msg.TargetID)
+		log.Printf("[PersistingMessageHandler] Successfully saved message from %d to %d (ID: %d)", msg.SenderID, msg.TargetID, chatMsg.ID)
+		// CRITICAL: Fill back the database ID and accurate timestamp into the broadcast message
+		msg.ID = chatMsg.ID
+		msg.Timestamp = chatMsg.Timestamp.Format(time.RFC3339Nano)
+		// Keep the LocalID in the broadcast so frontend can match it
+		msg.LocalID = chatMsg.LocalID
 	}
 }
 
@@ -211,7 +225,13 @@ func NewCompositeHandler(handlers ...MessageHandler) *CompositeHandler {
 // HandleMessage calls all registered handlers
 func (h *CompositeHandler) HandleMessage(ctx context.Context, msg *Message) {
 	for _, handler := range h.handlers {
-		go handler.HandleMessage(ctx, msg)
+		if _, isPersist := handler.(*PersistingMessageHandler); isPersist {
+			// Run persistence synchronously so msg.ID is populated BEFORE broadcasting
+			handler.HandleMessage(ctx, msg)
+		} else {
+			// Run other handlers (like Butler LLM calls) asynchronously
+			go handler.HandleMessage(ctx, msg)
+		}
 	}
 }
 

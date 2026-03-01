@@ -1,16 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import { Terminal, MessageSquare } from 'lucide-react';
 import { StatusIndicator } from '@/components/ui/status-indicator';
 import { cn } from '@/lib/utils';
-
-const API_BASE_URL = 'http://localhost:8080';
-
-export interface Agent {
-  id: number;
-  username: string;
-  role: string;
-}
+import type { Agent } from '@/types';
+import { userService } from '@/services/userService';
 
 interface AgentListProps {
   onSelectAgent: (agent: Agent) => void;
@@ -24,8 +17,8 @@ const AgentList: React.FC<AgentListProps> = ({ onSelectAgent, selectedAgentId })
   useEffect(() => {
     const fetchAgents = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/api/users/agents`);
-        setAgents(Array.isArray(response.data) ? response.data : []);
+        const data = await userService.getAgents();
+        setAgents(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Failed to fetch agents:', err);
       } finally {

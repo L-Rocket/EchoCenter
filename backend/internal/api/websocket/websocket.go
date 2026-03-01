@@ -40,16 +40,19 @@ const (
 	MessageTypeChatStreamEnd MessageType = "CHAT_STREAM_END"
 	MessageTypeAuthRequest   MessageType = "AUTH_REQUEST"
 	MessageTypeAuthResponse  MessageType = "AUTH_RESPONSE"
+	MessageTypeAuthStatusUpdate MessageType = "AUTH_STATUS_UPDATE"
 )
 
 // Message represents a WebSocket message
 type Message struct {
+	ID         int         `json:"id,omitempty"`
+	LocalID    string      `json:"local_id,omitempty"`
 	Type       MessageType `json:"type"`
 	SenderID   int         `json:"sender_id"`
 	SenderName string      `json:"sender_name"`
 	SenderRole string      `json:"sender_role"`
 	TargetID   int         `json:"target_id,omitempty"`
-	Payload    interface{} `json:"payload"`
+	Payload    any `json:"payload"`
 	Timestamp  string      `json:"timestamp"`
 	StreamID   string      `json:"stream_id,omitempty"`
 }
@@ -61,7 +64,7 @@ type Hub interface {
 	Register(client *Client)
 	Unregister(client *Client)
 	GetClient(userID int) (*Client, bool)
-	BroadcastGeneric(msg interface{})
+	BroadcastGeneric(msg any)
 }
 
 // MessageHandler handles incoming messages
@@ -122,12 +125,13 @@ func (h *hub) unregisterClient(client *Client) {
 }
 
 func (h *hub) handleBroadcast(ctx context.Context, message *Message) {
-	// Notify handlers
+	// Notify handlers synchronously first. 
+	// This ensures PersistingMessageHandler can fill in the message ID.
 	for _, handler := range h.handlers {
-		go handler.HandleMessage(ctx, message)
+		handler.HandleMessage(ctx, message)
 	}
 
-	// Route message
+	// Route message only after handlers have processed it (and potentially added IDs)
 	if message.TargetID != 0 {
 		h.routeToTarget(message)
 	} else {
@@ -213,7 +217,7 @@ func (h *hub) GetClient(userID int) (*Client, bool) {
 }
 
 // BroadcastGeneric broadcasts a generic message (for compatibility with butler package)
-func (h *hub) BroadcastGeneric(msg interface{}) {
+func (h *hub) BroadcastGeneric(msg any) {
 	// Try to convert to *Message
 	if m, ok := msg.(*Message); ok {
 		h.Broadcast(m)
@@ -221,7 +225,7 @@ func (h *hub) BroadcastGeneric(msg interface{}) {
 	}
 
 	// Try to convert map to Message
-	if data, ok := msg.(map[string]interface{}); ok {
+	if data, ok := msg.(map[string]any); ok {
 		m := &Message{
 			Timestamp: time.Now().Format(time.RFC3339),
 		}
@@ -255,6 +259,17 @@ func (h *hub) BroadcastGeneric(msg interface{}) {
 		}
 		if payload, ok := data["payload"]; ok {
 			m.Payload = payload
+		}
+		if idVal, ok := data["id"].(int); ok {
+			m.ID = idVal
+		} else if idVal, ok := data["id"].(float64); ok {
+			m.ID = int(idVal)
+		}
+		if localID, ok := data["local_id"].(string); ok {
+			m.LocalID = localID
+		}
+		if ts, ok := data["timestamp"].(string); ok {
+			m.Timestamp = ts
 		}
 		h.Broadcast(m)
 	} else {
@@ -442,7 +457,7 @@ func (m *Message) JSONString() (string, error) {
 }
 
 // ParsePayload parses the payload into the given struct
-func (m *Message) ParsePayload(v interface{}) error {
+func (m *Message) ParsePayload(v any) error {
 	if m.Payload == nil {
 		return nil
 	}

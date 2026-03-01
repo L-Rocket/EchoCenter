@@ -42,8 +42,8 @@ backend/
 
 ### 2. WebSocket Service
 
-- **Hub** - Connection management
-- **Message Handler** - Message distribution
+- **Hub** - Connection management. Ensures messages are completely persisted (assigned DB sequence IDs) before broadcasting.
+- **Message Handler** - Message distribution. Runs persistence synchronously while delegating LLM processing asynchronously.
 - **Agent Registration** - Agent connection management
 - **Message Broadcast** - Multicast messaging
 
@@ -55,7 +55,7 @@ backend/
 
 ### 4. Butler Service
 
-- **Message Processing** - Receiving and processing messages
+- **Message Processing** - Receiving and processing messages. Specifically ignores `AGENT` role messages to prevent infinite processing loops.
 - **Command Execution** - Executing user commands
 - **Authorization Request** - Sending authorization requests
 - **Response Handling** - Processing agent responses
@@ -102,13 +102,14 @@ type User struct {
 
 ```go
 type Message struct {
-    ID         uint   `json:"id"`
-    SenderID   uint   `json:"sender_id"`
+    ID         int    `json:"id,omitempty"`
+    LocalID    string `json:"local_id,omitempty"`
+    SenderID   int    `json:"sender_id"`
     SenderName string `json:"sender_name"`
     SenderRole string `json:"sender_role"`
-    TargetID   uint   `json:"target_id"`
-    Payload    string `json:"payload"`
-    Timestamp  string `json:"timestamp"`
+    TargetID   int    `json:"target_id,omitempty"`
+    Payload    any    `json:"payload"`
+    Timestamp  string `json:"timestamp,omitempty"`
 }
 ```
 

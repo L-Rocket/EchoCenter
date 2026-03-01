@@ -1,22 +1,10 @@
 import React, { useState } from 'react';
-import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Loader2, Lock, User } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
-
-interface LoginResponse {
-  token: string;
-  user: {
-    id: number;
-    username: string;
-    role: string;
-  };
-}
-
-const API_BASE_URL = 'http://localhost:8080';
+import { authService } from '@/services/authService';
 
 const LoginForm = () => {
   const [username, setUsername] = useState('');
@@ -24,8 +12,6 @@ const LoginForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,17 +19,8 @@ const LoginForm = () => {
     setError('');
 
     try {
-      const response = await axios.post<LoginResponse>(`${API_BASE_URL}/api/auth/login`, {
-        username,
-        password,
-      });
-
-      const { token, user } = response.data;
+      const { token, user } = await authService.login(username, password);
       login(token, user);
-      
-      // Redirect to the page they were trying to access, or dashboard
-      const from = location.state?.from?.pathname || "/dashboard";
-      navigate(from, { replace: true });
     } catch (err) {
       const axiosError = err as { response?: { data?: { error?: string } } };
       setError(axiosError.response?.data?.error || 'Login failed. Please check your credentials.');

@@ -40,7 +40,13 @@ Uses Zustand for lightweight global state management, primarily used to store us
 ### 2. Real-time Communication
 Communicates bidirectionally with the backend via WebSocket. The frontend implements a `useWebSocket` hook to handle connections, reconnection, and message distribution.
 
-### 3. UI Components
+### 3. Data Synchronization & Optimistic UI
+To ensure a fluid user experience while maintaining strict sequential integrity in a distributed environment:
+- **Optimistic Rendering**: When a user sends a message, the frontend instantly generates a globally unique `local_id` (UUID) and appends the message to the view immediately.
+- **Deduplication & Replacement**: Upon receiving the server's broadcasted echo of that message, the frontend matches it using the `local_id` and seamlessly replaces the temporary local message with the authoritative server message (which now carries the definitive database `id`).
+- **Absolute Ordering**: Local timestamp-based sorting is abandoned in favor of strict mathematical sorting based purely on the database sequence `id`.
+
+### 4. UI Components
 Built based on `shadcn/ui`, following consistent design specifications, and supporting responsive layout and dark mode.
 
 ## Development and Build

@@ -3,7 +3,7 @@ import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/s
 import { AppSidebar } from "./AppSidebar"
 import { Outlet } from "react-router-dom"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { ModeToggle } from "../mode-toggle"
+import { ModeToggle } from "../common/mode-toggle"
 
 export const MainLayout: React.FC = () => {
   return (
