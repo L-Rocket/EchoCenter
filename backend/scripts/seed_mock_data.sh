@@ -11,20 +11,23 @@ API_URL="http://localhost:8080/api"
 ADMIN_USER="admin"
 ADMIN_PASS="admin123"
 
-# 0. Load environment variables to get DB path
-# Script is in backend/scripts, .env is in backend/
-if [ -f "../.env" ]; then
-    export $(grep -v '^#' ../.env | xargs)
+# 0. Set directories
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Load environment variables to get DB path
+if [ -f "$BACKEND_DIR/.env" ]; then
+    export $(grep -v '^#' "$BACKEND_DIR/.env" | xargs)
 fi
 
-DB_FILE=${DB_PATH:-"./data/echo_center.db"}
+# Use DB_PATH from .env or default
+DB_FILE_RELATIVE=${DB_PATH:-"./data/echo_center.db"}
 
-# Convert path relative to backend/ to path relative to scripts/
-if [[ $DB_FILE == "./"* ]]; then
-    DB_FILE=".$DB_FILE"
-elif [[ $DB_FILE != "/"* ]]; then
-    # If it's just a filename or path not starting with ./ or /
-    DB_FILE="../$DB_FILE"
+# Resolve absolute DB_FILE path
+if [[ $DB_FILE_RELATIVE == /* ]]; then
+    DB_FILE="$DB_FILE_RELATIVE"
+else
+    DB_FILE="$BACKEND_DIR/$DB_FILE_RELATIVE"
 fi
 
 echo "--- EchoCenter Seeder ---"
