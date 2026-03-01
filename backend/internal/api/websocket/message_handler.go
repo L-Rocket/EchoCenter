@@ -194,7 +194,10 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 	if err := h.repo.SaveChatMessage(ctx, chatMsg); err != nil {
 		log.Printf("[PersistingMessageHandler] Failed to save message: %v", err)
 	} else {
-		log.Printf("[PersistingMessageHandler] Successfully saved message from %d to %d", msg.SenderID, msg.TargetID)
+		log.Printf("[PersistingMessageHandler] Successfully saved message from %d to %d (ID: %d)", msg.SenderID, msg.TargetID, chatMsg.ID)
+		// CRITICAL: Fill back the database ID and accurate timestamp into the broadcast message
+		msg.ID = chatMsg.ID
+		msg.Timestamp = chatMsg.Timestamp.Format(time.RFC3339Nano)
 	}
 }
 

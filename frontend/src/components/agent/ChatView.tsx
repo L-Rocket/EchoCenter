@@ -185,6 +185,11 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
               );
             }
 
+            // Skip rendering completely empty messages
+            if (typeof payload === 'string' && payload.trim() === '') {
+              return null;
+            }
+
             return (
               <div key={msg.id || i} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
                 <div className={cn(

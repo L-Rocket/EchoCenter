@@ -252,14 +252,17 @@ func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, pay
 		return
 	}
 
-	// Save the initial response
-	err = s.repo.SaveChatMessage(ctx, &models.ChatMessage{
-		SenderID:   s.butlerID,
-		ReceiverID: senderID,
-		Payload:    result.Content,
-	})
-	if err != nil {
-		log.Printf("[Butler] Failed to persist chat: %v", err)
+	// Save the initial response only if it's not empty
+	content := strings.TrimSpace(result.Content)
+	if content != "" {
+		err = s.repo.SaveChatMessage(ctx, &models.ChatMessage{
+			SenderID:   s.butlerID,
+			ReceiverID: senderID,
+			Payload:    content,
+		})
+		if err != nil {
+			log.Printf("[Butler] Failed to persist chat: %v", err)
+		}
 	}
 
 	// Step 2: If there's a command, send AUTH_REQUEST and wait for user approval

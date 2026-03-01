@@ -46,24 +46,46 @@ export const useChatStore = create<ChatState>((set) => ({
         }
       }
 
-      const isDuplicate = existing.some(m => {
+      // 2. CHAT message deduplication and ID replacement
+      const localDuplicateIndex = existing.findIndex(m => {
         if (message.id && m.id === message.id) return true
         if (m.payload === message.payload && 
             m.sender_id === message.sender_id &&
             m.type === message.type) {
           const existingTime = new Date(m.timestamp).getTime()
           const newTime = new Date(message.timestamp).getTime()
-          if (Math.abs(existingTime - newTime) < 5000) return true
+          return Math.abs(existingTime - newTime) < 10000
         }
         return false
       })
 
-      if (isDuplicate) return state
+      if (localDuplicateIndex > -1) {
+        if (message.id && !existing[localDuplicateIndex].id) {
+          const updated = [...existing]
+          updated[localDuplicateIndex] = message
+          updated.sort((a, b) => {
+            const idA = a.id || Infinity;
+            const idB = b.id || Infinity;
+            if (idA !== idB) return idA - idB;
+            return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          })
+          return { messages: { ...state.messages, [peerId]: updated } }
+        }
+        return state
+      }
+
+      const newMessages = [...existing, message]
+      newMessages.sort((a, b) => {
+        const idA = a.id || Infinity;
+        const idB = b.id || Infinity;
+        if (idA !== idB) return idA - idB;
+        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      })
 
       return {
         messages: {
           ...state.messages,
-          [peerId]: [...existing, message],
+          [peerId]: newMessages,
         },
       }
     }),
@@ -162,11 +184,10 @@ export const useChatStore = create<ChatState>((set) => ({
 
       const newMessages = Array.from(merged.values())
       newMessages.sort((a, b) => {
-        const timeA = new Date(a.timestamp).getTime()
-        const timeB = new Date(b.timestamp).getTime()
-        if (timeA !== timeB) return timeA - timeB
-        // Tie-breaker: use ID if available
-        return (a.id || 0) - (b.id || 0)
+        const idA = a.id || Infinity;
+        const idB = b.id || Infinity;
+        if (idA !== idB) return idA - idB;
+        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       })
 
       return {

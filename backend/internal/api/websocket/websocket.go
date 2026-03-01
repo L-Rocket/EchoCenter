@@ -45,6 +45,7 @@ const (
 
 // Message represents a WebSocket message
 type Message struct {
+	ID         int         `json:"id,omitempty"`
 	Type       MessageType `json:"type"`
 	SenderID   int         `json:"sender_id"`
 	SenderName string      `json:"sender_name"`
@@ -123,12 +124,13 @@ func (h *hub) unregisterClient(client *Client) {
 }
 
 func (h *hub) handleBroadcast(ctx context.Context, message *Message) {
-	// Notify handlers
+	// Notify handlers synchronously first. 
+	// This ensures PersistingMessageHandler can fill in the message ID.
 	for _, handler := range h.handlers {
-		go handler.HandleMessage(ctx, message)
+		handler.HandleMessage(ctx, message)
 	}
 
-	// Route message
+	// Route message only after handlers have processed it (and potentially added IDs)
 	if message.TargetID != 0 {
 		h.routeToTarget(message)
 	} else {
