@@ -25,8 +25,8 @@ func (h *AgentResponseHandler) HandleMessage(ctx context.Context, msg *Message) 
 		return
 	}
 
-	// Only handle CHAT messages (responses to Butler commands)
-	if msg.Type != MessageTypeChat {
+	// Only handle CHAT messages from AGENTS (responses to Butler commands)
+	if msg.Type != MessageTypeChat || msg.SenderRole != "AGENT" {
 		return
 	}
 
@@ -108,8 +108,9 @@ func (h *ButlerMessageHandler) HandleMessage(ctx context.Context, msg *Message) 
 		return
 	}
 
-	// Only handle messages sent to Butler
-	if msg.TargetID != h.butlerID {
+	// Only handle messages sent to Butler, and IGNORE messages from AGENTs 
+	// to prevent infinite loops (Agents replying to Butler, Butler thinking it's a user prompt).
+	if msg.TargetID != h.butlerID || msg.SenderRole == "AGENT" {
 		return
 	}
 
