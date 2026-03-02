@@ -54,6 +54,8 @@ git push origin feature/your-feature
 
 在 GitHub 上创建 Pull Request。
 
+> **重要**：不要直接向 `main` 分支提交。请始终在 feature/fix/docs 分支开发并发起 PR。你可以在 GitHub Settings → Branches 中开启分支保护，要求 PR 审查和检查通过后才能合并。
+
 ### 8. 持续集成 (CI)
 
 每个 Pull Request 都会自动触发 CI 工作流，运行以下检查：
@@ -201,6 +203,21 @@ Add screenshots if applicable.
 5. 合并 PR
 
 ## 问题跟踪
+
+### 建议优先的 Issue / PR
+
+如果你想开始第一次贡献，下面是一些低风险方向：
+
+- 优化文档措辞或补充缺失示例
+- 为覆盖不足的逻辑补充/改进单元测试
+- 修复错别字、失效链接或命名不一致问题
+- 提升开发体验的小改动（脚本、Makefile 目标、校验检查）
+
+建议维护者使用标签：
+- `good first issue`
+- `documentation`
+- `tests`
+- `help wanted`
 
 ### 创建 Issue
 

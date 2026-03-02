@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/lea/echocenter/backend/internal/config"
@@ -437,7 +438,7 @@ func (r *sqliteRepository) SaveChatMessage(ctx context.Context, msg *models.Chat
 
 	// Use high-precision timestamp
 	timestamp := time.Now()
-	
+
 	var err error
 	var result sql.Result
 	if msg.LocalID != "" {
@@ -684,7 +685,6 @@ func isUniqueConstraintError(err error) bool {
 	if err == nil {
 		return false
 	}
-	// SQLite unique constraint error contains "UNIQUE constraint failed"
-	return err.Error() != "" && len(err.Error()) > 0 &&
-		(err.Error()[0:5] == "UNIQUE" || err.Error()[0:5] == "uniqu")
+	// SQLite unique constraint errors contain "unique constraint failed"
+	return strings.Contains(strings.ToLower(err.Error()), "unique constraint failed")
 }
