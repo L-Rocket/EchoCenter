@@ -46,6 +46,8 @@ git push origin feature/your-feature
 ### 8. Create a Pull Request
 Create a Pull Request on GitHub.
 
+> **Important**: Do not commit directly to `main`. Always work in a feature/fix/docs branch and open a PR. You can enable branch protection in GitHub Settings → Branches to require PR reviews and passing checks before merging.
+
 ### 8. Continuous Integration
 
 Every Pull Request automatically triggers a CI workflow that runs:
@@ -168,6 +170,21 @@ Add screenshots if applicable.
 5. Merge PR.
 
 ## Issue Tracking
+
+### Suggested First Issues / PRs
+
+If you want to make your first contribution, here are some low-risk ideas:
+
+- Improve docs wording or add missing examples.
+- Add or refine unit tests for uncovered logic.
+- Fix typos, broken links, or inconsistent naming.
+- Add small developer-experience improvements (scripts, Makefile targets, validation checks).
+
+Recommended labels for maintainers:
+- `good first issue`
+- `documentation`
+- `tests`
+- `help wanted`
 
 ### Create an Issue
 Use GitHub Issues to create issues.
