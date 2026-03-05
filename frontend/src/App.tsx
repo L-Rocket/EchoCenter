@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { I18nProvider } from './context/I18nContext'
 import { ThemeProvider } from './context/ThemeProvider'
 import { MainLayout } from './components/layout/MainLayout'
 import RequireAuth from './components/layout/RequireAuth'
@@ -14,35 +15,37 @@ import TeamPage from './pages/TeamPage'
 function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/login" element={<LoginPage />} />
+      <I18nProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/login" element={<LoginPage />} />
 
-            {/* Protected Routes */}
-            <Route element={<RequireAuth />}>
-              <Route element={<MainLayout />}>
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/butler" element={<ButlerPage />} />
-                <Route path="/agents" element={<AgentsPage />} />
-                
-                {/* Admin Only Routes */}
-                <Route element={<RequireAuth adminOnly />}>
-                  <Route path="/settings" element={<TeamPage />} />
-                  <Route path="/team" element={<Navigate to="/settings" replace />} />
+              {/* Protected Routes */}
+              <Route element={<RequireAuth />}>
+                <Route element={<MainLayout />}>
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/butler" element={<ButlerPage />} />
+                  <Route path="/agents" element={<AgentsPage />} />
+                  
+                  {/* Admin Only Routes */}
+                  <Route element={<RequireAuth adminOnly />}>
+                    <Route path="/settings" element={<TeamPage />} />
+                    <Route path="/team" element={<Navigate to="/settings" replace />} />
+                  </Route>
+
+                  {/* Default Redirect */}
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 </Route>
-
-                {/* Default Redirect */}
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
               </Route>
-            </Route>
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </I18nProvider>
     </ThemeProvider>
   )
 }

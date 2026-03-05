@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useI18n } from '@/hooks/useI18n';
 import { cn } from '@/lib/utils';
 import { userService } from '@/services/userService';
 import { useChatStore } from '@/store/useChatStore';
@@ -84,12 +85,6 @@ const buildMockEntries = (agentName: string): DialogueEntry[] => {
   ];
 };
 
-const getSourceLabel = (source: DialogueSource) => {
-  if (source === 'backend') return 'Backend';
-  if (source === 'derived') return 'Local Derived';
-  return 'Mock Fallback';
-};
-
 const formatTime = (timestamp: string) => {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return '--';
@@ -97,6 +92,7 @@ const formatTime = (timestamp: string) => {
 };
 
 const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMonitorProps) => {
+  const { tx } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
   const [loadingAgentId, setLoadingAgentId] = useState<number | null>(null);
@@ -136,10 +132,13 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
       return {
         entries: buildMockEntries(agent.username || `Agent #${agent.id}`),
         source: 'mock' as DialogueSource,
-        notice: 'Backend monitor stream is not available yet. Showing simulated timeline.',
+        notice: tx(
+          'Backend monitor stream is not available yet. Showing simulated timeline.',
+          '后端监控流暂不可用，当前展示模拟时间线。'
+        ),
       };
     },
-    [chatMessages]
+    [chatMessages, tx]
   );
 
   const loadConversation = useCallback(
@@ -195,8 +194,10 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
       <CardHeader className="border-b px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <CardTitle className="text-sm font-bold uppercase tracking-wider">Agent Dialogue Monitor</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">Observe Butler to Agent execution conversations.</p>
+            <CardTitle className="text-sm font-bold uppercase tracking-wider">{tx('Agent Dialogue Monitor', '代理对话监控')}</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {tx('Observe Butler to Agent execution conversations.', '查看 Butler 与代理之间的执行对话。')}
+            </p>
           </div>
           <Button
             type="button"
@@ -210,7 +211,7 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
             disabled={!selectedAgent || isLoading}
           >
             {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            Refresh
+            {tx('Refresh', '刷新')}
           </Button>
         </div>
       </CardHeader>
@@ -224,7 +225,7 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search agents"
+                  placeholder={tx('Search agents', '搜索代理')}
                   className="h-8 pl-8 text-xs"
                 />
               </div>
@@ -248,12 +249,12 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                       )}
                     >
                       <p className="truncate text-xs font-semibold">{agent.username}</p>
-                      <p className="mt-0.5 text-[10px] text-muted-foreground">Agent #{agent.id}</p>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">{tx(`Agent #${agent.id}`, `代理 #${agent.id}`)}</p>
                     </button>
                   );
                 })}
                 {filteredAgents.length === 0 && (
-                  <div className="p-4 text-center text-xs text-muted-foreground">No agents available.</div>
+                  <div className="p-4 text-center text-xs text-muted-foreground">{tx('No agents available.', '暂无可用代理。')}</div>
                 )}
               </div>
             </ScrollArea>
@@ -267,19 +268,23 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-sm font-bold tracking-tight truncate">
-                    {selectedAgent ? `${butler.username} and ${selectedAgent.username}` : 'No agent selected'}
+                    {selectedAgent ? `${butler.username} ${tx('and', '与')} ${selectedAgent.username}` : tx('No agent selected', '未选择代理')}
                   </h3>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] animate-pulse" />
                     <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Monitor Feed
+                      {tx('Monitor Feed', '监控流')}
                     </span>
                   </div>
                 </div>
               </div>
               {selectedSource && (
                 <Badge variant="outline" className="text-[10px] uppercase tracking-wider shrink-0">
-                  {getSourceLabel(selectedSource)}
+                  {selectedSource === 'backend'
+                    ? tx('Backend', '后端')
+                    : selectedSource === 'derived'
+                      ? tx('Local Derived', '本地推导')
+                      : tx('Mock Fallback', '模拟回退')}
                 </Badge>
               )}
             </header>
@@ -296,7 +301,7 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                   <div className="flex justify-center py-6">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Syncing monitor stream...
+                      {tx('Syncing monitor stream...', '同步监控流中...')}
                     </div>
                   </div>
                 )}
@@ -307,7 +312,7 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                       <Terminal className="h-8 w-8 text-muted-foreground" />
                     </div>
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                      No Monitor Messages
+                      {tx('No Monitor Messages', '暂无监控消息')}
                     </p>
                   </div>
                 )}
@@ -329,7 +334,7 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                             {entry.content}
                           </div>
                           <span className="text-[9px] text-muted-foreground mt-1 px-1 font-bold uppercase tracking-tighter">
-                            {`${isAgent ? 'Agent' : 'Butler'} · ${formatTime(entry.timestamp)}`}
+                            {`${isAgent ? tx('Agent', '代理') : 'Butler'} · ${formatTime(entry.timestamp)}`}
                           </span>
                         </div>
                       </div>
@@ -342,10 +347,10 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
               <div className="max-w-3xl mx-auto">
                 <div className="h-10 rounded-xl border bg-muted/50 px-3 flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Read-Only Monitor Mode
+                    {tx('Read-Only Monitor Mode', '只读监控模式')}
                   </span>
                   <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
-                    No Input
+                    {tx('No Input', '不可输入')}
                   </Badge>
                 </div>
               </div>

@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import type { LogFilterState } from '@/pages/DashboardPage'
 import type { User } from '@/types'
 import { userService } from '@/services/userService'
+import { useI18n } from '@/hooks/useI18n'
 import { cn } from '@/lib/utils'
 
 interface LogFilterBarProps {
@@ -21,6 +22,7 @@ interface LogFilterBarProps {
 }
 
 const LogFilterBar: React.FC<LogFilterBarProps> = ({ filters, onFilterChange }) => {
+  const { tx } = useI18n()
   const [agents, setAgents] = useState<User[]>([])
   const [isLoadingAgents, setIsLoadingAgents] = useState(false)
 
@@ -59,7 +61,7 @@ const LogFilterBar: React.FC<LogFilterBarProps> = ({ filters, onFilterChange }) 
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search system logs..."
+            placeholder={tx('Search system logs...', '搜索系统日志...')}
             className="pl-10 h-10 bg-muted/50 border-2 focus:border-primary transition-all rounded-xl font-medium"
             value={filters.query}
             onChange={handleQueryChange}
@@ -71,11 +73,11 @@ const LogFilterBar: React.FC<LogFilterBarProps> = ({ filters, onFilterChange }) 
             <SelectTrigger className="w-full md:w-[180px] h-10 bg-muted/50 border-2 rounded-xl font-bold uppercase tracking-widest text-[10px]">
               <div className="flex items-center gap-2">
                 <Cpu className={cn("h-3.5 w-3.5 text-primary", isLoadingAgents && "animate-spin")} />
-                <SelectValue placeholder="All Units" />
+                <SelectValue placeholder={tx('All Units', '全部单元')} />
               </div>
             </SelectTrigger>
             <SelectContent className="rounded-xl border-2 uppercase font-black text-[10px]">
-              <SelectItem value="all">ALL UNITS</SelectItem>
+              <SelectItem value="all">{tx('ALL UNITS', '全部单元')}</SelectItem>
               {agents.map(agent => (
                 <SelectItem key={agent.id} value={agent.username}>
                   {agent.username}
@@ -88,11 +90,11 @@ const LogFilterBar: React.FC<LogFilterBarProps> = ({ filters, onFilterChange }) 
             <SelectTrigger className="w-full md:w-[140px] h-10 bg-muted/50 border-2 rounded-xl font-bold uppercase tracking-widest text-[10px]">
               <div className="flex items-center gap-2">
                 <Filter className="h-3.5 w-3.5 text-primary" />
-                <SelectValue placeholder="All Levels" />
+                <SelectValue placeholder={tx('All Levels', '全部等级')} />
               </div>
             </SelectTrigger>
             <SelectContent className="rounded-xl border-2 uppercase font-black text-[10px]">
-              <SelectItem value="all">ALL LEVELS</SelectItem>
+              <SelectItem value="all">{tx('ALL LEVELS', '全部等级')}</SelectItem>
               <SelectItem value="INFO">INFO</SelectItem>
               <SelectItem value="WARNING">WARNING</SelectItem>
               <SelectItem value="ERROR">ERROR</SelectItem>
@@ -113,15 +115,15 @@ const LogFilterBar: React.FC<LogFilterBarProps> = ({ filters, onFilterChange }) 
 
       {activeFiltersCount > 0 && (
         <div className="flex items-center gap-2 pt-1">
-          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Active Filters:</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">{tx('Active Filters:', '当前筛选：')}</span>
           {filters.agentID && (
             <Badge variant="secondary" className="h-5 gap-1 rounded-md text-[9px] font-black uppercase px-2 bg-primary/10 text-primary border-none">
-              Unit: {filters.agentID}
+              {tx('Unit', '单元')}: {filters.agentID}
             </Badge>
           )}
           {filters.level && (
             <Badge variant="secondary" className="h-5 gap-1 rounded-md text-[9px] font-black uppercase px-2 bg-primary/10 text-primary border-none">
-              Level: {filters.level}
+              {tx('Level', '等级')}: {filters.level}
             </Badge>
           )}
         </div>
