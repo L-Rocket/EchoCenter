@@ -1,31 +1,56 @@
 # EchoCenter Backend
 
-Lightweight message ingestion service.
+EchoCenter backend provides:
+- JWT authentication
+- WebSocket chat/event routing
+- Butler orchestration and authorization workflow
+- Agent registration + token lifecycle
+- Feishu long-connection (WebSocket) integration
 
-## API Endpoints
+## Runtime
 
-### POST /api/messages
-Ingests a new message.
-- Content-Type: `application/json`
-- Payload: `{"agent_id": "string", "level": "string", "content": "string"}`
-- Levels: `INFO`, `WARNING`, `ERROR`
+```bash
+# Development
+go run cmd/server/main.go
 
-### GET /api/messages
-Retrieves latest 50 messages.
-- Returns: Array of messages in reverse chronological order.
+# Build
+go build -o bin/server ./cmd/server
+./bin/server
+```
 
 ## Database
-Default database is SQLite via `DB_PATH`.
-Set `DB_DRIVER=postgres` to use PostgreSQL via `DB_DSN`.
-If `DB_DSN` is empty, DSN is built from `PG_HOST`, `PG_PORT`, `PG_USER`, `PG_PASSWORD`, `PG_DATABASE`, `PG_SSLMODE`.
 
-## Mock Dev Endpoints
-`/api/dev/mock/*` endpoints are enabled only when `APP_ENV` is not `production`.
+- Default: SQLite (`DB_DRIVER=sqlite`, `DB_PATH=./data/echo_center.db`)
+- Optional: PostgreSQL (`DB_DRIVER=postgres`)
+  - Use `DB_DSN` directly, or split config with `PG_HOST`, `PG_PORT`, `PG_USER`, `PG_PASSWORD`, `PG_DATABASE`, `PG_SSLMODE`
 
-When `DB_DRIVER=postgres`, `make run-mock` automatically ensures (or recreates when `RESET=1`) the target database before backend startup.
+## Feishu Integration (Current Mode)
 
-## Mock Bootstrap Commands
-- `make run-mock` - unified entry, follows `.env` `DB_DRIVER` (or command-line override).
-- `DB_DRIVER=sqlite make run-mock RESET=1` - reset + run with SQLite.
-- `DB_DRIVER=postgres make run-mock RESET=1` - reset + run with PostgreSQL.
-- `make run-mock-sqllite` / `make run-mock-postgre` - deprecated compatibility aliases.
+- Uses Feishu long connection (`FEISHU_WS_ENABLED=true`)
+- No public Feishu event callback route is required for message ingestion
+- Connector verification (`/api/integrations/feishu/:id/verify-callback`) performs real credential validation against Feishu auth API
+- Supports:
+  - inbound message routing to Butler
+  - Butler outbound reply relay to Feishu
+  - Feishu interactive cards for Butler authorization approval/rejection
+
+## Mock Bootstrap
+
+`make run-mock` starts backend + seed + mock agent + frontend.
+
+Key behavior:
+- `RESET` default is `1` in root `Makefile`
+- `RESET=1` calls `/api/dev/mock/reset` before seeding
+- For PostgreSQL, `backend/cmd/mockdb` recreates the target DB when `RESET=1`
+
+Examples:
+
+```bash
+DB_DRIVER=sqlite make run-mock RESET=1
+DB_DRIVER=postgres make run-mock RESET=1
+make run-mock RESET=0
+```
+
+Deprecated aliases:
+- `make run-mock-sqllite`
+- `make run-mock-postgre`

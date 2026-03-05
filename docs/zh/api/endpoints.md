@@ -74,7 +74,7 @@ Authorization: Bearer <jwt_token>
 更新飞书连接器草稿配置。
 
 ### `POST /api/integrations/feishu/:id/verify-callback`
-验证回调可用性并标记为已验证。
+通过飞书鉴权接口校验连接器凭据，并标记为已验证。
 
 ### `POST /api/integrations/feishu/:id/test-message`
 创建测试消息请求/日志（后续外发能力挂载点）。
@@ -96,7 +96,6 @@ Authorization: Bearer <jwt_token>
 ### `GET /api/dev/mock/agent-token/:username`
 按用户名获取原始 Agent Token（用于本地启动脚本）。
 
-## 公开集成回调端点
+## 飞书入站说明
 
-### `POST /api/integrations/feishu/callback`
-飞书事件回调入口（无需 JWT）。
+飞书入站消息由长连接 WebSocket 模式处理（`FEISHU_WS_ENABLED=true`）。

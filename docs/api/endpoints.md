@@ -74,7 +74,7 @@ Create Feishu connector config draft.
 Update Feishu connector config draft.
 
 ### `POST /api/integrations/feishu/:id/verify-callback`
-Verify callback readiness and mark connector as verified.
+Verify connector credentials against Feishu auth API and mark connector as verified.
 
 ### `POST /api/integrations/feishu/:id/test-message`
 Create a test-message request/log entry (outbound delivery hook point).
@@ -96,7 +96,6 @@ Insert mock chat record.
 ### `GET /api/dev/mock/agent-token/:username`
 Get raw agent token for local bootstrap scripts.
 
-## Public Integration Callback
+## Feishu Ingress Note
 
-### `POST /api/integrations/feishu/callback`
-Feishu event callback endpoint (no JWT required).
+Feishu ingress is handled by long-connection WebSocket mode (`FEISHU_WS_ENABLED=true`).

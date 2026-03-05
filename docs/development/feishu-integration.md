@@ -2,86 +2,44 @@
 
 ## Overview
 
-EchoCenter supports Feishu as an external inbound channel for Butler.
+EchoCenter integrates Feishu in **long-connection WebSocket mode**.
 
-Current backend capabilities:
-- Persist Feishu connector config.
-- Verify callback readiness.
-- Enable/disable connector with guard checks.
-- Store connector logs and expose paginated timeline.
-- Accept Feishu callback events and bridge inbound text to Butler flow.
-- De-duplicate inbound events by Feishu `message_id`.
+Current implemented capabilities:
+- Feishu connector config persistence (`app_id`, `app_secret`, filters, allow-list).
+- Credential verification via Feishu auth API (`tenant_access_token/internal`).
+- Inbound Feishu text message routing into Butler flow.
+- Butler outbound reply relay back to Feishu.
+- Butler authorization request cards in Feishu (`Approve` / `Reject`).
+- Card action callback handling for command approval decisions.
 
-Notes:
-- `/api/integrations/feishu/:id/test-message` is currently an acceptance/logging endpoint (no real Feishu outbound send yet).
-- Callback token validation is implemented; encrypt-key decryption/signature validation is not implemented yet.
+## Important Mode Notes
 
-## Prerequisites
+- Message ingestion uses `FEISHU_WS_ENABLED=true` + `FEISHU_WS_URL`.
+- This mode does **not** require exposing `/api/integrations/feishu/callback` publicly for normal message ingress.
+- If your tenant policy enforces callback URL checks for specific card features, ensure platform config is aligned with your deployment setup.
 
-- Backend reachable from Feishu platform (public URL or tunnel).
-- Admin account in EchoCenter.
-- Feishu app created in Feishu Open Platform.
+## 1. Configure Connector (EchoCenter Admin)
 
-Recommended local tunnel:
-
-```bash
-ngrok http 8080
-```
-
-Assume public backend base URL is:
-
-```text
-https://example.your-domain.com
-```
-
-## 1. Configure Connector in EchoCenter
-
-Go to: `Settings -> Integrations -> Feishu Connector`.
-
-Fill at least:
+In `Settings -> Integrations -> Feishu Connector`, save:
 - `App ID`
 - `App Secret`
-- `Verification Token`
-- Optional: `Encrypt Key`
+- Optional `Verification Token` / `Encrypt Key`
+- Optional `allowed_chat_ids` for outbound target restriction
 
-Then click `Save Draft`.
+## 2. Verify Connector
 
-## 2. Configure Feishu Event Callback
-
-In Feishu Open Platform:
-- Set callback URL:
-
-```text
-https://example.your-domain.com/api/integrations/feishu/callback
-```
-
-- Set verification token to match EchoCenter config.
-- Subscribe to message events needed by your app (DM/group message events).
-
-## 3. Verify Callback in EchoCenter
-
-In EchoCenter connector page, click `Verify Callback`.
-
-Backend API:
+Call:
 
 ```http
 POST /api/integrations/feishu/:id/verify-callback
 Authorization: Bearer <admin_jwt>
 ```
 
-Expected success response:
+Behavior:
+- Backend calls Feishu auth API with `app_id/app_secret`.
+- Only successful Feishu response marks connector `callback_verified=true`.
 
-```json
-{
-  "ok": true,
-  "message": "callback verified",
-  "verified_at": "2026-03-05T22:00:00Z"
-}
-```
-
-## 4. Enable Connector
-
-Enable is blocked before callback verification.
+## 3. Enable Connector
 
 ```http
 PATCH /api/integrations/feishu/:id/enable
@@ -91,83 +49,46 @@ Content-Type: application/json
 {"enabled": true}
 ```
 
-## 5. Message Routing Rules (Inbound)
+`enabled=true` is rejected until verification succeeds.
 
-When callback events arrive, backend checks:
-- Connector enabled.
-- Token matches `verification_token`.
-- Event not duplicated (`connector_id + message_id` unique).
-- Scope policy:
-  - `allow_dm`
-  - `allow_group_mention`
-  - `mention_required` (group)
-  - `ignore_bot_messages`
-  - `allowed_chat_ids`
-  - `user_whitelist`
-  - `prefix_command` (if set, inbound text must start with it)
+## 4. Inbound Routing Rules
 
-If accepted:
-- Backend creates/uses bridge user `feishu_<source_user_id>`.
-- Message is forwarded into Butler user-message flow.
+Incoming Feishu messages are accepted only when:
+- Connector is enabled.
+- Not deduplicated by same `message_id`.
+- Policy filters pass (`allow_dm`, `allow_group_mention`, `mention_required`, `allowed_chat_ids`, `user_whitelist`, `prefix_command`, `ignore_bot_messages`).
 
-## 6. API Checklist
+## 5. Butler Authorization Cards in Feishu
 
-### Public
-- `POST /api/integrations/feishu/callback`
+When Butler emits an `AUTH_REQUEST`, backend sends an interactive Feishu card:
+- `Approve`
+- `Reject`
 
-### Admin
+Card action callback result:
+- Executes `ExecutePendingCommand` on approve.
+- Marks request rejected on reject.
+- Card is collapsed to decision state; repeated clicks are idempotent.
+
+## 6. Troubleshooting
+
+### No inbound message reaches Butler
+- Check connector `enabled` state.
+- Check `ws_filtered` logs for reason (`prefix_not_matched`, allow-list mismatch, mention rules).
+
+### Butler outbound not sent to Feishu
+- Check connector has valid `app_id/app_secret`.
+- Check outbound target resolution (`allowed_chat_ids` or latest inbound chat/user).
+- Check `ws_outbound` logs.
+
+### Card approve/reject not effective
+- Ensure Feishu card callback events are enabled in app config.
+- Check integration logs for `ws_auth_card` / `ws_auth_card_decision`.
+
+## 7. Related APIs
+
 - `GET /api/integrations/feishu`
 - `POST /api/integrations/feishu`
 - `PATCH /api/integrations/feishu/:id`
 - `POST /api/integrations/feishu/:id/verify-callback`
-- `POST /api/integrations/feishu/:id/test-message`
 - `PATCH /api/integrations/feishu/:id/enable`
-- `GET /api/integrations/feishu/:id/logs?cursor=&limit=20`
-
-## 7. Log Inspection
-
-Use UI log table or query API:
-
-```http
-GET /api/integrations/feishu/:id/logs?limit=20
-Authorization: Bearer <admin_jwt>
-```
-
-Response:
-
-```json
-{
-  "items": [
-    {
-      "id": "123",
-      "level": "success",
-      "action": "callback_routed",
-      "detail": "Accepted inbound message om_xxx ...",
-      "timestamp": "2026-03-05T22:10:00Z"
-    }
-  ],
-  "cursor": "123"
-}
-```
-
-## 8. Troubleshooting
-
-### Callback verify fails
-- Ensure Feishu callback URL points to backend (`:8080`), not frontend (`:5173`).
-- Ensure token matches exactly.
-- Ensure tunnel/public endpoint is reachable from Feishu.
-
-### Messages not routed to Butler
-- Check connector is enabled.
-- Check prefix/mention/scope filters are not blocking.
-- Check logs for `callback_filtered` reasons.
-
-### Duplicate events
-- Expected behavior: duplicates by same `message_id` are ignored.
-
-## 9. Security Recommendations
-
-- Use HTTPS callback endpoint only.
-- Rotate `app_secret` and `verification_token` periodically.
-- Restrict scope with `allowed_chat_ids` and `user_whitelist`.
-- Keep `mention_required` enabled for group channels unless explicitly needed otherwise.
+- `GET /api/integrations/feishu/:id/logs`
