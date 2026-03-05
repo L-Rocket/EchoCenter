@@ -22,25 +22,26 @@ import {
   SidebarGroupContent,
 } from "@/components/ui/sidebar"
 import { useAuth } from "@/context/AuthContext"
+import { useI18n } from "@/hooks/useI18n"
 
 const navItems = [
   {
-    title: "Dashboard",
+    key: "dashboard",
     path: "/dashboard",
     icon: LayoutDashboard,
   },
   {
-    title: "Butler",
+    key: "butler",
     path: "/butler",
     icon: Crown,
   },
   {
-    title: "Agents",
+    key: "agents",
     path: "/agents",
     icon: Bot,
   },
   {
-    title: "Settings",
+    key: "settings",
     path: "/settings",
     icon: Settings,
     adminOnly: true,
@@ -49,6 +50,7 @@ const navItems = [
 
 export function AppSidebar() {
   const { user, logout, isAdmin } = useAuth()
+  const { tx } = useI18n()
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -68,7 +70,7 @@ export function AppSidebar() {
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="truncate font-semibold">EchoCenter</span>
-                  <span className="truncate text-xs text-muted-foreground italic">Intelligence Hub</span>
+                  <span className="truncate text-xs text-muted-foreground italic">{tx('Intelligence Hub', '智能中枢')}</span>
                 </div>
               </div>
             </SidebarMenuButton>
@@ -77,14 +79,22 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">{tx('Navigation', '导航')}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => {
                 if (item.adminOnly && !isAdmin) return null
+                const title =
+                  item.key === 'dashboard'
+                    ? tx('Dashboard', '总览')
+                    : item.key === 'butler'
+                      ? tx('Butler', '管家')
+                      : item.key === 'agents'
+                        ? tx('Agents', 'agent')
+                        : tx('Settings', '设置')
                 return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild tooltip={item.title}>
+                  <SidebarMenuItem key={item.key}>
+                    <SidebarMenuButton asChild tooltip={title}>
                       <NavLink
                         to={item.path}
                         className={({ isActive }) =>
@@ -92,7 +102,7 @@ export function AppSidebar() {
                         }
                       >
                         <item.icon className="size-4" />
-                        <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
+                        <span className="group-data-[collapsible=icon]:hidden">{title}</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -119,10 +129,10 @@ export function AppSidebar() {
             <SidebarMenuButton 
               onClick={handleLogout}
               className="text-muted-foreground hover:text-destructive transition-colors"
-              tooltip="Logout"
+              tooltip={tx('Logout', '退出')}
             >
               <LogOut className="size-4" />
-              <span className="group-data-[collapsible=icon]:hidden">Logout</span>
+              <span className="group-data-[collapsible=icon]:hidden">{tx('Logout', '退出')}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

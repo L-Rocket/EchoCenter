@@ -5,6 +5,7 @@ import { Send, Bot, Terminal, Shield, Loader2, XCircle } from 'lucide-react';
 import { useChatStore } from '@/store/useChatStore';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/hooks/useI18n';
 import type { Agent } from '@/types';
 import AuthRequestCard from './AuthRequestCard';
 import ProcessMessage from './ProcessMessage';
@@ -30,6 +31,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
   const setHistory = useChatStore((state) => state.setHistory);
   
   const { user, sendMessage, sendAuthResponse } = useAuth();
+  const { tx } = useI18n();
   const isThinking = useChatStore((state) => state.isThinking);
   const setThinking = useChatStore((state) => state.setThinking);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -44,7 +46,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
         const history = (Array.isArray(historyData) ? historyData : []).map((m) => ({
           ...m,
           type: m.type || 'CHAT',
-          sender_name: m.sender_id === agent.id ? agent.username : (user?.username || 'Me')
+          sender_name: m.sender_id === agent.id ? agent.username : (user?.username || tx('Me', '我'))
         }));
         setHistory(agent.id, history);
       } catch (err) {
@@ -55,7 +57,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
     };
 
     fetchHistory();
-  }, [agent.id, agent.username, setHistory, user?.username]);
+  }, [agent.id, agent.username, setHistory, user?.username, tx]);
 
   useEffect(() => {
     if (scrollRef.current && messages.length > 0) {
@@ -76,7 +78,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
   if (!agent) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm italic">
-        Transmission channel lost.
+        {tx('Transmission channel lost.', '传输通道已断开。')}
       </div>
     );
   }
@@ -92,7 +94,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
             <h3 className="text-sm font-bold tracking-tight">{agent.username}</h3>
             <div className="flex items-center gap-1.5 mt-0.5">
               <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] animate-pulse" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Autonomous Unit</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{tx('Autonomous Unit', '自治单元')}</span>
             </div>
           </div>
         </div>
@@ -100,7 +102,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
         <div className="flex items-center gap-2">
           <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-md bg-muted border text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
             <Shield className="h-3 w-3" />
-            Encrypted Link
+            {tx('Encrypted Link', '加密链路')}
           </div>
         </div>
       </header>
@@ -111,7 +113,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
             <div className="flex justify-center py-10">
               <div className="flex flex-col items-center gap-2">
                 <div className="h-5 w-5 border-2 border-primary border-t-transparent animate-spin rounded-full" />
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Hydrating History...</span>
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{tx('Hydrating History...', '加载历史中...')}</span>
               </div>
             </div>
           )}
@@ -121,7 +123,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
               <div className="p-4 bg-muted rounded-full mb-4">
                 <Terminal className="h-8 w-8 text-muted-foreground" />
               </div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Awaiting Transmission</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">{tx('Awaiting Transmission', '等待消息')}</p>
             </div>
           )}
 
@@ -206,7 +208,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
                     {renderContent}
                   </div>
                   <span className="text-[9px] text-muted-foreground mt-1 px-1 font-bold uppercase tracking-tighter">
-                    {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending'}
+                    {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : tx('Pending', '待发送')}
                   </span>
                 </div>
               </div>
@@ -219,13 +221,13 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Processing</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">{tx('Processing', '处理中')}</span>
                   </div>
                   <button 
                     onClick={() => setThinking(false)}
                     className="group flex items-center gap-1 hover:bg-destructive/10 px-1.5 py-0.5 rounded transition-colors"
                   >
-                    <span className="text-[8px] font-bold text-muted-foreground group-hover:text-destructive uppercase">Abort</span>
+                    <span className="text-[8px] font-bold text-muted-foreground group-hover:text-destructive uppercase">{tx('Abort', '中止')}</span>
                     <XCircle className="h-2.5 w-2.5 text-muted-foreground group-hover:text-destructive" />
                   </button>
                 </div>
@@ -244,13 +246,13 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
         <form onSubmit={handleSend} className="max-w-3xl mx-auto flex items-center gap-3">
           <div className="relative flex-grow">
             <Input
-              placeholder={`Send instruction to ${agent.username}...`}
+              placeholder={tx(`Send instruction to ${agent.username}...`, `向 ${agent.username} 发送指令...`)}
               className="h-12 bg-muted/50 border focus:bg-background focus:ring-primary transition-all pr-12 rounded-xl"
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
             <div className="absolute right-3 top-3.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest hidden sm:block">
-              ENTER
+              {tx('ENTER', '回车')}
             </div>
           </div>
           <Button 

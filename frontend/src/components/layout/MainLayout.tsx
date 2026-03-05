@@ -3,9 +3,13 @@ import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/s
 import { AppSidebar } from "./AppSidebar"
 import { Outlet } from "react-router-dom"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { LanguageToggle } from "../common/language-toggle"
 import { ModeToggle } from "../common/mode-toggle"
+import { useI18n } from "@/hooks/useI18n"
 
 export const MainLayout: React.FC = () => {
+  const { tx } = useI18n()
+
   return (
     <TooltipProvider>
       <SidebarProvider>
@@ -15,8 +19,13 @@ export const MainLayout: React.FC = () => {
             <SidebarTrigger className="-ml-1" />
             <div className="h-4 w-px bg-border mx-2" />
             <div className="flex-1 flex items-center justify-between">
-               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Autonomous Swarm Monitor</span>
-               <ModeToggle />
+               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                 {tx('Autonomous Swarm Monitor', '自治集群监控台')}
+               </span>
+               <div className="flex items-center gap-2">
+                 <LanguageToggle />
+                 <ModeToggle />
+               </div>
             </div>
           </header>
           <main className="flex-1 overflow-auto">
@@ -27,7 +36,7 @@ export const MainLayout: React.FC = () => {
           <footer className="border-t bg-card py-3">
             <div className="container max-w-5xl mx-auto px-4 text-center">
               <p className="text-[11px] text-muted-foreground">
-                &copy; {new Date().getFullYear()} EchoCenter &bull; Intelligence Monitoring Hub
+                &copy; {new Date().getFullYear()} EchoCenter &bull; {tx('Intelligence Monitoring Hub', '智能监控中枢')}
               </p>
             </div>
           </footer>

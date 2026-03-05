@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { useI18n } from '@/hooks/useI18n';
 import { Loader2, Lock, User } from 'lucide-react';
 import { authService } from '@/services/authService';
 
@@ -12,6 +13,7 @@ const LoginForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
+  const { tx } = useI18n();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +25,7 @@ const LoginForm = () => {
       login(token, user);
     } catch (err) {
       const axiosError = err as { response?: { data?: { error?: string } } };
-      setError(axiosError.response?.data?.error || 'Login failed. Please check your credentials.');
+      setError(axiosError.response?.data?.error || tx('Login failed. Please check your credentials.', '登录失败，请检查账号和密码。'));
       console.error('Login error:', err);
     } finally {
       setIsLoading(false);
@@ -42,7 +44,7 @@ const LoginForm = () => {
           Echo<span className="text-primary">Center</span>
         </CardTitle>
         <CardDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
-          Neural Interface Authentication
+          {tx('Neural Interface Authentication', '神经接口认证')}
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -52,7 +54,7 @@ const LoginForm = () => {
               <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 id="username"
-                placeholder="OPERATOR ID"
+                placeholder={tx('OPERATOR ID', '操作员账号')}
                 className="pl-10 h-12 bg-muted/50 border-2 focus:border-primary transition-all font-mono text-sm"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -66,7 +68,7 @@ const LoginForm = () => {
               <Input
                 id="password"
                 type="password"
-                placeholder="ACCESS KEY"
+                placeholder={tx('ACCESS KEY', '访问密钥')}
                 className="pl-10 h-12 bg-muted/50 border-2 focus:border-primary transition-all font-mono text-sm"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -89,7 +91,7 @@ const LoginForm = () => {
             {isLoading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              "Establish Link"
+              tx('Establish Link', '建立连接')
             )}
           </Button>
         </CardFooter>

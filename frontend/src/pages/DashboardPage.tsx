@@ -6,6 +6,7 @@ import { Terminal, Activity, ChevronDown } from 'lucide-react'
 import { useDebounce } from '@/hooks/useDebounce'
 import { Button } from '@/components/ui/button'
 import LogFilterBar from '@/components/log/LogFilterBar'
+import { useI18n } from '@/hooks/useI18n'
 import type { LogMessage } from '@/types'
 import { messageService } from '@/services/messageService'
 
@@ -30,6 +31,7 @@ const DashboardPage = () => {
   
   const debouncedQuery = useDebounce(filters.query, 500)
   const { logout, wsLogs, isWsConnected } = useAuth()
+  const { tx } = useI18n()
 
   const fetchMessages = useCallback(async (isLoadMore = false) => {
     try {
@@ -66,11 +68,11 @@ const DashboardPage = () => {
         logout()
       }
       console.error("Failed to fetch messages:", err)
-      setError("Failed to connect to backend.")
+      setError(tx("Failed to connect to backend.", "连接后端失败。"))
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [filters.agentID, filters.level, debouncedQuery, offset, logout])
+  }, [filters.agentID, filters.level, debouncedQuery, offset, logout, tx])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -108,7 +110,7 @@ const DashboardPage = () => {
       {!isWsConnected && (
         <div className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-4 py-2 rounded-lg border border-amber-500/20 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider animate-in fade-in duration-300">
           <Activity className="h-3 w-3 animate-pulse" />
-          Link unstable: Reconnecting to hive...
+          {tx('Link unstable: Reconnecting to hive...', '链路不稳定：正在重连...')}
         </div>
       )}
 
@@ -121,12 +123,12 @@ const DashboardPage = () => {
 
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h2 className="text-2xl font-bold tracking-tight">System Logs</h2>
-          <p className="text-sm text-muted-foreground">Autonomous status feed from the Echo hive.</p>
+          <h2 className="text-2xl font-bold tracking-tight">{tx('System Logs', '系统日志')}</h2>
+          <p className="text-sm text-muted-foreground">{tx('Autonomous status feed from the Echo hive.', 'Echo 集群运行状态流。')}</p>
         </div>
         <Badge variant="outline" className="h-7 gap-1 px-3 font-medium">
           <Terminal className="h-3 w-3 text-primary" />
-          {loading ? "Syncing..." : `${messages.length} Records Loaded`}
+          {loading ? tx('Syncing...', '同步中...') : tx(`${messages.length} Records Loaded`, `已加载 ${messages.length} 条`)}
         </Badge>
       </div>
 
@@ -145,7 +147,7 @@ const DashboardPage = () => {
             ) : (
               <ChevronDown className="h-4 w-4" />
             )}
-            Load More History
+            {tx('Load More History', '加载更多历史')}
           </Button>
         </div>
       )}

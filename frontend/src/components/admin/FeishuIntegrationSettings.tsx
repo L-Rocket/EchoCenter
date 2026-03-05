@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { useI18n } from '@/hooks/useI18n';
 
 type ConnectorStatus = 'not_connected' | 'connecting' | 'connected' | 'error';
 
@@ -71,6 +72,7 @@ const getStatusBadge = (status: ConnectorStatus) => {
 };
 
 const FeishuIntegrationSettings = () => {
+  const { tx } = useI18n();
   const [form, setForm] = useState<ConnectorForm>(INITIAL_FORM);
   const [status, setStatus] = useState<ConnectorStatus>('not_connected');
   const [callbackVerified, setCallbackVerified] = useState(false);
@@ -131,15 +133,15 @@ const FeishuIntegrationSettings = () => {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     setStatus(form.enabled ? 'connected' : 'not_connected');
-    setNotice('Draft saved. Backend APIs can now persist this connector config.');
-    pushLog('success', 'Save Draft', 'Connector draft saved in frontend session.');
+    setNotice(tx('Draft saved. Backend APIs can now persist this connector config.', '草稿已保存，后端接口接入后可持久化该连接器配置。'));
+    pushLog('success', tx('Save Draft', '保存草稿'), tx('Connector draft saved in frontend session.', '连接器草稿已保存到前端会话。'));
     setIsSaving(false);
   };
 
   const handleSaveAndEnable = async () => {
     if (!callbackVerified) {
-      setError('Verify callback first before enabling connector.');
-      pushLog('error', 'Save & Enable', 'Rejected because callback has not been verified.');
+      setError(tx('Verify callback first before enabling connector.', '启用前请先验证回调地址。'));
+      pushLog('error', tx('Save & Enable', '保存并启用'), tx('Rejected because callback has not been verified.', '由于回调未验证，操作被拒绝。'));
       return;
     }
 
@@ -152,8 +154,8 @@ const FeishuIntegrationSettings = () => {
 
     setForm((prev) => ({ ...prev, enabled: true }));
     setStatus('connected');
-    setNotice('Connector is enabled. Feishu messages can now be routed to Butler after backend wiring.');
-    pushLog('success', 'Enable Connector', 'Connector enabled with verified callback.');
+    setNotice(tx('Connector is enabled. Feishu messages can now be routed to Butler after backend wiring.', '连接器已启用，后端接入后飞书消息可路由到 Butler。'));
+    pushLog('success', tx('Enable Connector', '启用连接器'), tx('Connector enabled with verified callback.', '连接器已基于验证回调启用。'));
     setIsSaving(false);
   };
 
@@ -169,8 +171,8 @@ const FeishuIntegrationSettings = () => {
     const verifiedAt = new Date().toISOString();
     setLastVerifyAt(verifiedAt);
     setStatus(form.enabled ? 'connected' : 'not_connected');
-    setNotice('Callback verified. You can now enable connector safely.');
-    pushLog('success', 'Verify Callback', 'Callback verification passed.');
+    setNotice(tx('Callback verified. You can now enable connector safely.', '回调验证通过，现在可以安全启用连接器。'));
+    pushLog('success', tx('Verify Callback', '验证回调'), tx('Callback verification passed.', '回调验证通过。'));
     setIsVerifying(false);
   };
 
@@ -182,16 +184,16 @@ const FeishuIntegrationSettings = () => {
     await new Promise((resolve) => setTimeout(resolve, 650));
 
     if (!form.appId || !form.appSecret || !form.verificationToken) {
-      setError('Fill in App ID, App Secret and Verification Token before sending test message.');
-      pushLog('error', 'Test Message', 'Test failed due to missing required credentials.');
+      setError(tx('Fill in App ID, App Secret and Verification Token before sending test message.', '发送测试消息前请填写 App ID、App Secret 和 Verification Token。'));
+      pushLog('error', tx('Test Message', '测试消息'), tx('Test failed due to missing required credentials.', '因缺少必填凭据，测试失败。'));
       setStatus('error');
       setIsTesting(false);
       return;
     }
 
     setStatus(form.enabled ? 'connected' : 'not_connected');
-    setNotice('Test message request created. Waiting for backend Feishu delivery endpoint.');
-    pushLog('info', 'Test Message', 'Test message queued with frontend mock flow.');
+    setNotice(tx('Test message request created. Waiting for backend Feishu delivery endpoint.', '测试消息请求已创建，等待后端飞书投递接口接入。'));
+    pushLog('info', tx('Test Message', '测试消息'), tx('Test message queued with frontend mock flow.', '测试消息已按前端 mock 流程入队。'));
     setIsTesting(false);
   };
 
@@ -205,29 +207,38 @@ const FeishuIntegrationSettings = () => {
             <div>
               <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
                 <Webhook className="h-4 w-4 text-primary" />
-                Feishu Connector
+                {tx('Feishu Connector', '飞书连接器')}
               </CardTitle>
               <p className="mt-2 text-xs text-muted-foreground">
-                Configure Feishu as an external chat entrypoint and route conversations to Butler.
+                {tx('Configure Feishu as an external chat entrypoint and route conversations to Butler.', '将飞书配置为外部聊天入口，并把会话路由到 Butler。')}
               </p>
             </div>
             <Badge variant={badge.variant} className="h-6 text-[10px] uppercase tracking-wider">
-              {badge.label}
+              {tx(
+                badge.label,
+                badge.label === 'Connected'
+                  ? '已连接'
+                  : badge.label === 'Connecting'
+                    ? '连接中'
+                    : badge.label === 'Error'
+                      ? '错误'
+                      : '未连接'
+              )}
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
           <section className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Basic</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{tx('Basic', '基础配置')}</h3>
             <div className="grid gap-3 md:grid-cols-2">
               <Input
                 value={form.connectorName}
                 onChange={(e) => setForm((prev) => ({ ...prev, connectorName: e.target.value }))}
-                placeholder="Connector name"
+                placeholder={tx('Connector name', '连接器名称')}
                 className="h-10"
               />
               <label className="h-10 rounded-md border px-3 flex items-center justify-between text-xs font-medium">
-                Enable Connector
+                {tx('Enable Connector', '启用连接器')}
                 <input
                   type="checkbox"
                   checked={form.enabled}
@@ -239,12 +250,12 @@ const FeishuIntegrationSettings = () => {
           </section>
 
           <section className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Feishu Credentials</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{tx('Feishu Credentials', '飞书凭据')}</h3>
             <div className="grid gap-3 md:grid-cols-2">
               <Input
                 value={form.appId}
                 onChange={(e) => setForm((prev) => ({ ...prev, appId: e.target.value }))}
-                placeholder="App ID"
+                placeholder={tx('App ID', '应用 ID')}
                 className="h-10"
               />
               <div className="relative">
@@ -252,7 +263,7 @@ const FeishuIntegrationSettings = () => {
                   value={form.appSecret}
                   type={isSecretVisible ? 'text' : 'password'}
                   onChange={(e) => setForm((prev) => ({ ...prev, appSecret: e.target.value }))}
-                  placeholder="App Secret"
+                  placeholder={tx('App Secret', '应用密钥')}
                   className="h-10 pr-10 font-mono"
                 />
                 <button
@@ -266,41 +277,41 @@ const FeishuIntegrationSettings = () => {
               <Input
                 value={form.verificationToken}
                 onChange={(e) => setForm((prev) => ({ ...prev, verificationToken: e.target.value }))}
-                placeholder="Verification Token"
+                placeholder={tx('Verification Token', '验证 Token')}
                 className="h-10"
               />
               <Input
                 value={form.encryptKey}
                 onChange={(e) => setForm((prev) => ({ ...prev, encryptKey: e.target.value }))}
-                placeholder="Encrypt Key (optional)"
+                placeholder={tx('Encrypt Key (optional)', '加密 Key（可选）')}
                 className="h-10"
               />
             </div>
           </section>
 
           <section className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Event Callback</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{tx('Event Callback', '事件回调')}</h3>
             <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
               <Input value={callbackUrl} readOnly className="h-10 font-mono text-xs" />
               <Button type="button" variant="outline" className="h-10" onClick={handleCopyCallback}>
                 {isCopied ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
-                {isCopied ? 'Copied' : 'Copy URL'}
+                {isCopied ? tx('Copied', '已复制') : tx('Copy URL', '复制 URL')}
               </Button>
               <Button type="button" variant="outline" className="h-10" onClick={handleVerifyCallback} disabled={isVerifying}>
                 {isVerifying ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Link2 className="h-4 w-4 mr-1" />}
-                Verify Callback
+                {tx('Verify Callback', '验证回调')}
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Last verified: {lastVerifyAt ? new Date(lastVerifyAt).toLocaleString() : 'Never'}
+              {tx('Last verified:', '最近验证：')} {lastVerifyAt ? new Date(lastVerifyAt).toLocaleString() : tx('Never', '从未')}
             </p>
           </section>
 
           <section className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Conversation Scope</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{tx('Conversation Scope', '会话范围')}</h3>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="h-10 rounded-md border px-3 flex items-center justify-between text-xs font-medium">
-                Allow Direct Messages
+                {tx('Allow Direct Messages', '允许私聊')}
                 <input
                   type="checkbox"
                   checked={form.allowDm}
@@ -309,7 +320,7 @@ const FeishuIntegrationSettings = () => {
                 />
               </label>
               <label className="h-10 rounded-md border px-3 flex items-center justify-between text-xs font-medium">
-                Allow Group Mentions
+                {tx('Allow Group Mentions', '允许群内 @')}
                 <input
                   type="checkbox"
                   checked={form.allowGroupMention}
@@ -321,22 +332,22 @@ const FeishuIntegrationSettings = () => {
             <Input
               value={form.allowedChatIds}
               onChange={(e) => setForm((prev) => ({ ...prev, allowedChatIds: e.target.value }))}
-              placeholder="Allowed chat IDs (comma separated)"
+              placeholder={tx('Allowed chat IDs (comma separated)', '允许的聊天 ID（逗号分隔）')}
               className="h-10"
             />
             <Input
               value={form.userWhitelist}
               onChange={(e) => setForm((prev) => ({ ...prev, userWhitelist: e.target.value }))}
-              placeholder="User whitelist (comma separated)"
+              placeholder={tx('User whitelist (comma separated)', '用户白名单（逗号分隔）')}
               className="h-10"
             />
           </section>
 
           <section className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Message Behavior</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{tx('Message Behavior', '消息策略')}</h3>
             <div className="grid gap-3 md:grid-cols-3">
               <label className="h-10 rounded-md border px-3 flex items-center justify-between text-xs font-medium">
-                Mention Required
+                {tx('Mention Required', '必须 @')}
                 <input
                   type="checkbox"
                   checked={form.mentionRequired}
@@ -345,7 +356,7 @@ const FeishuIntegrationSettings = () => {
                 />
               </label>
               <label className="h-10 rounded-md border px-3 flex items-center justify-between text-xs font-medium">
-                Ignore Bot Messages
+                {tx('Ignore Bot Messages', '忽略机器人消息')}
                 <input
                   type="checkbox"
                   checked={form.ignoreBotMessages}
@@ -356,7 +367,7 @@ const FeishuIntegrationSettings = () => {
               <Input
                 value={form.prefixCommand}
                 onChange={(e) => setForm((prev) => ({ ...prev, prefixCommand: e.target.value }))}
-                placeholder="Prefix command"
+                placeholder={tx('Prefix command', '前缀命令')}
                 className="h-10"
               />
             </div>
@@ -366,25 +377,25 @@ const FeishuIntegrationSettings = () => {
               max={300}
               value={form.rateLimitPerMinute}
               onChange={(e) => setForm((prev) => ({ ...prev, rateLimitPerMinute: Number(e.target.value || 1) }))}
-              placeholder="Rate limit per minute"
+              placeholder={tx('Rate limit per minute', '每分钟限流')}
               className="h-10 w-full md:w-64"
             />
           </section>
 
           <section className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Test & Logs</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{tx('Test & Logs', '测试与日志')}</h3>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" onClick={handleTestMessage} disabled={isTesting}>
                 {isTesting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
-                Send Test Message
+                {tx('Send Test Message', '发送测试消息')}
               </Button>
               <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={isSaving}>
                 {isSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
-                Save Draft
+                {tx('Save Draft', '保存草稿')}
               </Button>
               <Button type="button" onClick={handleSaveAndEnable} disabled={isSaving}>
                 {isSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <BadgeCheck className="h-4 w-4 mr-1" />}
-                Save & Enable
+                {tx('Save & Enable', '保存并启用')}
               </Button>
             </div>
             {notice && (
@@ -400,12 +411,12 @@ const FeishuIntegrationSettings = () => {
 
             <div className="rounded-lg border overflow-hidden">
               <div className="grid grid-cols-[170px_120px_1fr] gap-3 border-b bg-muted/20 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                <span>Time</span>
-                <span>Action</span>
-                <span>Detail</span>
+                <span>{tx('Time', '时间')}</span>
+                <span>{tx('Action', '操作')}</span>
+                <span>{tx('Detail', '详情')}</span>
               </div>
               {logs.length === 0 ? (
-                <div className="p-4 text-xs text-muted-foreground text-center">No connector logs yet.</div>
+                <div className="p-4 text-xs text-muted-foreground text-center">{tx('No connector logs yet.', '暂无连接器日志。')}</div>
               ) : (
                 logs.map((item) => (
                   <div key={item.id} className="grid grid-cols-[170px_120px_1fr] gap-3 border-b last:border-b-0 px-3 py-2 text-xs">
@@ -421,15 +432,21 @@ const FeishuIntegrationSettings = () => {
           <section className="rounded-lg border bg-muted/20 p-3 text-[11px] text-muted-foreground space-y-1">
             <p className="font-semibold text-foreground inline-flex items-center gap-1.5">
               <ShieldCheck className="h-3.5 w-3.5" />
-              Backend Integration Notes
+              {tx('Backend Integration Notes', '后端集成说明')}
             </p>
             <p className="inline-flex items-center gap-1.5">
               <Settings2 className="h-3.5 w-3.5" />
-              This page is frontend-ready now and expects backend APIs listed in `frontend/BACKEND_PENDING.md`.
+              {tx(
+                'This page is frontend-ready now and expects backend APIs listed in `frontend/BACKEND_PENDING.md`.',
+                '该页面前端已就绪，依赖 `frontend/BACKEND_PENDING.md` 中列出的后端 API。'
+              )}
             </p>
             <p className="inline-flex items-center gap-1.5">
               <MessageSquare className="h-3.5 w-3.5" />
-              After backend wiring, Feishu messages can be routed directly into Butler dialogue flow.
+              {tx(
+                'After backend wiring, Feishu messages can be routed directly into Butler dialogue flow.',
+                '后端接入后，飞书消息可直接路由到 Butler 对话流。'
+              )}
             </p>
           </section>
         </CardContent>
