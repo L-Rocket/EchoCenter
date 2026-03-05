@@ -139,7 +139,7 @@ INITIAL_ADMIN_PASS=admin123
 
 # CORS 配置
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
-CORS_ALLOWED_METHODS=GET,POST,PUT,DELETE,OPTIONS
+CORS_ALLOWED_METHODS=GET,POST,PUT,PATCH,DELETE,OPTIONS
 CORS_ALLOWED_HEADERS=Origin,Content-Type,Authorization
 CORS_MAX_AGE=86400
 ```
@@ -240,6 +240,14 @@ DB_DRIVER=postgres make run-mock RESET=1
 make run-mock-sqllite
 make run-mock-postgre
 ```
+
+## 飞书连接器接入
+
+服务启动后，飞书接入步骤见：
+
+- [飞书接入指南](./feishu-integration.md)
+
+文档包含 WebSocket 长连接配置、凭据验证、启用流程、授权卡片和排错方法。
 
 ### 手动启动
 

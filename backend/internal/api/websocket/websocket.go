@@ -24,8 +24,10 @@ const (
 	// Send pings to peer with this period. Must be less than pongWait
 	pingPeriod = (pongWait * 9) / 10
 
-	// Maximum message size allowed from peer
-	maxMessageSize = 512
+	// Maximum message size allowed from peer.
+	// Agent replies can exceed a few hundred bytes (LLM text + metadata),
+	// so keep this comfortably above typical response size.
+	maxMessageSize = 64 * 1024
 
 	// Send buffer size
 	sendBufferSize = 256
@@ -66,6 +68,7 @@ type Hub interface {
 	Register(client *Client)
 	Unregister(client *Client)
 	GetClient(userID int) (*Client, bool)
+	HasClient(userID int) bool
 	BroadcastGeneric(msg any)
 }
 
@@ -231,6 +234,13 @@ func (h *hub) GetClient(userID int) (*Client, bool) {
 	defer h.mu.RUnlock()
 	client, ok := h.clients[userID]
 	return client, ok
+}
+
+func (h *hub) HasClient(userID int) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	_, ok := h.clients[userID]
+	return ok
 }
 
 // BroadcastGeneric broadcasts a generic message (for compatibility with butler package)

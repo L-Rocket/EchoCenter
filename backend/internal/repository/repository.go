@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/lea/echocenter/backend/internal/models"
 )
@@ -29,6 +30,7 @@ type ChatRepository interface {
 	SaveChatMessage(ctx context.Context, msg *models.ChatMessage) error
 	GetChatHistory(ctx context.Context, user1ID, user2ID int, limit int) ([]models.ChatMessage, error)
 	UpdateAuthRequestStatus(ctx context.Context, actionID string, status string) error
+	ExpirePendingAuthRequests(ctx context.Context) (int, error)
 }
 
 // ButlerRepository manages Butler authorization records.
@@ -36,6 +38,19 @@ type ButlerRepository interface {
 	SaveAuthorization(ctx context.Context, auth *models.ButlerAuthorization) error
 	UpdateAuthorizationStatus(ctx context.Context, id string, status string) error
 	GetAuthorization(ctx context.Context, id string) (*models.ButlerAuthorization, error)
+}
+
+// IntegrationRepository manages external channel connector configurations.
+type IntegrationRepository interface {
+	GetFeishuConnector(ctx context.Context) (*models.FeishuConnector, error)
+	CreateFeishuConnector(ctx context.Context, connector *models.FeishuConnector) error
+	UpdateFeishuConnector(ctx context.Context, connector *models.FeishuConnector) error
+	SetFeishuConnectorEnabled(ctx context.Context, id int, enabled bool) (*models.FeishuConnector, error)
+	MarkFeishuConnectorVerified(ctx context.Context, id int, verifiedAt time.Time) (*models.FeishuConnector, error)
+	AppendFeishuIntegrationLog(ctx context.Context, connectorID int, level, action, detail string) error
+	ListFeishuIntegrationLogs(ctx context.Context, connectorID int, cursor string, limit int) ([]models.IntegrationLog, string, error)
+	RegisterFeishuInboundMessage(ctx context.Context, connectorID int, messageID, chatID, feishuUserID, rawPayload string) (bool, error)
+	GetLatestFeishuInboundTarget(ctx context.Context, connectorID int) (chatID string, feishuUserID string, err error)
 }
 
 // BootstrapRepository manages startup/bootstrap data preparation.
@@ -56,6 +71,7 @@ type Repository interface {
 	UserRepository
 	ChatRepository
 	ButlerRepository
+	IntegrationRepository
 	BootstrapRepository
 	MaintenanceRepository
 }

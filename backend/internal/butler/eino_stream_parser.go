@@ -2,19 +2,15 @@ package butler
 
 import "strings"
 
-const streamCheckBufferFlushThreshold = 100
-
 type streamCommandParser struct {
 	fullReply     strings.Builder
 	commandBuffer strings.Builder
 	checkBuffer   strings.Builder
 	inCommand     bool
-
-	flushThreshold int
 }
 
 func newStreamCommandParser() *streamCommandParser {
-	return &streamCommandParser{flushThreshold: streamCheckBufferFlushThreshold}
+	return &streamCommandParser{}
 }
 
 func (p *streamCommandParser) consumeChunk(chunk string) (emit string, shouldStop bool) {
@@ -29,10 +25,8 @@ func (p *streamCommandParser) consumeChunk(chunk string) (emit string, shouldSto
 		if strings.Contains(checkStr, commandPrefix) {
 			p.inCommand = true
 			parts := strings.SplitN(checkStr, commandPrefix, 2)
-			if len(parts) > 0 && parts[0] != "" {
-				emit = parts[0]
-				p.fullReply.WriteString(emit)
-			}
+			// When a command is detected, do not emit speculative preface text.
+			// AUTH_REQUEST is the authoritative next UI event.
 
 			p.commandBuffer.WriteString(commandPrefix)
 			if len(parts) > 1 {
@@ -40,13 +34,10 @@ func (p *streamCommandParser) consumeChunk(chunk string) (emit string, shouldSto
 			}
 
 			p.checkBuffer.Reset()
-			return emit, false
-		}
-
-		if p.checkBuffer.Len() > p.flushThreshold {
-			emit = p.checkBuffer.String()
-			p.fullReply.WriteString(emit)
-			p.checkBuffer.Reset()
+			cmdStr := p.commandBuffer.String()
+			if strings.Count(cmdStr, "{") > 0 && strings.Count(cmdStr, "{") == strings.Count(cmdStr, "}") {
+				return emit, true
+			}
 			return emit, false
 		}
 

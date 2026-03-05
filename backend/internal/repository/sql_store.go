@@ -39,6 +39,7 @@ var (
 	_ UserRepository        = (*sqlRepository)(nil)
 	_ ChatRepository        = (*sqlRepository)(nil)
 	_ ButlerRepository      = (*sqlRepository)(nil)
+	_ IntegrationRepository = (*sqlRepository)(nil)
 	_ BootstrapRepository   = (*sqlRepository)(nil)
 	_ MaintenanceRepository = (*sqlRepository)(nil)
 )

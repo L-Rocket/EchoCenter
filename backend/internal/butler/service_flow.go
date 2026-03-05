@@ -119,6 +119,16 @@ func (s *ButlerService) handlePendingCommandRequest(ctx context.Context, senderI
 		"payload":     authPayload,
 		"timestamp":   authChatMsg.Timestamp.Format(time.RFC3339Nano),
 	})
+
+	// Best-effort outbound relay: mirror authorization request to Feishu as an interactive card.
+	go s.forwardAuthRequestToFeishu(
+		context.Background(),
+		senderID,
+		streamID,
+		authPayload["target_agent_name"].(string),
+		fmt.Sprint(authPayload["command"]),
+		fmt.Sprint(authPayload["reason"]),
+	)
 }
 
 func (s *ButlerService) buildSystemState(ctx context.Context) string {
@@ -167,6 +177,9 @@ func (s *ButlerService) persistAndBroadcastChat(ctx context.Context, senderID in
 		"payload":     chatMsg.Payload,
 		"timestamp":   chatMsg.Timestamp.Format(time.RFC3339Nano),
 	})
+
+	// Best-effort outbound relay: mirror Butler reply into Feishu when admin is the receiver.
+	go s.forwardButlerReplyToFeishu(context.Background(), chatMsg.ReceiverID, content)
 }
 
 func (s *ButlerService) broadcastStreamChunk(senderID int, streamID, chunk string) {
@@ -237,6 +250,14 @@ func popPendingCommand(streamID string) (*ChatStreamResult, bool) {
 		delete(pendingCommands, streamID)
 	}
 	return result, exists
+}
+
+// HasPendingCommand checks whether a command is still awaiting authorization.
+func HasPendingCommand(streamID string) bool {
+	pendingCommandsMu.RLock()
+	defer pendingCommandsMu.RUnlock()
+	_, ok := pendingCommands[streamID]
+	return ok
 }
 
 func parseTargetAgentID(value any) int {

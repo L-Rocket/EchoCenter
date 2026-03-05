@@ -7,10 +7,11 @@ const getMessageTime = (msg: ChatMessage): number => {
 }
 
 const compareMessages = (a: ChatMessage, b: ChatMessage): number => {
+  // Prefer persisted DB order when both messages have IDs.
+  if (a.id && b.id && a.id !== b.id) return a.id - b.id
+
   const timeDelta = getMessageTime(a) - getMessageTime(b)
   if (timeDelta !== 0) return timeDelta
-
-  if (a.id && b.id && a.id !== b.id) return a.id - b.id
 
   const keyA = `${a.local_id || ''}_${a.stream_id || ''}_${a.sender_id || 0}`
   const keyB = `${b.local_id || ''}_${b.stream_id || ''}_${b.sender_id || 0}`

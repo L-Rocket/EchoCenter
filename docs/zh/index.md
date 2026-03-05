@@ -30,6 +30,7 @@ features:
 - [API](/zh/api/authentication) - API 文档
 - [代理](/zh/agents/butler) - 代理文档
 - [开发](/zh/development/setup) - 开发指南
+- [飞书接入](/zh/development/feishu-integration) - 飞书连接器接入与回调联调
 
 ## 文档结构
 
@@ -51,6 +52,7 @@ features:
 - **开发** - 开发指南
   - [环境设置](/development/setup) - 环境配置
   - [测试指南](/development/testing) - 测试指南
+  - [飞书接入](/zh/development/feishu-integration) - 飞书连接器接入与联调
   - [贡献指南](/development/contributing) - 贡献指南
 
 ## 技术栈

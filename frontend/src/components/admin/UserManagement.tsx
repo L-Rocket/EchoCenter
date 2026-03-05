@@ -187,7 +187,12 @@ const UserManagement = () => {
       setTokenDrafts((prev) => {
         const next: Record<number, string> = {};
         agentList.forEach((agent) => {
-          next[agent.id] = prev[agent.id] ?? agent.api_token ?? cache[agent.id] ?? '';
+          const draft = (prev[agent.id] ?? '').trim();
+          if (draft) {
+            next[agent.id] = prev[agent.id];
+            return;
+          }
+          next[agent.id] = (agent.api_token ?? cache[agent.id] ?? '').trim();
         });
         return next;
       });
@@ -295,14 +300,16 @@ const UserManagement = () => {
   }, [copyToClipboard, newAgentToken]);
 
   const handleCopyAgentToken = useCallback(async (agentId: number) => {
-    const copied = await copyToClipboard((tokenDrafts[agentId] || '').trim());
+    const draft = (tokenDrafts[agentId] || '').trim();
+    const fromApi = (agents.find((agent) => agent.id === agentId)?.api_token || '').trim();
+    const copied = await copyToClipboard(draft || fromApi);
     if (!copied) return;
 
     setIsAgentTokenCopied((prev) => ({ ...prev, [agentId]: true }));
     window.setTimeout(() => {
       setIsAgentTokenCopied((prev) => ({ ...prev, [agentId]: false }));
     }, 1200);
-  }, [copyToClipboard, tokenDrafts]);
+  }, [agents, copyToClipboard, tokenDrafts]);
 
   const handleTestCreateToken = async () => {
     if (isCreateTesting) return;
@@ -551,7 +558,10 @@ const UserManagement = () => {
               </div>
 
               {paginatedAgents.map((agent) => {
-                const tokenValue = (tokenDrafts[agent.id] ?? agent.api_token ?? '').trim();
+                const tokenDraft = (tokenDrafts[agent.id] ?? '').trim();
+                const tokenFromApi = (agent.api_token ?? '').trim();
+                const tokenValue = tokenDraft || tokenFromApi;
+                const tokenDisplay = tokenValue || (agent.token_hint ?? '').trim();
                 const runtimeBadge = getRuntimeStatusBadge(agent);
 
                 return (
@@ -563,7 +573,24 @@ const UserManagement = () => {
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 min-w-0">
-                        <p className="text-sm font-mono truncate">{maskToken(tokenValue)}</p>
+                        <p className="text-sm font-mono truncate">
+                          {tokenVisible[agent.id] ? (tokenValue || tokenDisplay || 'Not set') : maskToken(tokenDisplay)}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-[10px] shrink-0"
+                          onClick={() =>
+                            setTokenVisible((prev) => ({
+                              ...prev,
+                              [agent.id]: !prev[agent.id],
+                            }))
+                          }
+                          disabled={!tokenValue}
+                        >
+                          {tokenVisible[agent.id] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        </Button>
                         <Button
                           type="button"
                           variant="outline"
@@ -832,7 +859,7 @@ const UserManagement = () => {
                       variant="outline"
                       className="h-9"
                       onClick={() => handleCopyAgentToken(selectedAgent.id)}
-                      disabled={!(tokenDrafts[selectedAgent.id] || '').trim()}
+                      disabled={!((tokenDrafts[selectedAgent.id] || '').trim() || (selectedAgent.api_token || '').trim())}
                     >
                       {isAgentTokenCopied[selectedAgent.id] ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                     </Button>

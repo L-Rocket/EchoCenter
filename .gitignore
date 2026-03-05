@@ -3,6 +3,7 @@ backend/backend
 backend/echocenter
 backend/echocenter_server
 backend/server.log
+backend/logs/*.log
 backend/bin/
 *.exe
 *.exe~

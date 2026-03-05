@@ -45,6 +45,18 @@ func Setup(r *gin.Engine, h *handler.Handler, authSvc auth.Service) {
 			admin.PATCH("/agents/:id/token", h.UpdateAgentToken)
 		}
 
+		integrations := protected.Group("/integrations")
+		integrations.Use(middleware.AdminOnly(authSvc))
+		{
+			integrations.GET("/feishu", h.GetFeishuConnector)
+			integrations.POST("/feishu", h.CreateFeishuConnector)
+			integrations.PATCH("/feishu/:id", h.UpdateFeishuConnector)
+			integrations.POST("/feishu/:id/verify-callback", h.VerifyFeishuCallback)
+			integrations.POST("/feishu/:id/test-message", h.SendFeishuTestMessage)
+			integrations.PATCH("/feishu/:id/enable", h.SetFeishuConnectorEnabled)
+			integrations.GET("/feishu/:id/logs", h.ListFeishuIntegrationLogs)
+		}
+
 		// Dev mock routes (admin + non-production only)
 		dev := protected.Group("/dev/mock")
 		dev.Use(middleware.AdminOnly(authSvc))

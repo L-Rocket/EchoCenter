@@ -30,3 +30,4 @@ features:
 - [API](/api/authentication) - API documentation
 - [Agents](/agents/butler) - Agent documentation
 - [Development](/development/setup) - Development guide
+- [Feishu Integration](/development/feishu-integration) - Feishu connector onboarding and callback routing

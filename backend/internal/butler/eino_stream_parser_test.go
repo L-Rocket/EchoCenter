@@ -39,7 +39,7 @@ func TestStreamCommandParser_CommandAcrossChunks(t *testing.T) {
 	}
 
 	emit, stop = parser.consumeChunk("AGENT: {\"target_agent_id\": 3, \"command\": \"status\", ")
-	if emit != "Before command. " || stop {
+	if emit != "" || stop {
 		t.Fatalf("unexpected output when command starts: emit=%q stop=%v", emit, stop)
 	}
 
@@ -48,7 +48,7 @@ func TestStreamCommandParser_CommandAcrossChunks(t *testing.T) {
 		t.Fatalf("expected stream to stop after complete command: emit=%q stop=%v", emit, stop)
 	}
 
-	if parser.content() != "Before command. " {
+	if parser.content() != "" {
 		t.Fatalf("unexpected content: %q", parser.content())
 	}
 
@@ -66,19 +66,50 @@ func TestStreamCommandParser_CommandAcrossChunks(t *testing.T) {
 	}
 }
 
-func TestStreamCommandParser_FlushThreshold(t *testing.T) {
+func TestStreamCommandParser_CommandInSingleChunkDropsPreface(t *testing.T) {
 	parser := newStreamCommandParser()
-	parser.flushThreshold = 5
+
+	emit, stop := parser.consumeChunk(`I will check now. COMMAND_AGENT: {"target_agent_id": 7, "command": "get_status", "reasoning": "user asked"}`)
+	if emit != "" {
+		t.Fatalf("expected no emitted preface when command exists, got: %q", emit)
+	}
+	if !stop {
+		t.Fatalf("expected parser to stop after complete command in single chunk")
+	}
+
+	if parser.content() != "" {
+		t.Fatalf("expected empty user-facing content when command exists, got: %q", parser.content())
+	}
+
+	cmdMap, _, ok := parseCommandFromContent(parser.commandText())
+	if !ok {
+		t.Fatalf("expected command parse success")
+	}
+	if got := cmdMap["target_agent_id"].(float64); got != 7 {
+		t.Fatalf("unexpected target agent id parsed: %v", got)
+	}
+}
+
+func TestStreamCommandParser_DoesNotFlushEarlyBeforeCommandDecision(t *testing.T) {
+	parser := newStreamCommandParser()
 
 	emit, stop := parser.consumeChunk("123456")
-	if emit != "123456" {
-		t.Fatalf("expected immediate flush, got: %q", emit)
+	if emit != "" {
+		t.Fatalf("expected no early emit, got: %q", emit)
 	}
 	if stop {
 		t.Fatalf("did not expect stop")
 	}
 
+	if parser.content() != "" {
+		t.Fatalf("expected parser content buffered until flush, got: %q", parser.content())
+	}
+
+	remaining := parser.flushRemaining()
+	if remaining != "123456" {
+		t.Fatalf("expected flushRemaining to output buffered content, got: %q", remaining)
+	}
 	if parser.content() != "123456" {
-		t.Fatalf("unexpected parser content: %q", parser.content())
+		t.Fatalf("unexpected parser content after flush: %q", parser.content())
 	}
 }

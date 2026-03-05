@@ -139,7 +139,7 @@ INITIAL_ADMIN_PASS=admin123
 
 # CORS Configuration
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
-CORS_ALLOWED_METHODS=GET,POST,PUT,DELETE,OPTIONS
+CORS_ALLOWED_METHODS=GET,POST,PUT,PATCH,DELETE,OPTIONS
 CORS_ALLOWED_HEADERS=Origin,Content-Type,Authorization
 CORS_MAX_AGE=86400
 ```
@@ -240,6 +240,14 @@ Deprecated compatibility aliases:
 make run-mock-sqllite
 make run-mock-postgre
 ```
+
+## Feishu Connector Setup
+
+After services are running, Feishu onboarding is documented here:
+
+- [Feishu Integration](./feishu-integration.md)
+
+This includes WebSocket long-connection config, credential verification, enable flow, authorization cards, and troubleshooting.
 
 ### Manual Startup
 

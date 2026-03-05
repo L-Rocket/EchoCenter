@@ -30,6 +30,8 @@
 - **🖥️ Dual Butler Workspace**: Switch between direct conversation mode (`Me ↔ Butler`) and a timeline monitor (`Butler ↔ Agents`).
 - **🌍 Bilingual UI**: Built-in English / Simplified Chinese language toggle for core admin and chat workflows.
 - **⚙️ Settings Workspace**: Unified admin area for agent operations (create/remove agent, token lifecycle) and integrations (Feishu routing configuration).
+- **🛰️ Feishu WS Bridge**: Feishu long-connection ingress with policy filtering, inbound/outbound relay, and connector credential verification.
+- **✅ Feishu Approval Cards**: Butler authorization requests can be approved/rejected directly in Feishu interactive cards.
 - **📊 Interactive Dashboard**: Modern React-based UI for monitoring agent status and system-wide logs.
 - **🔒 Secure Architecture**: Mandatory JWT authentication, per-agent API tokens, and token-safe agent listing (`token_hint` only, no raw token exposure).
 - **📂 Flexible Persistence**: Full chat and command history stored in SQLite by default, with PostgreSQL enabled through `DB_DRIVER` + DSN/PG_* configuration.

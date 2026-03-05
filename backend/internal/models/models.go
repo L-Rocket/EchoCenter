@@ -55,3 +55,37 @@ type ButlerAuthorization struct {
 	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
 	RespondedAt     *time.Time `json:"responded_at,omitempty" db:"responded_at"`
 }
+
+type FeishuConnector struct {
+	ID                 int        `json:"id" db:"id"`
+	ConnectorName      string     `json:"connector_name" db:"connector_name"`
+	Enabled            bool       `json:"enabled" db:"enabled"`
+	Status             string     `json:"status" db:"status"`
+	AppID              string     `json:"app_id" db:"app_id"`
+	AppSecret          string     `json:"app_secret,omitempty" db:"app_secret"`
+	AppSecretMasked    string     `json:"app_secret_masked,omitempty"`
+	HasAppSecret       bool       `json:"has_app_secret,omitempty"`
+	VerificationToken  string     `json:"verification_token,omitempty" db:"verification_token"`
+	EncryptKey         string     `json:"encrypt_key,omitempty" db:"encrypt_key"`
+	AllowDM            bool       `json:"allow_dm" db:"allow_dm"`
+	AllowGroupMention  bool       `json:"allow_group_mention" db:"allow_group_mention"`
+	MentionRequired    bool       `json:"mention_required" db:"mention_required"`
+	PrefixCommand      string     `json:"prefix_command" db:"prefix_command"`
+	IgnoreBotMessages  bool       `json:"ignore_bot_messages" db:"ignore_bot_messages"`
+	RateLimitPerMinute int        `json:"rate_limit_per_minute" db:"rate_limit_per_minute"`
+	AllowedChatIDs     []string   `json:"allowed_chat_ids,omitempty"`
+	UserWhitelist      []string   `json:"user_whitelist,omitempty"`
+	CallbackURL        string     `json:"callback_url" db:"callback_url"`
+	CallbackVerified   bool       `json:"callback_verified" db:"callback_verified"`
+	LastVerifiedAt     *time.Time `json:"last_verified_at,omitempty" db:"last_verified_at"`
+	CreatedAt          time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at" db:"updated_at"`
+}
+
+type IntegrationLog struct {
+	ID        string    `json:"id"`
+	Level     string    `json:"level"`
+	Action    string    `json:"action"`
+	Detail    string    `json:"detail"`
+	Timestamp time.Time `json:"timestamp"`
+}

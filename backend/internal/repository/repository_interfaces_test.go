@@ -17,6 +17,9 @@ func TestRepositorySatisfiesSegregatedInterfaces(t *testing.T) {
 	if _, ok := repo.(ButlerRepository); !ok {
 		t.Fatalf("repository should satisfy ButlerRepository")
 	}
+	if _, ok := repo.(IntegrationRepository); !ok {
+		t.Fatalf("repository should satisfy IntegrationRepository")
+	}
 	if _, ok := repo.(BootstrapRepository); !ok {
 		t.Fatalf("repository should satisfy BootstrapRepository")
 	}
