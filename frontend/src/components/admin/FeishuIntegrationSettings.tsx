@@ -1,11 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   BadgeCheck,
-  Check,
-  Copy,
   Eye,
   EyeOff,
-  Link2,
   Loader2,
   MessageSquare,
   Save,
@@ -83,13 +80,7 @@ const FeishuIntegrationSettings = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isSecretVisible, setIsSecretVisible] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
   const [logs, setLogs] = useState<IntegrationLog[]>([]);
-
-  const callbackUrl = useMemo(() => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
-    return `${origin}/api/integrations/feishu/callback`;
-  }, []);
 
   const pushLog = (level: IntegrationLog['level'], action: string, detail: string) => {
     setLogs((prev) => [
@@ -102,26 +93,6 @@ const FeishuIntegrationSettings = () => {
       },
       ...prev,
     ].slice(0, 20));
-  };
-
-  const copyText = async (text: string) => {
-    if (!text) return false;
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(text);
-        return true;
-      } catch (_err) {
-        return false;
-      }
-    }
-    return false;
-  };
-
-  const handleCopyCallback = async () => {
-    const copied = await copyText(callbackUrl);
-    if (!copied) return;
-    setIsCopied(true);
-    window.setTimeout(() => setIsCopied(false), 1200);
   };
 
   const handleSaveDraft = async () => {
@@ -159,7 +130,7 @@ const FeishuIntegrationSettings = () => {
     setIsSaving(false);
   };
 
-  const handleVerifyCallback = async () => {
+  const handleVerifyConnection = async () => {
     setIsVerifying(true);
     setError('');
     setNotice('');
@@ -171,8 +142,8 @@ const FeishuIntegrationSettings = () => {
     const verifiedAt = new Date().toISOString();
     setLastVerifyAt(verifiedAt);
     setStatus(form.enabled ? 'connected' : 'not_connected');
-    setNotice(tx('Callback verified. You can now enable connector safely.', '回调验证通过，现在可以安全启用连接器。'));
-    pushLog('success', tx('Verify Callback', '验证回调'), tx('Callback verification passed.', '回调验证通过。'));
+    setNotice(tx('WebSocket bridge verified. You can now enable connector safely.', 'WebSocket 长连接验证通过，现在可以安全启用连接器。'));
+    pushLog('success', tx('Verify WebSocket', '验证 WebSocket'), tx('WebSocket bridge verification passed.', 'WebSocket 长连接验证通过。'));
     setIsVerifying(false);
   };
 
@@ -290,20 +261,16 @@ const FeishuIntegrationSettings = () => {
           </section>
 
           <section className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{tx('Event Callback', '事件回调')}</h3>
-            <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
-              <Input value={callbackUrl} readOnly className="h-10 font-mono text-xs" />
-              <Button type="button" variant="outline" className="h-10" onClick={handleCopyCallback}>
-                {isCopied ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
-                {isCopied ? tx('Copied', '已复制') : tx('Copy URL', '复制 URL')}
-              </Button>
-              <Button type="button" variant="outline" className="h-10" onClick={handleVerifyCallback} disabled={isVerifying}>
-                {isVerifying ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Link2 className="h-4 w-4 mr-1" />}
-                {tx('Verify Callback', '验证回调')}
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{tx('WebSocket Bridge', 'WebSocket 长连接')}</h3>
+            <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+              <Input value={tx('wss://open.feishu.cn/open-apis/ws/v2', 'wss://open.feishu.cn/open-apis/ws/v2')} readOnly className="h-10 font-mono text-xs" />
+              <Button type="button" variant="outline" className="h-10" onClick={handleVerifyConnection} disabled={isVerifying}>
+                {isVerifying ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Webhook className="h-4 w-4 mr-1" />}
+                {tx('Verify WebSocket', '验证 WebSocket')}
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              {tx('Last verified:', '最近验证：')} {lastVerifyAt ? new Date(lastVerifyAt).toLocaleString() : tx('Never', '从未')}
+              {tx('Bridge status:', '连接状态：')} {lastVerifyAt ? tx('verified', '已验证') : tx('not verified', '未验证')}
             </p>
           </section>
 
