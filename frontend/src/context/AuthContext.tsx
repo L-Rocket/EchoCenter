@@ -34,6 +34,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addChatMessage = useChatStore((state) => state.addMessage);
   const appendStreamChunk = useChatStore((state) => state.appendStreamChunk);
   const setThinking = useChatStore((state) => state.setThinking);
+  const setPeerPending = useChatStore((state) => state.setPeerPending);
+  const clearPeerPending = useChatStore((state) => state.clearPeerPending);
 
   useEffect(() => {
     userRef.current = user;
@@ -73,8 +75,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (peerId) {
             addChatMessage(peerId, msg);
             useChatStore.getState().removeProcessMessages(peerId);
+            if (msg.sender_id !== currentUser?.id) {
+              clearPeerPending(peerId);
+            }
           }
-          setThinking(false);
+          if (msg.sender_id !== currentUser?.id) {
+            setThinking(false);
+          }
         } else if (msg.type === 'CHAT_STREAM') {
           if (msg.sender_name === 'Butler' && typeof msg.payload === 'string' && msg.payload.includes('Execution started')) {
             addChatMessage(msg.sender_id, {
@@ -92,6 +99,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const peerId = msg.sender_id === currentUser?.id ? msg.target_id : msg.sender_id;
             if (peerId) {
               useChatStore.getState().removeProcessMessages(peerId);
+              if (msg.sender_id !== currentUser?.id) {
+                clearPeerPending(peerId);
+              }
               appendStreamChunk(peerId, {
                 stream_id: msg.stream_id || 'unknown',
                 payload: msg.payload as string,
@@ -102,8 +112,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
         } else if (msg.type === 'CHAT_STREAM_END') {
-          setThinking(false);
+          const peerId = msg.sender_id === currentUser?.id ? msg.target_id : msg.sender_id;
+          if (peerId && msg.sender_id !== currentUser?.id) {
+            clearPeerPending(peerId);
+          }
+          if (msg.sender_id !== currentUser?.id) {
+            setThinking(false);
+          }
         } else if (msg.type === 'AUTH_REQUEST') {
+          const peerId = msg.sender_id;
+          clearPeerPending(peerId);
           setThinking(false); 
           addChatMessage(msg.sender_id, {
             ...msg,
@@ -143,7 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socketRef.current = null;
       }
     };
-  }, [addChatMessage, appendStreamChunk, setThinking]);
+  }, [addChatMessage, appendStreamChunk, clearPeerPending, setThinking]);
 
   useEffect(() => {
     const initAuth = () => {
@@ -181,6 +199,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const sendMessage = (targetId: number, payload: string) => {
     if (socketRef.current?.readyState === WebSocket.OPEN && user) {
       setThinking(true);
+      setPeerPending(targetId, true);
 
       const now = new Date();
       const localId = crypto.randomUUID();
@@ -211,6 +230,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (approved) setThinking(true);
     
     const butlerId = 2;
+    if (approved) {
+      setPeerPending(butlerId, true);
+    }
     const currentMessages = useChatStore.getState().messages[butlerId] || [];
     
     const updatedMessages = currentMessages.map(msg => {
@@ -231,6 +253,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     userService.sendAuthResponse(actionId, approved).catch(_err => {
       console.error('[AuthContext] Failed to send auth response:', _err);
+      useChatStore.getState().clearPeerPending(butlerId);
       const revertMessages = currentMessages.map(msg => {
         if (msg.type === 'AUTH_REQUEST' || msg.type === 'SYSTEM') {
           try {

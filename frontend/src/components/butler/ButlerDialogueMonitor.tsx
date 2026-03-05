@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bot, Loader2, RefreshCw, Search, Terminal } from 'lucide-react';
+import { Bot, Loader2, RefreshCw, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -307,12 +307,15 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                 )}
 
                 {!isLoading && selectedEntries.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-16 text-center opacity-40">
-                    <div className="p-4 bg-muted rounded-full mb-4">
-                      <Terminal className="h-8 w-8 text-muted-foreground" />
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <div className="p-4 bg-muted rounded-full mb-4 animate-pulse">
+                      <Loader2 className="h-8 w-8 text-primary animate-spin" />
                     </div>
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                      No Monitor Messages
+                      Listening for Monitor Events
+                    </p>
+                    <p className="mt-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      Stream active, waiting for next message...
                     </p>
                   </div>
                 )}

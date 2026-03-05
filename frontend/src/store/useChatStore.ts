@@ -20,7 +20,10 @@ const compareMessages = (a: ChatMessage, b: ChatMessage): number => {
 interface ChatState {
   messages: Record<number, ChatMessage[]>
   isThinking: boolean
+  pendingByPeer: Record<number, boolean>
   setThinking: (val: boolean) => void
+  setPeerPending: (peerId: number, pending: boolean) => void
+  clearPeerPending: (peerId: number) => void
   addMessage: (peerId: number, message: ChatMessage) => void
   appendStreamChunk: (peerId: number, chunk: { stream_id: string, payload: string, sender_id: number, sender_name: string, timestamp: string }) => void
   setHistory: (peerId: number, messages: ChatMessage[]) => void
@@ -31,7 +34,24 @@ interface ChatState {
 export const useChatStore = create<ChatState>((set) => ({
   messages: {},
   isThinking: false,
+  pendingByPeer: {},
   setThinking: (val) => set({ isThinking: val }),
+  setPeerPending: (peerId, pending) =>
+    set((state) => ({
+      isThinking: pending ? true : Object.values({ ...state.pendingByPeer, [peerId]: pending }).some(Boolean),
+      pendingByPeer: {
+        ...state.pendingByPeer,
+        [peerId]: pending,
+      },
+    })),
+  clearPeerPending: (peerId) =>
+    set((state) => {
+      const next = { ...state.pendingByPeer, [peerId]: false }
+      return {
+        isThinking: Object.values(next).some(Boolean),
+        pendingByPeer: next,
+      }
+    }),
   
   addMessage: (peerId, message) =>
     set((state) => {
@@ -219,7 +239,13 @@ export const useChatStore = create<ChatState>((set) => ({
     set((state) => {
       const newMessages = { ...state.messages }
       delete newMessages[peerId]
-      return { messages: newMessages }
+      const nextPending = { ...state.pendingByPeer }
+      delete nextPending[peerId]
+      return {
+        messages: newMessages,
+        pendingByPeer: nextPending,
+        isThinking: Object.values(nextPending).some(Boolean),
+      }
     }),
 
   removeProcessMessages: (peerId) =>
