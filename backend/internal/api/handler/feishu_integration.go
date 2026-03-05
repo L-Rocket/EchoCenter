@@ -485,56 +485,26 @@ func (h *Handler) verifyFeishuToken(got, expected string) bool {
 	return strings.TrimSpace(got) == expected
 }
 
-func (h *Handler) ensureFeishuBridgeUser(ctx context.Context, feishuUserID string) (int, error) {
-	normalizedID := strings.TrimSpace(feishuUserID)
-	if normalizedID == "" {
-		normalizedID = "unknown"
-	}
-	username := "feishu_" + sanitizeUsernameToken(normalizedID)
-
-	user, err := h.repo.GetUserByUsername(ctx, username)
+func (h *Handler) ensureFeishuBridgeUser(ctx context.Context, _ string) (int, error) {
+	user, err := h.repo.GetUserByUsername(ctx, "admin")
 	if err != nil {
 		return 0, err
 	}
-	if user != nil {
+	if user != nil && strings.EqualFold(strings.TrimSpace(user.Role), "ADMIN") {
 		return user.ID, nil
 	}
 
-	create := &models.User{
-		Username:     username,
-		PasswordHash: "FEISHU_EXTERNAL_BRIDGE",
-		Role:         "MEMBER",
-		ActorType:    "HUMAN",
-	}
-	if err := h.repo.CreateUser(ctx, create); err != nil {
-		if apperrors.Is(err, apperrors.ErrConflict) {
-			existing, lookupErr := h.repo.GetUserByUsername(ctx, username)
-			if lookupErr != nil {
-				return 0, lookupErr
-			}
-			if existing != nil {
-				return existing.ID, nil
-			}
-		}
+	users, err := h.repo.GetUsers(ctx)
+	if err != nil {
 		return 0, err
 	}
-	return create.ID, nil
-}
-
-func sanitizeUsernameToken(raw string) string {
-	var b strings.Builder
-	for _, r := range raw {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
-			b.WriteRune(r)
-			continue
+	for i := range users {
+		if strings.EqualFold(strings.TrimSpace(users[i].Role), "ADMIN") {
+			return users[i].ID, nil
 		}
-		b.WriteRune('_')
 	}
-	s := strings.TrimSpace(b.String())
-	if s == "" {
-		return "unknown"
-	}
-	return s
+
+	return 0, apperrors.New(apperrors.ErrNotFound, "admin user not found")
 }
 
 func defaultFeishuConnector() models.FeishuConnector {
