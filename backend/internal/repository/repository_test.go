@@ -168,4 +168,37 @@ func TestCreateAgentStoresMachineCredentialAndLookupByToken(t *testing.T) {
 	require.NoError(t, sqlRepo.queryRowContext(ctx, "SELECT COUNT(*) FROM machine_credentials").Scan(&machineCount))
 	assert.Equal(t, 0, humanCount)
 	assert.Equal(t, 1, machineCount)
+
+	agents, err := repo.GetAgents(ctx)
+	require.NoError(t, err)
+	require.Len(t, agents, 1)
+	assert.Equal(t, "", agents[0].APIToken)
+	assert.NotEmpty(t, agents[0].TokenHint)
+}
+
+func TestUpdateAgentTokenReplacesLookupToken(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	require.NoError(t, repo.CreateAgent(ctx, "agent-token-rotate", "tok-old"))
+	agent, err := repo.GetAgentByToken(ctx, "tok-old")
+	require.NoError(t, err)
+	require.NotNil(t, agent)
+
+	require.NoError(t, repo.UpdateAgentToken(ctx, agent.ID, "tok-new"))
+
+	oldAgent, err := repo.GetAgentByToken(ctx, "tok-old")
+	require.NoError(t, err)
+	assert.Nil(t, oldAgent)
+
+	newAgent, err := repo.GetAgentByToken(ctx, "tok-new")
+	require.NoError(t, err)
+	require.NotNil(t, newAgent)
+	assert.Equal(t, agent.ID, newAgent.ID)
+}
+
+func TestTokenHintHandlesSingleCharacterToken(t *testing.T) {
+	assert.NotPanics(t, func() {
+		assert.Equal(t, "a****", tokenHint("a"))
+	})
 }

@@ -83,6 +83,7 @@ async def agent_loop(token):
             if data.get("type") == "CHAT":
                 sender_id = data.get("sender_id")
                 sender_role = data.get("sender_role", "USER")
+                is_butler_request = str(sender_role).upper() == "BUTLER"
                 payload = data.get("payload")
                 print(f"[Storage-Custodian] Received instruction from {sender_role}: {payload}")
 
@@ -112,8 +113,8 @@ User Instruction: {payload}"""
                             content = chunk.choices[0].delta.content
                             full_reply += content
                             
-                            # Only stream if sender is a human USER
-                            if sender_role == "USER":
+                            # Stream replies for all human-side callers (ADMIN/MEMBER/etc.).
+                            if not is_butler_request:
                                 await ws.send(json.dumps({
                                     "type": "CHAT_STREAM",
                                     "target_id": sender_id,
@@ -124,7 +125,7 @@ User Instruction: {payload}"""
                                     "sender_role": "AGENT"
                                 }))
                     
-                    if sender_role == "BUTLER":
+                    if is_butler_request:
                         # Direct full reply to Butler for better efficiency
                         await ws.send(json.dumps({
                             "type": "CHAT",
@@ -135,6 +136,17 @@ User Instruction: {payload}"""
                             "sender_role": "AGENT"
                         }))
                     else:
+                        # Emit a final CHAT frame (with stream_id) so backend can persist response history.
+                        await ws.send(json.dumps({
+                            "type": "CHAT",
+                            "target_id": sender_id,
+                            "payload": full_reply,
+                            "stream_id": stream_id,
+                            "sender_id": 7,
+                            "sender_name": "Storage-Custodian",
+                            "sender_role": "AGENT"
+                        }))
+
                         # End of stream for human users
                         await ws.send(json.dumps({
                             "type": "CHAT_STREAM_END",

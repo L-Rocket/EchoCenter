@@ -25,8 +25,7 @@ npm test
 ### 启动服务
 
 ```bash
-cd backend/scripts
-./start_with_custodian.sh
+make run-mock RESET=1
 ```
 
 ### 测试 API
@@ -82,8 +81,7 @@ ws.onclose = () => {
 1. **启动服务**
 
 ```bash
-cd backend/scripts
-./start_with_custodian.sh
+make run-mock RESET=1
 ```
 
 2. **登录**

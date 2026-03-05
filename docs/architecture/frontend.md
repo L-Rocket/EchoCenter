@@ -43,8 +43,9 @@ Communicates bidirectionally with the backend via WebSocket. The frontend implem
 ### 3. Data Synchronization & Optimistic UI
 To ensure a fluid user experience while maintaining strict sequential integrity in a distributed environment:
 - **Optimistic Rendering**: When a user sends a message, the frontend instantly generates a globally unique `local_id` (UUID) and appends the message to the view immediately.
-- **Deduplication & Replacement**: Upon receiving the server's broadcasted echo of that message, the frontend matches it using the `local_id` and seamlessly replaces the temporary local message with the authoritative server message (which now carries the definitive database `id`).
-- **Absolute Ordering**: Local timestamp-based sorting is abandoned in favor of strict mathematical sorting based purely on the database sequence `id`.
+- **Deduplication & Replacement**: Upon receiving the server echo (for human senders) the frontend matches by `local_id` and replaces temporary messages with authoritative server records (`id`).
+- **Stable Ordering**: Messages are merged and sorted deterministically (timestamp, then server `id`, then local fallback keys) to keep history consistent across refresh/reconnect.
+- **Per-Conversation Pending State**: Waiting indicators are tracked by peer (`pendingByPeer`) to avoid cross-chat interference.
 
 ### 4. UI Components
 Built based on `shadcn/ui`, following consistent design specifications, and supporting responsive layout and dark mode.
@@ -63,6 +64,7 @@ Built based on `shadcn/ui`, following consistent design specifications, and supp
 ### 7. Butler Workspace
 - **Me ↔ Butler** mode: direct 1-on-1 channel with Butler.
 - **Butler ↔ Agents** mode: monitor Butler dispatch timeline and cross-agent interactions.
+- Empty monitor history now stays static (`No Monitor Messages`) without spinner noise.
 
 ## Development and Build
 

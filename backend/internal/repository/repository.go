@@ -21,6 +21,7 @@ type UserRepository interface {
 	GetAgentByToken(ctx context.Context, token string) (*models.User, error)
 	GetAgents(ctx context.Context) ([]models.User, error)
 	CreateAgent(ctx context.Context, username, token string) error
+	UpdateAgentToken(ctx context.Context, agentID int, token string) error
 }
 
 // ChatRepository manages direct chat persistence.

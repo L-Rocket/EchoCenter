@@ -1,10 +1,29 @@
 import { create } from 'zustand'
 import type { ChatMessage } from '@/types'
 
+const getMessageTime = (msg: ChatMessage): number => {
+  const t = new Date(msg.timestamp || '').getTime()
+  return Number.isNaN(t) ? Number.MAX_SAFE_INTEGER : t
+}
+
+const compareMessages = (a: ChatMessage, b: ChatMessage): number => {
+  const timeDelta = getMessageTime(a) - getMessageTime(b)
+  if (timeDelta !== 0) return timeDelta
+
+  if (a.id && b.id && a.id !== b.id) return a.id - b.id
+
+  const keyA = `${a.local_id || ''}_${a.stream_id || ''}_${a.sender_id || 0}`
+  const keyB = `${b.local_id || ''}_${b.stream_id || ''}_${b.sender_id || 0}`
+  return keyA.localeCompare(keyB)
+}
+
 interface ChatState {
   messages: Record<number, ChatMessage[]>
   isThinking: boolean
+  pendingByPeer: Record<number, boolean>
   setThinking: (val: boolean) => void
+  setPeerPending: (peerId: number, pending: boolean) => void
+  clearPeerPending: (peerId: number) => void
   addMessage: (peerId: number, message: ChatMessage) => void
   appendStreamChunk: (peerId: number, chunk: { stream_id: string, payload: string, sender_id: number, sender_name: string, timestamp: string }) => void
   setHistory: (peerId: number, messages: ChatMessage[]) => void
@@ -15,7 +34,24 @@ interface ChatState {
 export const useChatStore = create<ChatState>((set) => ({
   messages: {},
   isThinking: false,
+  pendingByPeer: {},
   setThinking: (val) => set({ isThinking: val }),
+  setPeerPending: (peerId, pending) =>
+    set((state) => ({
+      isThinking: pending ? true : Object.values({ ...state.pendingByPeer, [peerId]: pending }).some(Boolean),
+      pendingByPeer: {
+        ...state.pendingByPeer,
+        [peerId]: pending,
+      },
+    })),
+  clearPeerPending: (peerId) =>
+    set((state) => {
+      const next = { ...state.pendingByPeer, [peerId]: false }
+      return {
+        isThinking: Object.values(next).some(Boolean),
+        pendingByPeer: next,
+      }
+    }),
   
   addMessage: (peerId, message) =>
     set((state) => {
@@ -77,24 +113,14 @@ export const useChatStore = create<ChatState>((set) => ({
           const updated = [...existing]
           // Merge properties, prioritizing server data (message) but keeping local_id if server didn't echo it
           updated[localDuplicateIndex] = { ...oldMsg, ...message }
-          updated.sort((a, b) => {
-            const idA = a.id || Infinity;
-            const idB = b.id || Infinity;
-            if (idA !== idB) return idA - idB;
-            return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-          })
+          updated.sort(compareMessages)
           return { messages: { ...state.messages, [peerId]: updated } }
         }
         return state
       }
 
       const newMessages = [...existing, message]
-      newMessages.sort((a, b) => {
-        const idA = a.id || Infinity;
-        const idB = b.id || Infinity;
-        if (idA !== idB) return idA - idB;
-        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      })
+      newMessages.sort(compareMessages)
 
       return {
         messages: {
@@ -199,12 +225,7 @@ export const useChatStore = create<ChatState>((set) => ({
       })
 
       const newMessages = Array.from(merged.values())
-      newMessages.sort((a, b) => {
-        const idA = a.id || Infinity;
-        const idB = b.id || Infinity;
-        if (idA !== idB) return idA - idB;
-        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      })
+      newMessages.sort(compareMessages)
 
       return {
         messages: {
@@ -218,7 +239,13 @@ export const useChatStore = create<ChatState>((set) => ({
     set((state) => {
       const newMessages = { ...state.messages }
       delete newMessages[peerId]
-      return { messages: newMessages }
+      const nextPending = { ...state.pendingByPeer }
+      delete nextPending[peerId]
+      return {
+        messages: newMessages,
+        pendingByPeer: nextPending,
+        isThinking: Object.values(nextPending).some(Boolean),
+      }
     }),
 
   removeProcessMessages: (peerId) =>

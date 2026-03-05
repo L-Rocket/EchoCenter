@@ -32,6 +32,12 @@ interface ConnectionResult {
   message: string;
 }
 
+interface RuntimeStatusBadge {
+  variant: 'success' | 'info' | 'muted' | 'warning';
+  label: string;
+  pulse: boolean;
+}
+
 const PAGE_SIZE = 5;
 const TOKEN_CACHE_KEY = 'echocenter_agent_token_cache_v1';
 
@@ -71,6 +77,21 @@ const writeTokenCache = (next: Record<number, string>) => {
   } catch (_err) {
     // ignore storage errors
   }
+};
+
+const getRuntimeStatusBadge = (agent?: Agent | null): RuntimeStatusBadge => {
+  if (!agent) return { variant: 'warning', label: 'Unknown', pulse: false };
+  const status = String(agent.status || '').toUpperCase();
+  if (agent.online === true || status === 'ONLINE') {
+    return { variant: 'success', label: 'Online', pulse: true };
+  }
+  if (status === 'IDLE') {
+    return { variant: 'info', label: 'Idle', pulse: false };
+  }
+  if (agent.online === false || status === 'OFFLINE') {
+    return { variant: 'muted', label: 'Offline', pulse: false };
+  }
+  return { variant: 'warning', label: 'Unknown', pulse: false };
 };
 
 const UserManagement = () => {
@@ -153,9 +174,9 @@ const UserManagement = () => {
     });
   }, [wsUrl]);
 
-  const fetchAgents = useCallback(async () => {
+  const fetchAgents = useCallback(async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const data = await userService.getAgents();
       const cache = readTokenCache();
       const agentList = (Array.isArray(data) ? data : []).filter(
@@ -173,15 +194,30 @@ const UserManagement = () => {
       setError('');
       return agentList;
     } catch (_err) {
-      setError('Failed to load agent list from backend.');
+      if (!silent) setError('Failed to load agent list from backend.');
       return [];
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchAgents();
+    let alive = true;
+
+    const init = async () => {
+      await fetchAgents(false);
+    };
+
+    void init();
+    const interval = window.setInterval(() => {
+      if (!alive) return;
+      void fetchAgents(true);
+    }, 10000);
+
+    return () => {
+      alive = false;
+      window.clearInterval(interval);
+    };
   }, [fetchAgents]);
 
   const filteredAgents = useMemo(() => {
@@ -516,8 +552,7 @@ const UserManagement = () => {
 
               {paginatedAgents.map((agent) => {
                 const tokenValue = (tokenDrafts[agent.id] ?? agent.api_token ?? '').trim();
-                const connection = agentConnection[agent.id] || { state: 'idle', message: 'Not tested yet.' };
-                const stateBadge = getStateBadge(connection.state);
+                const runtimeBadge = getRuntimeStatusBadge(agent);
 
                 return (
                   <div
@@ -550,9 +585,9 @@ const UserManagement = () => {
 
                     <div className="flex items-center justify-end gap-2">
                       <div className="hidden sm:flex items-center gap-1.5">
-                        <StatusIndicator variant={stateBadge.variant} pulse={connection.state === 'testing'} />
+                        <StatusIndicator variant={runtimeBadge.variant} pulse={runtimeBadge.pulse} />
                         <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                          {stateBadge.label}
+                          {runtimeBadge.label}
                         </span>
                       </div>
                       <Button
@@ -738,6 +773,17 @@ const UserManagement = () => {
               <div className="p-4 space-y-4">
                 <div className="rounded-md border bg-muted/20 p-3 text-[11px] text-muted-foreground">
                   {tx('Agent ID:', 'Agent ID：')} <span className="font-semibold text-foreground">#{selectedAgent.id}</span>
+                </div>
+                <div className="rounded-md border bg-muted/20 p-3">
+                  {(() => {
+                    const runtimeBadge = getRuntimeStatusBadge(selectedAgent);
+                    return (
+                      <div className="flex items-center gap-2">
+                        <StatusIndicator variant={runtimeBadge.variant} pulse={runtimeBadge.pulse} />
+                        <span className="text-xs font-semibold uppercase tracking-wider">{runtimeBadge.label}</span>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="space-y-2">

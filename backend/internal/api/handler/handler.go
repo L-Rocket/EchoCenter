@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lea/echocenter/backend/internal/api/websocket"
@@ -111,7 +112,39 @@ func (h *Handler) Login(c *gin.Context) {
 }
 
 func (h *Handler) GetMessages(c *gin.Context) {
-	messages, err := h.repo.GetMessages(c.Request.Context(), repository.MessageFilter{})
+	offset := 0
+	limit := 50
+
+	if v := strings.TrimSpace(c.Query("offset")); v != "" {
+		parsed, err := strconv.Atoi(v)
+		if err != nil || parsed < 0 {
+			h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid offset"))
+			return
+		}
+		offset = parsed
+	}
+
+	if v := strings.TrimSpace(c.Query("limit")); v != "" {
+		parsed, err := strconv.Atoi(v)
+		if err != nil || parsed <= 0 {
+			h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid limit"))
+			return
+		}
+		if parsed > 200 {
+			parsed = 200
+		}
+		limit = parsed
+	}
+
+	filter := repository.MessageFilter{
+		AgentID: strings.TrimSpace(c.Query("agent_id")),
+		Level:   strings.TrimSpace(c.Query("level")),
+		Query:   strings.TrimSpace(c.Query("q")),
+		Offset:  offset,
+		Limit:   limit,
+	}
+
+	messages, err := h.repo.GetMessages(c.Request.Context(), filter)
 	if err != nil {
 		h.respondWithError(c, http.StatusInternalServerError, err)
 		return
@@ -142,7 +175,123 @@ func (h *Handler) GetAgents(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, agents)
+	excludedRoles := make(map[string]struct{})
+	for _, raw := range strings.Split(c.Query("exclude_role"), ",") {
+		role := strings.ToUpper(strings.TrimSpace(raw))
+		if role != "" {
+			excludedRoles[role] = struct{}{}
+		}
+	}
+
+	query := strings.ToLower(strings.TrimSpace(c.Query("q")))
+
+	page := 1
+	pageSet := false
+	if v := strings.TrimSpace(c.Query("page")); v != "" {
+		parsed, err := strconv.Atoi(v)
+		if err != nil || parsed <= 0 {
+			h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid page"))
+			return
+		}
+		page = parsed
+		pageSet = true
+	}
+
+	limit := 0
+	if v := strings.TrimSpace(c.Query("limit")); v != "" {
+		parsed, err := strconv.Atoi(v)
+		if err != nil || parsed <= 0 {
+			h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid limit"))
+			return
+		}
+		if parsed > 200 {
+			parsed = 200
+		}
+		limit = parsed
+	}
+
+	filtered := make([]models.User, 0, len(agents))
+	for _, agent := range agents {
+		role := strings.ToUpper(strings.TrimSpace(agent.Role))
+		if _, excluded := excludedRoles[role]; excluded {
+			continue
+		}
+		if query != "" {
+			usernameMatch := strings.Contains(strings.ToLower(agent.Username), query)
+			roleMatch := strings.Contains(strings.ToLower(agent.Role), query)
+			if !usernameMatch && !roleMatch {
+				continue
+			}
+		}
+		secured := h.withPresence(agent)
+		secured.APIToken = ""
+		filtered = append(filtered, secured)
+	}
+
+	c.Header("X-Total-Count", strconv.Itoa(len(filtered)))
+	if limit == 0 && !pageSet {
+		c.JSON(http.StatusOK, filtered)
+		return
+	}
+	if limit == 0 {
+		limit = 50
+	}
+	start := (page - 1) * limit
+	if start >= len(filtered) {
+		c.JSON(http.StatusOK, []models.User{})
+		return
+	}
+	end := start + limit
+	if end > len(filtered) {
+		end = len(filtered)
+	}
+	c.JSON(http.StatusOK, filtered[start:end])
+}
+
+func (h *Handler) GetButler(c *gin.Context) {
+	agents, err := h.repo.GetAgents(c.Request.Context())
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	for _, user := range agents {
+		if strings.EqualFold(user.Role, "BUTLER") {
+			secured := h.withPresence(user)
+			secured.APIToken = ""
+			c.JSON(http.StatusOK, secured)
+			return
+		}
+	}
+
+	h.respondWithError(c, http.StatusNotFound, apperrors.New(apperrors.ErrNotFound, "butler not found"))
+}
+
+func (h *Handler) GetAgentStatuses(c *gin.Context) {
+	agents, err := h.repo.GetAgents(c.Request.Context())
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	statuses := make([]models.User, 0, len(agents))
+	for _, user := range agents {
+		if !strings.EqualFold(user.Role, "AGENT") {
+			continue
+		}
+		presence := h.withPresence(user)
+		statuses = append(statuses, models.User{
+			ID:         presence.ID,
+			Username:   presence.Username,
+			Role:       presence.Role,
+			Status:     presence.Status,
+			Online:     presence.Online,
+			LastSeenAt: presence.LastSeenAt,
+			LastReport: presence.LastReport,
+		})
+	}
+
+	c.JSON(http.StatusOK, statuses)
 }
 
 func (h *Handler) GetChatHistory(c *gin.Context) {
@@ -160,6 +309,41 @@ func (h *Handler) GetChatHistory(c *gin.Context) {
 	}
 
 	messages, err := h.repo.GetChatHistory(c.Request.Context(), userID.(int), peerID, 100)
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, messages)
+}
+
+func (h *Handler) GetButlerAgentConversation(c *gin.Context) {
+	agentIDStr := c.Param("agent_id")
+	agentID, err := strconv.Atoi(agentIDStr)
+	if err != nil || agentID <= 0 {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid agent_id"))
+		return
+	}
+
+	agents, err := h.repo.GetAgents(c.Request.Context())
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	butlerID := 0
+	for _, a := range agents {
+		if strings.EqualFold(a.Role, "BUTLER") {
+			butlerID = a.ID
+			break
+		}
+	}
+	if butlerID == 0 {
+		h.respondWithError(c, http.StatusNotFound, apperrors.New(apperrors.ErrNotFound, "butler not found"))
+		return
+	}
+
+	messages, err := h.repo.GetChatHistory(c.Request.Context(), butlerID, agentID, 200)
 	if err != nil {
 		h.respondWithError(c, http.StatusInternalServerError, err)
 		return
@@ -232,4 +416,89 @@ func (h *Handler) RegisterAgent(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, agent)
+}
+
+func (h *Handler) TestAgentConnection(c *gin.Context) {
+	var req struct {
+		APIToken string `json:"api_token"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid request body", err))
+		return
+	}
+
+	token := strings.TrimSpace(req.APIToken)
+	if token == "" {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "api_token is required"))
+		return
+	}
+
+	agent, err := h.repo.GetAgentByToken(c.Request.Context(), token)
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	if agent == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"ok":      false,
+			"message": "token is not registered to any agent",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"ok":         true,
+		"message":    "token accepted by backend",
+		"agent_id":   agent.ID,
+		"agent_name": agent.Username,
+	})
+}
+
+func (h *Handler) UpdateAgentToken(c *gin.Context) {
+	agentID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || agentID <= 0 {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid agent id"))
+		return
+	}
+
+	var req struct {
+		APIToken string `json:"api_token"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid request body", err))
+		return
+	}
+
+	if err := h.repo.UpdateAgentToken(c.Request.Context(), agentID, req.APIToken); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"ok":       true,
+		"message":  "agent token updated",
+		"agent_id": agentID,
+	})
+}
+
+func (h *Handler) withPresence(user models.User) models.User {
+	if h.hub == nil {
+		user.Status = "OFFLINE"
+		user.Online = false
+		user.LastReport = "websocket_disconnected"
+		return user
+	}
+	_, online := h.hub.GetClient(user.ID)
+	user.Online = online
+	if online {
+		user.Status = "ONLINE"
+		now := time.Now().UTC()
+		user.LastSeenAt = &now
+		user.LastReport = "websocket_connected"
+	} else {
+		user.Status = "OFFLINE"
+		user.LastReport = "websocket_disconnected"
+	}
+	return user
 }

@@ -5,12 +5,17 @@
 ## 1. 身份验证
 每个 Agent 必须拥有唯一的 `api_token`。
 
-- **现有 Agent**: 如果你使用了 Mock 数据种子，可以从数据库中查询 Token：
+- **现有 Agent**：
+  - 在本地 mock 模式下，可用管理员开发接口获取：
+    `GET /api/dev/mock/agent-token/:username`（仅非生产环境）。
+  - 或直接查库：
   ```bash
-  sqlite3 backend/echocenter.db "SELECT username, api_token FROM users WHERE role = 'AGENT';"
+  sqlite3 backend/data/echo_center.db "SELECT username, api_token FROM users WHERE role = 'AGENT';"
   ```
+  - 若使用 PostgreSQL，请在 `users`/`machine_credentials` 中查询对应字段。
 - **新 Agent**: 通过管理员 API 注册：
   `POST /api/users/agents`，提交 `{"username": "你的应用名称"}`。
+- **安全说明**：`GET /api/users/agents` 不会返回明文 `api_token`，只返回 `token_hint`。
 
 ## 2. 建立连接
 通过 WebSocket 连接到以下地址：
@@ -51,6 +56,11 @@
   "payload": "扫描完成，未发现威胁。"
 }
 ```
+
+为了兼顾流式体验与持久化，面向用户回复建议采用：
+1. 多条 `CHAT_STREAM` 分片
+2. 一条同 `stream_id` 的最终 `CHAT`
+3. 一条 `CHAT_STREAM_END`
 
 ## 4. 代码示例 (Python)
 ```python

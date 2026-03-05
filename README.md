@@ -31,7 +31,7 @@
 - **🌍 Bilingual UI**: Built-in English / Simplified Chinese language toggle for core admin and chat workflows.
 - **⚙️ Settings Workspace**: Unified admin area for agent operations (create/remove agent, token lifecycle) and integrations (Feishu routing configuration).
 - **📊 Interactive Dashboard**: Modern React-based UI for monitoring agent status and system-wide logs.
-- **🔒 Secure Architecture**: Mandatory JWT authentication and per-agent API tokens.
+- **🔒 Secure Architecture**: Mandatory JWT authentication, per-agent API tokens, and token-safe agent listing (`token_hint` only, no raw token exposure).
 - **📂 Flexible Persistence**: Full chat and command history stored in SQLite by default, with PostgreSQL enabled through `DB_DRIVER` + DSN/PG_* configuration.
 
 ## 🛠 Tech Stack
@@ -71,12 +71,24 @@ make install
 # DB_DRIVER=sqlite (default) or DB_DRIVER=postgres
 
 # 5. Launch with mock data and agents (recommended for first run)
-make mock-start
+make run-mock
 ```
 
 Run `make help` to see all available commands.
 
 The system will be available at `http://localhost:5173`. Default admin credentials: `admin` / `admin123`.
+
+### Quick Database Switch
+
+```bash
+# Default (SQLite)
+DB_DRIVER=sqlite make run-mock RESET=1
+
+# PostgreSQL (auto ensure/recreate database via backend/cmd/mockdb)
+DB_DRIVER=postgres make run-mock RESET=1
+```
+
+`run-mock-sqllite` and `run-mock-postgre` are kept as deprecated compatibility aliases.
 
 ## 📖 Documentation
 

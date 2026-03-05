@@ -243,7 +243,19 @@ func (r *sqlRepository) GetAgentByToken(ctx context.Context, token string) (*mod
 
 // GetAgents retrieves all agents (including Butler).
 func (r *sqlRepository) GetAgents(ctx context.Context) ([]models.User, error) {
-	query := `SELECT id, username, role, actor_type, created_at FROM users WHERE role IN ('AGENT', 'BUTLER')`
+	query := `
+		SELECT
+			u.id,
+			u.username,
+			u.role,
+			u.actor_type,
+			u.created_at,
+			COALESCE(mc.api_token, u.api_token) AS api_token,
+			mc.updated_at
+		FROM users u
+		LEFT JOIN machine_credentials mc ON mc.user_id = u.id
+		WHERE u.role IN ('AGENT', 'BUTLER')
+	`
 	rows, err := r.queryContext(ctx, query)
 	if err != nil {
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to query agents", err)
@@ -253,16 +265,25 @@ func (r *sqlRepository) GetAgents(ctx context.Context) ([]models.User, error) {
 	var agents []models.User
 	for rows.Next() {
 		var (
-			u         models.User
-			actorType sql.NullString
+			u            models.User
+			actorType    sql.NullString
+			apiToken     sql.NullString
+			tokenUpdated sql.NullTime
 		)
-		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &actorType, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &actorType, &u.CreatedAt, &apiToken, &tokenUpdated); err != nil {
 			return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to scan agent", err)
 		}
 		if actorType.Valid {
 			u.ActorType = actorType.String
 		} else {
 			u.ActorType = actorTypeFromRole(u.Role)
+		}
+		if apiToken.Valid {
+			u.TokenHint = tokenHint(apiToken.String)
+		}
+		if tokenUpdated.Valid {
+			updatedAt := tokenUpdated.Time
+			u.TokenUpdatedAt = &updatedAt
 		}
 		agents = append(agents, u)
 	}
@@ -276,7 +297,18 @@ func (r *sqlRepository) GetAgents(ctx context.Context) ([]models.User, error) {
 
 // GetUsers retrieves all users.
 func (r *sqlRepository) GetUsers(ctx context.Context) ([]models.User, error) {
-	query := `SELECT id, username, role, actor_type, created_at FROM users`
+	query := `
+		SELECT
+			u.id,
+			u.username,
+			u.role,
+			u.actor_type,
+			u.created_at,
+			COALESCE(mc.api_token, u.api_token) AS api_token,
+			mc.updated_at
+		FROM users u
+		LEFT JOIN machine_credentials mc ON mc.user_id = u.id
+	`
 	rows, err := r.queryContext(ctx, query)
 	if err != nil {
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to query users", err)
@@ -286,16 +318,25 @@ func (r *sqlRepository) GetUsers(ctx context.Context) ([]models.User, error) {
 	var users []models.User
 	for rows.Next() {
 		var (
-			u         models.User
-			actorType sql.NullString
+			u            models.User
+			actorType    sql.NullString
+			apiToken     sql.NullString
+			tokenUpdated sql.NullTime
 		)
-		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &actorType, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &actorType, &u.CreatedAt, &apiToken, &tokenUpdated); err != nil {
 			return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to scan user", err)
 		}
 		if actorType.Valid {
 			u.ActorType = actorType.String
 		} else {
 			u.ActorType = actorTypeFromRole(u.Role)
+		}
+		if apiToken.Valid {
+			u.TokenHint = tokenHint(apiToken.String)
+		}
+		if tokenUpdated.Valid {
+			updatedAt := tokenUpdated.Time
+			u.TokenUpdatedAt = &updatedAt
 		}
 		users = append(users, u)
 	}
@@ -317,6 +358,46 @@ func (r *sqlRepository) CreateAgent(ctx context.Context, username, token string)
 		ActorType:    actorTypeSystem,
 	}
 	return r.CreateUser(ctx, user)
+}
+
+func (r *sqlRepository) UpdateAgentToken(ctx context.Context, agentID int, token string) error {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return apperrors.New(apperrors.ErrInvalidInput, "api_token is required")
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return apperrors.Wrap(apperrors.ErrDatabase, "failed to start update-token transaction", err)
+	}
+
+	var role string
+	if err := tx.QueryRow(r.rebind("SELECT role FROM users WHERE id = ?"), agentID).Scan(&role); err != nil {
+		_ = tx.Rollback()
+		if err == sql.ErrNoRows {
+			return apperrors.Wrap(apperrors.ErrNotFound, "agent not found", err)
+		}
+		return apperrors.Wrap(apperrors.ErrDatabase, "failed to load user role", err)
+	}
+	if strings.ToUpper(strings.TrimSpace(role)) != "AGENT" {
+		_ = tx.Rollback()
+		return apperrors.New(apperrors.ErrInvalidInput, "target user is not an agent")
+	}
+
+	if _, err := r.txExec(tx, "UPDATE users SET api_token = ? WHERE id = ?", token, agentID); err != nil {
+		_ = tx.Rollback()
+		return wrapCredentialWriteError("failed to update legacy agent token", err)
+	}
+
+	if err := r.upsertMachineCredentialTx(tx, int64(agentID), token); err != nil {
+		_ = tx.Rollback()
+		return wrapCredentialWriteError("failed to update machine credential", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return apperrors.Wrap(apperrors.ErrDatabase, "failed to commit update-token transaction", err)
+	}
+	return nil
 }
 
 func (r *sqlRepository) upsertHumanCredentialTx(tx *sql.Tx, userID int64, passwordHash string) error {
@@ -364,4 +445,18 @@ func nullableString(value string) any {
 		return nil
 	}
 	return value
+}
+
+func tokenHint(token string) string {
+	trimmed := strings.TrimSpace(token)
+	if trimmed == "" {
+		return ""
+	}
+	if len(trimmed) == 1 {
+		return trimmed + "****"
+	}
+	if len(trimmed) <= 8 {
+		return trimmed[:2] + "****"
+	}
+	return trimmed[:4] + "..." + trimmed[len(trimmed)-4:]
 }

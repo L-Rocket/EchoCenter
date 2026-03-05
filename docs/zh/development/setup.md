@@ -75,7 +75,7 @@ make install
 make build
 
 # 使用 mock 数据和代理启动 (首次运行推荐)
-make mock-start
+make run-mock
 
 # 或者仅运行后端和前端 (开发模式)
 make dev
@@ -144,6 +144,10 @@ CORS_ALLOWED_HEADERS=Origin,Content-Type,Authorization
 CORS_MAX_AGE=86400
 ```
 
+PostgreSQL 的 mock 启动行为：
+- `DB_DRIVER=postgres` + `make run-mock` 会自动 ensure 目标数据库。
+- `DB_DRIVER=postgres` + `make run-mock RESET=1` 会在注入 mock 前先重建目标数据库。
+
 ### 4. 运行后端
 
 ```bash
@@ -205,8 +209,8 @@ python3 mock_agents/storage_custodian.py
 ### 使用 Makefile (推荐)
 
 ```bash
-# 使用 mock 数据和代理启动 (后端 + 数据初始化 + 代理 + 前端)
-make mock-start
+# 使用 mock 数据和代理启动（后端 + 数据初始化 + 代理 + 前端）
+make run-mock
 ```
 
 这个命令会：
@@ -223,7 +227,14 @@ make mock-start
 make run-mock RESET=0
 ```
 
-兼容别名命令：
+快速一次性切换驱动：
+
+```bash
+DB_DRIVER=sqlite make run-mock RESET=1
+DB_DRIVER=postgres make run-mock RESET=1
+```
+
+兼容别名（已废弃）：
 
 ```bash
 make run-mock-sqllite

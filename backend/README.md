@@ -23,3 +23,9 @@ If `DB_DSN` is empty, DSN is built from `PG_HOST`, `PG_PORT`, `PG_USER`, `PG_PAS
 `/api/dev/mock/*` endpoints are enabled only when `APP_ENV` is not `production`.
 
 When `DB_DRIVER=postgres`, `make run-mock` automatically ensures (or recreates when `RESET=1`) the target database before backend startup.
+
+## Mock Bootstrap Commands
+- `make run-mock` - unified entry, follows `.env` `DB_DRIVER` (or command-line override).
+- `DB_DRIVER=sqlite make run-mock RESET=1` - reset + run with SQLite.
+- `DB_DRIVER=postgres make run-mock RESET=1` - reset + run with PostgreSQL.
+- `make run-mock-sqllite` / `make run-mock-postgre` - deprecated compatibility aliases.

@@ -32,8 +32,10 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
   
   const { user, sendMessage, sendAuthResponse } = useAuth();
   const { tx } = useI18n();
-  const isThinking = useChatStore((state) => state.isThinking);
-  const setThinking = useChatStore((state) => state.setThinking);
+  const isPeerPending = useChatStore((state) =>
+    agent?.id ? Boolean(state.pendingByPeer[agent.id]) : false
+  );
+  const clearPeerPending = useChatStore((state) => state.clearPeerPending);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -118,12 +120,28 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
             </div>
           )}
 
-          {!isHistoryLoading && messages.length === 0 && (
+          {!isHistoryLoading && messages.length === 0 && !isPeerPending && (
             <div className="flex flex-col items-center justify-center py-20 text-center opacity-40">
               <div className="p-4 bg-muted rounded-full mb-4">
                 <Terminal className="h-8 w-8 text-muted-foreground" />
               </div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">{tx('Awaiting Transmission', '等待消息')}</p>
+            </div>
+          )}
+
+          {!isHistoryLoading && messages.length === 0 && isPeerPending && (
+            <div className="flex justify-start pt-4 animate-in fade-in slide-in-from-bottom-3 duration-500">
+              <div className="flex flex-col gap-2 w-full max-w-[260px]">
+                <div className="flex items-center gap-2 px-1">
+                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+                    {tx('Waiting Reply', '等待回复')}
+                  </span>
+                </div>
+                <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-primary w-1/3 animate-[progress_2s_ease-in-out_infinite] rounded-full shadow-[0_0_8px_rgba(79,70,229,0.4)]" />
+                </div>
+              </div>
             </div>
           )}
 
@@ -215,16 +233,16 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
             );
           })}
 
-          {isThinking && (
+          {isPeerPending && messages.length > 0 && (
             <div className="flex justify-start pt-2 animate-in fade-in slide-in-from-bottom-3 duration-500">
               <div className="flex flex-col gap-2 w-full max-w-[240px]">
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">{tx('Processing', '处理中')}</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">{tx('Waiting Reply', '等待回复')}</span>
                   </div>
                   <button 
-                    onClick={() => setThinking(false)}
+                    onClick={() => clearPeerPending(agent.id)}
                     className="group flex items-center gap-1 hover:bg-destructive/10 px-1.5 py-0.5 rounded transition-colors"
                   >
                     <span className="text-[8px] font-bold text-muted-foreground group-hover:text-destructive uppercase">{tx('Abort', '中止')}</span>

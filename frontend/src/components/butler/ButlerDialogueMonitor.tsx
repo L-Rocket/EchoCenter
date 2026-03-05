@@ -1,17 +1,15 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Bot, Loader2, RefreshCw, Search, Terminal } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Bot, Loader2, RefreshCw, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useI18n } from '@/hooks/useI18n';
+import { StatusIndicator } from '@/components/ui/status-indicator';
 import { cn } from '@/lib/utils';
 import { userService } from '@/services/userService';
-import { useChatStore } from '@/store/useChatStore';
 import type { Agent, ChatMessage } from '@/types';
 
-type DialogueSource = 'backend' | 'derived' | 'mock';
 type DialogueSpeaker = 'butler' | 'agent';
 
 interface DialogueEntry {
@@ -25,6 +23,12 @@ interface ButlerDialogueMonitorProps {
   butler: Agent;
   agents: Agent[];
   className?: string;
+}
+
+interface RuntimeStatusBadge {
+  variant: 'success' | 'info' | 'muted' | 'warning';
+  label: string;
+  pulse: boolean;
 }
 
 const MONITOR_TYPES = new Set(['CHAT', 'CHAT_STREAM', 'CHAT_STREAM_END']);
@@ -58,31 +62,13 @@ const mapToDialogueEntries = (messages: ChatMessage[], agentId: number): Dialogu
       };
     })
     .filter((entry): entry is DialogueEntry => Boolean(entry))
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-};
-
-const buildMockEntries = (agentName: string): DialogueEntry[] => {
-  const now = Date.now();
-  return [
-    {
-      id: `mock-${agentName}-1`,
-      speaker: 'agent',
-      content: `Telemetry for ${agentName} is stable. No critical alerts.`,
-      timestamp: new Date(now - 90 * 1000).toISOString(),
-    },
-    {
-      id: `mock-${agentName}-2`,
-      speaker: 'butler',
-      content: `Confirming routing policy and fallback path for ${agentName}.`,
-      timestamp: new Date(now - 3 * 60 * 1000).toISOString(),
-    },
-    {
-      id: `mock-${agentName}-3`,
-      speaker: 'agent',
-      content: 'Policy confirmed. Last command batch finished successfully.',
-      timestamp: new Date(now - 6 * 60 * 1000).toISOString(),
-    },
-  ];
+    .sort((a, b) => {
+      const at = new Date(a.timestamp).getTime();
+      const bt = new Date(b.timestamp).getTime();
+      if (Number.isNaN(at) || Number.isNaN(bt)) return 0;
+      if (at === bt) return a.id.localeCompare(b.id);
+      return at - bt;
+    });
 };
 
 const formatTime = (timestamp: string) => {
@@ -91,23 +77,66 @@ const formatTime = (timestamp: string) => {
   return date.toLocaleString();
 };
 
+const getRuntimeStatusBadge = (agent?: Agent | null): RuntimeStatusBadge => {
+  if (!agent) return { variant: 'warning', label: 'Unknown', pulse: false };
+  const status = String(agent.status || '').toUpperCase();
+  if (agent.online === true || status === 'ONLINE') {
+    return { variant: 'success', label: 'Online', pulse: true };
+  }
+  if (status === 'IDLE') {
+    return { variant: 'info', label: 'Idle', pulse: false };
+  }
+  if (agent.online === false || status === 'OFFLINE') {
+    return { variant: 'muted', label: 'Offline', pulse: false };
+  }
+  return { variant: 'warning', label: 'Unknown', pulse: false };
+};
+
 const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMonitorProps) => {
-  const { tx } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
   const [loadingAgentId, setLoadingAgentId] = useState<number | null>(null);
   const [dialogues, setDialogues] = useState<Record<number, DialogueEntry[]>>({});
-  const [sources, setSources] = useState<Record<number, DialogueSource>>({});
   const [notices, setNotices] = useState<Record<number, string>>({});
+  const [liveAgents, setLiveAgents] = useState<Agent[]>(agents);
 
-  const chatMessages = useChatStore((state) => state.messages);
+  useEffect(() => {
+    setLiveAgents(agents);
+  }, [agents]);
+
+  useEffect(() => {
+    let alive = true;
+
+    const refreshAgents = async () => {
+      try {
+        const data = await userService.getAgents();
+        if (!alive) return;
+        const agentList = (Array.isArray(data) ? data : []).filter(
+          (agent) => (agent.role || '').toUpperCase() !== 'BUTLER'
+        );
+        setLiveAgents(agentList);
+      } catch (_err) {
+        // Keep previous snapshot on transient fetch errors.
+      }
+    };
+
+    const interval = window.setInterval(() => {
+      if (!alive) return;
+      void refreshAgents();
+    }, 10000);
+
+    return () => {
+      alive = false;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   const monitorAgents = useMemo(() => {
-    return agents.filter((agent) => {
+    return liveAgents.filter((agent) => {
       const role = (agent.role || '').toUpperCase();
       return agent.id !== butler.id && role !== 'BUTLER';
     });
-  }, [agents, butler.id]);
+  }, [liveAgents, butler.id]);
 
   const filteredAgents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -122,56 +151,23 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
     return filteredAgents[0]?.id ?? null;
   }, [filteredAgents, selectedAgentId]);
 
-  const getFallbackConversation = useCallback(
-    (agent: Agent) => {
-      const localMessages = chatMessages[agent.id] || [];
-      const derived = mapToDialogueEntries(localMessages, agent.id);
-      if (derived.length > 0) {
-        return { entries: derived, source: 'derived' as DialogueSource, notice: '' };
-      }
-      return {
-        entries: buildMockEntries(agent.username || `Agent #${agent.id}`),
-        source: 'mock' as DialogueSource,
-        notice: tx(
-          'Backend monitor stream is not available yet. Showing simulated timeline.',
-          '后端监控流暂不可用，当前展示模拟时间线。'
-        ),
-      };
-    },
-    [chatMessages, tx]
-  );
-
   const loadConversation = useCallback(
     async (agent: Agent) => {
       setLoadingAgentId(agent.id);
-      let nextSource: DialogueSource = 'mock';
-      let entries: DialogueEntry[] = [];
-      let nextNotice = '';
 
       try {
         const backendMessages = await userService.getButlerAgentConversation(agent.id);
-        const mapped = mapToDialogueEntries(Array.isArray(backendMessages) ? backendMessages : [], agent.id);
-        if (mapped.length > 0) {
-          entries = mapped;
-          nextSource = 'backend';
-        }
+        const entries = mapToDialogueEntries(Array.isArray(backendMessages) ? backendMessages : [], agent.id);
+        setDialogues((prev) => ({ ...prev, [agent.id]: entries }));
+        setNotices((prev) => ({ ...prev, [agent.id]: '' }));
       } catch (_err) {
-        // backend endpoint not ready yet, fall back below
+        setDialogues((prev) => ({ ...prev, [agent.id]: [] }));
+        setNotices((prev) => ({ ...prev, [agent.id]: 'Failed to load monitor messages from backend.' }));
+      } finally {
+        setLoadingAgentId((prev) => (prev === agent.id ? null : prev));
       }
-
-      if (entries.length === 0) {
-        const fallback = getFallbackConversation(agent);
-        entries = fallback.entries;
-        nextSource = fallback.source;
-        nextNotice = fallback.notice;
-      }
-
-      setDialogues((prev) => ({ ...prev, [agent.id]: entries }));
-      setSources((prev) => ({ ...prev, [agent.id]: nextSource }));
-      setNotices((prev) => ({ ...prev, [agent.id]: nextNotice }));
-      setLoadingAgentId((prev) => (prev === agent.id ? null : prev));
     },
-    [getFallbackConversation]
+    []
   );
 
   const selectedAgent = useMemo(
@@ -179,25 +175,24 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
     [monitorAgents, activeAgentId]
   );
 
-  const fallbackSelected = useMemo(
-    () => (selectedAgent ? getFallbackConversation(selectedAgent) : null),
-    [selectedAgent, getFallbackConversation]
-  );
+  useEffect(() => {
+    if (!selectedAgent) return;
+    if (dialogues[selectedAgent.id]) return;
+    void loadConversation(selectedAgent);
+  }, [selectedAgent, dialogues, loadConversation]);
 
-  const selectedEntries = selectedAgent ? dialogues[selectedAgent.id] || fallbackSelected?.entries || [] : [];
-  const selectedSource = selectedAgent ? sources[selectedAgent.id] || fallbackSelected?.source : undefined;
-  const selectedNotice = selectedAgent ? notices[selectedAgent.id] ?? fallbackSelected?.notice ?? '' : '';
+  const selectedEntries = selectedAgent ? dialogues[selectedAgent.id] || [] : [];
+  const selectedNotice = selectedAgent ? notices[selectedAgent.id] ?? '' : '';
   const isLoading = selectedAgent ? loadingAgentId === selectedAgent.id : false;
+  const selectedRuntimeBadge = getRuntimeStatusBadge(selectedAgent);
 
   return (
     <Card className={cn('overflow-hidden py-0 gap-0', className)}>
       <CardHeader className="border-b px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <CardTitle className="text-sm font-bold uppercase tracking-wider">{tx('Agent Dialogue Monitor', 'agent 对话监控')}</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {tx('Observe Butler to Agent execution conversations.', '查看 Butler 与 agent 之间的执行对话。')}
-            </p>
+            <CardTitle className="text-sm font-bold uppercase tracking-wider">Agent Dialogue Monitor</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">Observe Butler to Agent execution conversations.</p>
           </div>
           <Button
             type="button"
@@ -211,7 +206,7 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
             disabled={!selectedAgent || isLoading}
           >
             {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            {tx('Refresh', '刷新')}
+            Refresh
           </Button>
         </div>
       </CardHeader>
@@ -225,7 +220,7 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={tx('Search agents', '搜索 agent')}
+                  placeholder="Search agents"
                   className="h-8 pl-8 text-xs"
                 />
               </div>
@@ -235,6 +230,7 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
               <div className="divide-y">
                 {filteredAgents.map((agent) => {
                   const isActive = agent.id === activeAgentId;
+                  const runtimeBadge = getRuntimeStatusBadge(agent);
                   return (
                     <button
                       key={agent.id}
@@ -248,13 +244,21 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                         isActive ? 'bg-primary/10 text-primary' : 'hover:bg-muted/60'
                       )}
                     >
-                      <p className="truncate text-xs font-semibold">{agent.username}</p>
-                      <p className="mt-0.5 text-[10px] text-muted-foreground">{tx(`Agent #${agent.id}`, `agent #${agent.id}`)}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-xs font-semibold">{agent.username}</p>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <StatusIndicator variant={runtimeBadge.variant} pulse={runtimeBadge.pulse} className="h-1.5 w-1.5" />
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                            {runtimeBadge.label}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">Agent #{agent.id}</p>
                     </button>
                   );
                 })}
                 {filteredAgents.length === 0 && (
-                  <div className="p-4 text-center text-xs text-muted-foreground">{tx('No agents available.', '暂无可用 agent。')}</div>
+                  <div className="p-4 text-center text-xs text-muted-foreground">No agents available.</div>
                 )}
               </div>
             </ScrollArea>
@@ -268,23 +272,19 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-sm font-bold tracking-tight truncate">
-                    {selectedAgent ? `${butler.username} ${tx('and', '与')} ${selectedAgent.username}` : tx('No agent selected', '未选择 agent')}
+                    {selectedAgent ? `${butler.username} and ${selectedAgent.username}` : 'No agent selected'}
                   </h3>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] animate-pulse" />
+                    <StatusIndicator variant={selectedRuntimeBadge.variant} pulse={selectedRuntimeBadge.pulse} className="h-1.5 w-1.5" />
                     <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      {tx('Monitor Feed', '监控流')}
+                      {selectedAgent ? `Agent ${selectedRuntimeBadge.label}` : 'Monitor Feed'}
                     </span>
                   </div>
                 </div>
               </div>
-              {selectedSource && (
+              {selectedAgent && (
                 <Badge variant="outline" className="text-[10px] uppercase tracking-wider shrink-0">
-                  {selectedSource === 'backend'
-                    ? tx('Backend', '后端')
-                    : selectedSource === 'derived'
-                      ? tx('Local Derived', '本地推导')
-                      : tx('Mock Fallback', '模拟回退')}
+                  Backend
                 </Badge>
               )}
             </header>
@@ -301,18 +301,15 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                   <div className="flex justify-center py-6">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      {tx('Syncing monitor stream...', '同步监控流中...')}
+                      Syncing monitor stream...
                     </div>
                   </div>
                 )}
 
                 {!isLoading && selectedEntries.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-16 text-center opacity-40">
-                    <div className="p-4 bg-muted rounded-full mb-4">
-                      <Terminal className="h-8 w-8 text-muted-foreground" />
-                    </div>
+                  <div className="flex flex-col items-center justify-center py-16 text-center opacity-50">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                      {tx('No Monitor Messages', '暂无监控消息')}
+                      No Monitor Messages
                     </p>
                   </div>
                 )}
@@ -334,7 +331,7 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                             {entry.content}
                           </div>
                           <span className="text-[9px] text-muted-foreground mt-1 px-1 font-bold uppercase tracking-tighter">
-                            {`${isAgent ? tx('Agent', 'agent') : 'Butler'} · ${formatTime(entry.timestamp)}`}
+                            {`${isAgent ? 'Agent' : 'Butler'} · ${formatTime(entry.timestamp)}`}
                           </span>
                         </div>
                       </div>
@@ -347,10 +344,10 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
               <div className="max-w-3xl mx-auto">
                 <div className="h-10 rounded-xl border bg-muted/50 px-3 flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    {tx('Read-Only Monitor Mode', '只读监控模式')}
+                    Read-Only Monitor Mode
                   </span>
                   <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
-                    {tx('No Input', '不可输入')}
+                    No Input
                   </Badge>
                 </div>
               </div>

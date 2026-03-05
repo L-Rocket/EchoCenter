@@ -4,292 +4,100 @@ outline: deep
 
 # WebSocket Communication
 
-## Overview
-
-EchoCenter uses WebSocket for real-time bidirectional communication. All agents and the frontend connect to the backend through WebSocket.
-
 ## Connection
 
-### Connection Address
-
-```
-ws://localhost:8080/api/ws?token=your_jwt_token
+```text
+ws://localhost:8080/api/ws?token=<jwt_token>
 ```
 
-### Connection Parameters
+- `token` is required.
+- The backend authenticates JWT before registering the client.
 
-- `token` - JWT Token (Required)
-
-### Connection Flow
-
-```
-1. Client connects to the WebSocket server.
-2. Server validates the JWT token.
-3. Server registers the client.
-4. Client starts sending/receiving messages.
-```
-
-## Message Types
-
-### 1. SYSTEM_LOG
-
-System log messages:
+## Message Envelope
 
 ```json
 {
-  "type": "SYSTEM_LOG",
-  "sender_id": 1,
-  "sender_name": "admin",
-  "sender_role": "ADMIN",
-  "payload": {
-    "level": "SUCCESS",
-    "content": "System initialized"
-  }
-}
-```
-
-### 2. CHAT
-
-Chat messages:
-
-```json
-{
+  "id": 123,
+  "local_id": "uuid",
   "type": "CHAT",
   "sender_id": 1,
   "sender_name": "admin",
   "sender_role": "ADMIN",
-  "target_id": 2,
-  "payload": "Hello, Butler!",
-  "timestamp": "2024-01-01T00:00:00Z"
+  "target_id": 7,
+  "payload": "hello",
+  "timestamp": "2026-03-05T21:42:08Z",
+  "stream_id": "stream_abc"
 }
 ```
 
-### 3. AUTH_REQUEST
+## Server-supported Types
 
-Authorization request:
+- `SYSTEM_LOG`
+- `CHAT`
+- `CHAT_STREAM`
+- `CHAT_STREAM_END`
+- `AUTH_REQUEST`
+- `AUTH_RESPONSE`
+- `AUTH_STATUS_UPDATE`
+- `BUTLER_AGENT_MESSAGE` (monitor event)
 
-```json
-{
-  "type": "AUTH_REQUEST",
-  "sender_id": 2,
-  "sender_name": "Butler",
-  "sender_role": "BUTLER",
-  "target_id": 1,
-  "payload": {
-    "action_id": "cmd_123",
-    "command": "ls -la",
-    "description": "List files in current directory"
-  }
-}
-```
+## Routing Rules
 
-### 4. AUTH_RESPONSE
+### Targeted Delivery
 
-Authorization response:
+If `target_id` is set, the hub routes to that specific client.
 
-```json
-{
-  "type": "AUTH_RESPONSE",
-  "sender_id": 1,
-  "sender_name": "admin",
-  "sender_role": "ADMIN",
-  "target_id": 2,
-  "payload": {
-    "action_id": "cmd_123",
-    "approved": true,
-    "message": "Approved by admin"
-  }
-}
-```
+### Sender Echo for `CHAT*`
 
-### 5. AGENT_RESPONSE
+For `CHAT`, `CHAT_STREAM`, `CHAT_STREAM_END`, sender echo is enabled only for human senders.
 
-Agent response:
+- Echo enabled: `ADMIN`, `MEMBER` (or other human roles)
+- Echo disabled: `AGENT`, `BUTLER`
 
-```json
-{
-  "type": "AGENT_RESPONSE",
-  "sender_id": 7,
-  "sender_name": "Storage-Custodian",
-  "sender_role": "AGENT",
-  "target_id": 2,
-  "payload": {
-    "action_id": "cmd_123",
-    "stream_id": "stream_456",
-    "response": "file1.txt\nfile2.txt",
-    "is_complete": true
-  }
-}
-```
+This prevents agent self-loop recursion.
 
-## Message Format
+### Broadcast
 
-### General Format
+If `target_id` is missing/zero, message is broadcast to all connected clients.
 
-```json
-{
-  "type": "MESSAGE_TYPE",
-  "sender_id": 1,
-  "sender_name": "sender_name",
-  "sender_role": "ADMIN|BUTLER|AGENT",
-  "target_id": 2,
-  "payload": {},
-  "timestamp": "2024-01-01T00:00:00Z"
-}
-```
+## Butler-Agent Monitor Events
 
-### Field Description
+Backend emits `BUTLER_AGENT_MESSAGE` when Butler and an agent exchange `CHAT`.
 
-| Field | Type | Required | Description |
-|------|------|----------|-------------|
-| type | string | Yes | Message type |
-| sender_id | integer | Yes | Sender ID |
-| sender_name | string | Yes | Sender name |
-| sender_role | string | Yes | Sender role |
-| target_id | integer | No | Target ID |
-| payload | object | Yes | Message payload |
-| timestamp | string | Yes | Timestamp |
+- Event payload includes `agent_id`, `sender_role`, `payload`, `timestamp`.
+- Events are targeted to authorized recipients (admin users), not broadcast globally.
 
-## Hub Management
+## Agent Implementation Notes
 
-### Connection Management
+### Recommended Reply Pattern
 
-```go
-type Hub struct {
-    connections map[*Connection]bool
-    register    chan *Connection
-    unregister  chan *Connection
-    messages    chan *Message
-}
-```
+When handling user-originated requests:
+1. send `CHAT_STREAM` chunks
+2. send final `CHAT` with the same `stream_id` (for persistence)
+3. send `CHAT_STREAM_END`
 
-### Message Distribution
+When handling Butler-originated requests, a single final `CHAT` is acceptable.
 
-```go
-func (h *Hub) run() {
-    for {
-        select {
-        case conn := <-h.register:
-            h.connections[conn] = true
-        case conn := <-h.unregister:
-            if _, ok := h.connections[conn]; ok {
-                delete(h.connections, conn)
-                close(conn.send)
-            }
-        case msg := <-h.messages:
-            for conn := range h.connections {
-                select {
-                case conn.send <- msg:
-                default:
-                    delete(h.connections, conn)
-                    close(conn.send)
-                }
-            }
-        }
-    }
-}
-```
-
-## Agent Connection
-
-### Connection Example
+### Python Skeleton
 
 ```python
 import asyncio
-import websockets
 import json
+import websockets
 
-async def agent_loop(api_token):
-    uri = f"ws://localhost:8080/api/ws?token={api_token}"
+async def agent_loop(token: str):
+    uri = f"ws://localhost:8080/api/ws?token={token}"
     async with websockets.connect(uri) as ws:
-        # Send message
-        await ws.send(json.dumps({
-            "type": "SYSTEM_LOG",
-            "sender_id": 7,
-            "sender_name": "Storage-Custodian",
-            "sender_role": "AGENT",
-            "payload": {
-                "level": "SUCCESS",
-                "content": "Agent connected"
-            }
-        }))
-        
-        # Receive message
-        async for message in ws:
-            msg = json.loads(message)
-            await handle_message(msg)
+        async for raw in ws:
+            msg = json.loads(raw)
+            if msg.get("type") != "CHAT":
+                continue
+            sender_id = msg["sender_id"]
+            stream_id = msg.get("stream_id", "stream_fallback")
+            await ws.send(json.dumps({
+                "type": "CHAT",
+                "target_id": sender_id,
+                "stream_id": stream_id,
+                "payload": "done"
+            }))
 ```
-
-## Frontend Connection
-
-### Connection Example
-
-```javascript
-const token = localStorage.getItem('token')
-const ws = new WebSocket(`ws://localhost:8080/api/ws?token=${token}`)
-
-ws.onopen = () => {
-  console.log('Connected to WebSocket')
-}
-
-ws.onmessage = (event) => {
-  const msg = JSON.parse(event.data)
-  handleMessage(msg)
-}
-
-ws.onclose = () => {
-  console.log('Disconnected from WebSocket')
-}
-
-ws.onerror = (error) => {
-  console.error('WebSocket error:', error)
-}
-```
-
-## Error Handling
-
-### Connection Error
-
-```json
-{
-  "type": "ERROR",
-  "payload": {
-    "code": "INVALID_TOKEN",
-    "message": "Invalid JWT token"
-  }
-}
-```
-
-### Message Error
-
-```json
-{
-  "type": "ERROR",
-  "payload": {
-    "code": "INVALID_MESSAGE",
-    "message": "Invalid message format"
-  }
-}
-```
-
-## Best Practices
-
-### 1. Connection Management
-- Maintain connection.
-- Reconnection mechanism.
-- Heartbeat detection.
-
-### 2. Message Processing
-- Asynchronous processing.
-- Error handling.
-- Logging.
-
-### 3. Security
-- Use HTTPS.
-- Token validation.
-- Input validation.
-
-### 4. Performance
-- Connection pool.
-- Message queue.
-- Concurrent processing.
