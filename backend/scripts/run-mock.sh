@@ -18,6 +18,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_DIR="$(dirname "$BACKEND_DIR")"
 FRONTEND_DIR="$PROJECT_DIR/frontend"
+LOG_DIR="$BACKEND_DIR/logs"
+BACKEND_LOG_FILE="$LOG_DIR/run-mock-backend.log"
 DB_DRIVER_OVERRIDE="${DB_DRIVER_OVERRIDE:-${DB_DRIVER:-}}"
 
 if [ -f "$BACKEND_DIR/.env" ]; then
@@ -47,9 +49,11 @@ fi
 echo "Project directory: $PROJECT_DIR"
 echo "Database driver: $DB_DRIVER"
 echo "RESET mode: $RESET"
+echo "Backend log file: $BACKEND_LOG_FILE"
 
 export GOCACHE="${GOCACHE:-$BACKEND_DIR/.cache/go-build}"
 mkdir -p "$GOCACHE"
+mkdir -p "$LOG_DIR"
 
 echo -e "${YELLOW}[1/5] Cleaning environment...${NC}"
 lsof -ti:8080 | xargs kill -9 2>/dev/null || true
@@ -72,9 +76,10 @@ fi
 echo -e "${YELLOW}[2/5] Starting backend service...${NC}"
 cd "$BACKEND_DIR"
 go build -o bin/server ./cmd/server
-./bin/server &
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] run-mock start" >> "$BACKEND_LOG_FILE"
+./bin/server >> "$BACKEND_LOG_FILE" 2>&1 &
 BACKEND_PID=$!
-echo -e "${GREEN}  Backend started (PID: $BACKEND_PID)${NC}"
+echo -e "${GREEN}  Backend started (PID: $BACKEND_PID, log: $BACKEND_LOG_FILE)${NC}"
 
 echo "  Waiting backend initialization..."
 sleep 5
