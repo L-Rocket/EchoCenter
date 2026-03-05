@@ -54,6 +54,61 @@ Last updated: 2026-03-05
 - Purpose: update Butler monitor timeline in real time without polling.
 - Current frontend fallback: manual refresh + local chat-store derived timeline + mock seed.
 
+## Feishu Integration APIs (New)
+
+11. Read Feishu connector config
+- Suggested: `GET /api/integrations/feishu`
+- Purpose: hydrate Team > Integrations page with persisted connector fields.
+- Response contract (recommended):
+  - `id`, `connector_name`, `enabled`, `status`
+  - `app_id`, `verification_token`, `encrypt_key` (secret fields can return masked value + `has_secret`)
+  - `allow_dm`, `allow_group_mention`, `mention_required`, `prefix_command`, `ignore_bot_messages`, `rate_limit_per_minute`
+  - `allowed_chat_ids[]`, `user_whitelist[]`
+  - `callback_url`, `callback_verified`, `last_verified_at`
+- Frontend note: status badge uses `not_connected | connecting | connected | error`.
+
+12. Save Feishu connector draft
+- Suggested: `POST /api/integrations/feishu` (create) and `PATCH /api/integrations/feishu/:id` (update)
+- Purpose: persist form data even if callback is not verified yet.
+- Validation notes:
+  - allow saving draft without enable.
+  - do not echo plaintext secret back in response.
+  - keep unknown fields ignored (forward-compatible).
+
+13. Verify Feishu callback endpoint
+- Suggested: `POST /api/integrations/feishu/:id/verify-callback`
+- Purpose: active probe for callback URL + token/key correctness before enabling.
+- Response contract (recommended): `{ ok: boolean, message: string, verified_at?: string }`.
+- Frontend behavior: `Save & Enable` is blocked until `ok === true`.
+
+14. Send Feishu test message
+- Suggested: `POST /api/integrations/feishu/:id/test-message`
+- Purpose: validate outbound delivery and routing into Butler pipeline.
+- Request example: `{ target_chat_id?: string, text?: string }`
+- Response contract (recommended): `{ ok: boolean, message: string, trace_id?: string }`.
+
+15. Enable/disable connector
+- Suggested: `PATCH /api/integrations/feishu/:id/enable` with `{ enabled: boolean }`
+- Purpose: explicit runtime switch without rewriting full config.
+- Validation notes:
+  - enabling requires callback verified.
+  - disabling should be immediate and idempotent.
+
+16. Connector logs for UI timeline
+- Suggested: `GET /api/integrations/feishu/:id/logs?cursor=&limit=20`
+- Purpose: power "Test & Logs" table in frontend.
+- Response contract (recommended):
+  - list item: `{ id, level, action, detail, timestamp }`
+  - cursor-based pagination.
+
+17. Feishu inbound event bridge to Butler
+- Suggested: backend should consume Feishu webhook events and normalize into chat events routed to Butler conversation flow.
+- Purpose: allow users to talk to Butler directly from Feishu DM/group mentions.
+- Mapping notes:
+  - preserve source metadata (`feishu_user_id`, `chat_id`, `message_id`, `is_group`, `mentioned`).
+  - de-duplicate by Feishu message id.
+  - apply scope rules from connector config before routing.
+
 ## Notes
 
 - Current frontend branch already supports separate Butler page (`/butler`) and excludes Butler from Agents UI.
