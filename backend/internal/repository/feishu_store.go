@@ -265,6 +265,24 @@ func (r *sqlRepository) RegisterFeishuInboundMessage(ctx context.Context, connec
 	return true, nil
 }
 
+func (r *sqlRepository) GetLatestFeishuInboundTarget(ctx context.Context, connectorID int) (string, string, error) {
+	query := `
+		SELECT chat_id, feishu_user_id
+		FROM feishu_inbound_events
+		WHERE connector_id = ?
+		ORDER BY id DESC
+		LIMIT 1
+	`
+	var chatID, feishuUserID string
+	if err := r.queryRowContext(ctx, query, connectorID).Scan(&chatID, &feishuUserID); err != nil {
+		if err == sql.ErrNoRows {
+			return "", "", nil
+		}
+		return "", "", apperrors.Wrap(apperrors.ErrDatabase, "failed to query latest feishu inbound target", err)
+	}
+	return strings.TrimSpace(chatID), strings.TrimSpace(feishuUserID), nil
+}
+
 func (r *sqlRepository) getFeishuConnectorByID(ctx context.Context, id int) (*models.FeishuConnector, error) {
 	query := `
 		SELECT

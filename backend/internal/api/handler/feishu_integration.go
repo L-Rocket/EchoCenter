@@ -129,6 +129,13 @@ func (h *Handler) VerifyFeishuCallback(c *gin.Context) {
 	}
 	_ = h.repo.AppendFeishuIntegrationLog(c.Request.Context(), id, "success", "verify_callback", "Callback verification succeeded")
 
+	// After successful verification, ask Butler to send a short greeting.
+	if svc := butler.GetButler(); svc != nil {
+		if adminID, lookupErr := h.ensureFeishuBridgeUser(c.Request.Context(), ""); lookupErr == nil {
+			go svc.HandleUserMessage(context.Background(), adminID, "请用一句话确认飞书连接验证成功，并向管理员打个招呼。")
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"ok":          true,
 		"message":     "callback verified",

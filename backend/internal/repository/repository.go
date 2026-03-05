@@ -49,6 +49,7 @@ type IntegrationRepository interface {
 	AppendFeishuIntegrationLog(ctx context.Context, connectorID int, level, action, detail string) error
 	ListFeishuIntegrationLogs(ctx context.Context, connectorID int, cursor string, limit int) ([]models.IntegrationLog, string, error)
 	RegisterFeishuInboundMessage(ctx context.Context, connectorID int, messageID, chatID, feishuUserID, rawPayload string) (bool, error)
+	GetLatestFeishuInboundTarget(ctx context.Context, connectorID int) (chatID string, feishuUserID string, err error)
 }
 
 // BootstrapRepository manages startup/bootstrap data preparation.

@@ -167,6 +167,9 @@ func (s *ButlerService) persistAndBroadcastChat(ctx context.Context, senderID in
 		"payload":     chatMsg.Payload,
 		"timestamp":   chatMsg.Timestamp.Format(time.RFC3339Nano),
 	})
+
+	// Best-effort outbound relay: mirror Butler reply into Feishu when admin is the receiver.
+	go s.forwardButlerReplyToFeishu(context.Background(), chatMsg.ReceiverID, content)
 }
 
 func (s *ButlerService) broadcastStreamChunk(senderID int, streamID, chunk string) {
