@@ -552,6 +552,7 @@ const UserManagement = () => {
 
               {paginatedAgents.map((agent) => {
                 const tokenValue = (tokenDrafts[agent.id] ?? agent.api_token ?? '').trim();
+                const tokenDisplay = tokenValue || (agent.token_hint ?? '').trim();
                 const runtimeBadge = getRuntimeStatusBadge(agent);
 
                 return (
@@ -563,7 +564,7 @@ const UserManagement = () => {
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 min-w-0">
-                        <p className="text-sm font-mono truncate">{maskToken(tokenValue)}</p>
+                        <p className="text-sm font-mono truncate">{maskToken(tokenDisplay)}</p>
                         <Button
                           type="button"
                           variant="outline"

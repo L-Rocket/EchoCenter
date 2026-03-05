@@ -224,7 +224,7 @@ func (h *Handler) GetAgents(c *gin.Context) {
 			}
 		}
 		secured := h.withPresence(agent)
-		secured.APIToken = ""
+		secured = secureUserToken(secured)
 		filtered = append(filtered, secured)
 	}
 
@@ -258,7 +258,7 @@ func (h *Handler) GetButler(c *gin.Context) {
 	for _, user := range agents {
 		if strings.EqualFold(user.Role, "BUTLER") {
 			secured := h.withPresence(user)
-			secured.APIToken = ""
+			secured = secureUserToken(secured)
 			c.JSON(http.StatusOK, secured)
 			return
 		}
@@ -501,4 +501,23 @@ func (h *Handler) withPresence(user models.User) models.User {
 		user.LastReport = "websocket_disconnected"
 	}
 	return user
+}
+
+func secureUserToken(user models.User) models.User {
+	token := strings.TrimSpace(user.APIToken)
+	if token != "" {
+		user.TokenHint = maskTokenHint(token)
+	}
+	user.APIToken = ""
+	return user
+}
+
+func maskTokenHint(token string) string {
+	if token == "" {
+		return ""
+	}
+	if len(token) <= 8 {
+		return "configured"
+	}
+	return token[:4] + strings.Repeat("*", len(token)-8) + token[len(token)-4:]
 }
