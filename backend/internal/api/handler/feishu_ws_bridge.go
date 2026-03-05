@@ -547,6 +547,23 @@ func (h *Handler) handleFeishuAuthDecisionCard(ctx context.Context, event *larkc
 		}, nil
 	}
 
+	decisionText := "已拒绝"
+	decisionTemplate := "red"
+	toastText := "已拒绝执行"
+	if approved {
+		decisionText = "已批准"
+		decisionTemplate = "green"
+		toastText = "已批准，开始执行"
+	}
+
+	if !butler.HasPendingCommand(actionID) {
+		alreadyCard := buildFeishuAuthDecisionResultCard(actionID, decisionText+"（已处理）", decisionTemplate, event)
+		return &larkcallback.CardActionTriggerResponse{
+			Toast: &larkcallback.Toast{Type: "info", Content: "该授权已处理"},
+			Card:  &larkcallback.Card{Type: "raw", Data: alreadyCard},
+		}, nil
+	}
+
 	svc := butler.GetButler()
 	if svc == nil {
 		return &larkcallback.CardActionTriggerResponse{
@@ -562,10 +579,6 @@ func (h *Handler) handleFeishuAuthDecisionCard(ctx context.Context, event *larkc
 	}
 	go svc.ExecutePendingCommand(context.Background(), actionID, adminID, approved)
 
-	toast := "已拒绝执行"
-	if approved {
-		toast = "已批准，开始执行"
-	}
 	decision := "rejected"
 	if approved {
 		decision = "approved"
@@ -574,11 +587,43 @@ func (h *Handler) handleFeishuAuthDecisionCard(ctx context.Context, event *larkc
 		_ = h.repo.AppendFeishuIntegrationLog(ctx, connector.ID, "success", "ws_auth_card_decision", fmt.Sprintf("action_id=%s decision=%s", actionID, decision))
 	}
 
-	// NOTE: For card.action.trigger callbacks, returning toast-only is the most robust shape.
-	// Some Feishu tenants reject card update payloads with 200340 when schema mismatches.
+	resultCard := buildFeishuAuthDecisionResultCard(actionID, decisionText, decisionTemplate, event)
 	return &larkcallback.CardActionTriggerResponse{
-		Toast: &larkcallback.Toast{Type: "success", Content: toast},
+		Toast: &larkcallback.Toast{Type: "success", Content: toastText},
+		Card:  &larkcallback.Card{Type: "raw", Data: resultCard},
 	}, nil
+}
+
+func buildFeishuAuthDecisionResultCard(actionID, decisionText, headerTemplate string, event *larkcallback.CardActionTriggerEvent) map[string]any {
+	operator := ""
+	if event != nil && event.Event != nil && event.Event.Operator != nil {
+		operator = strings.TrimSpace(event.Event.Operator.OpenID)
+	}
+	content := fmt.Sprintf("请求 `%s` %s。", actionID, decisionText)
+	if operator != "" {
+		content += fmt.Sprintf("\n处理人: `%s`", operator)
+	}
+	content += fmt.Sprintf("\n处理时间: %s", time.Now().Format("2006-01-02 15:04:05"))
+
+	return map[string]any{
+		"config": map[string]any{
+			"wide_screen_mode": true,
+			"update_multi":     true,
+		},
+		"header": map[string]any{
+			"template": headerTemplate,
+			"title": map[string]any{
+				"tag":     "plain_text",
+				"content": "授权结果",
+			},
+		},
+		"elements": []any{
+			map[string]any{
+				"tag":     "markdown",
+				"content": content,
+			},
+		},
+	}
 }
 
 func stringFromAny(v any) string {

@@ -252,6 +252,14 @@ func popPendingCommand(streamID string) (*ChatStreamResult, bool) {
 	return result, exists
 }
 
+// HasPendingCommand checks whether a command is still awaiting authorization.
+func HasPendingCommand(streamID string) bool {
+	pendingCommandsMu.RLock()
+	defer pendingCommandsMu.RUnlock()
+	_, ok := pendingCommands[streamID]
+	return ok
+}
+
 func parseTargetAgentID(value any) int {
 	switch v := value.(type) {
 	case float64:
