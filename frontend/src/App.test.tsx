@@ -5,7 +5,9 @@ import App from './App';
 describe('App Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.clear();
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('vite-ui-theme');
   });
 
   it('renders login page when not authenticated', async () => {
