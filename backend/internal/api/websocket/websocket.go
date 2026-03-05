@@ -41,6 +41,7 @@ const (
 	MessageTypeAuthRequest      MessageType = "AUTH_REQUEST"
 	MessageTypeAuthResponse     MessageType = "AUTH_RESPONSE"
 	MessageTypeAuthStatusUpdate MessageType = "AUTH_STATUS_UPDATE"
+	MessageTypeButlerAgent      MessageType = "BUTLER_AGENT_MESSAGE"
 )
 
 // Message represents a WebSocket message

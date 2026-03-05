@@ -208,6 +208,88 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 	}
 }
 
+type userLookupRepository interface {
+	GetUserByID(ctx context.Context, id int) (*models.User, error)
+}
+
+// ButlerAgentMonitorHandler emits monitor events for Butler<->Agent CHAT traffic.
+type ButlerAgentMonitorHandler struct {
+	repo userLookupRepository
+	emit func(any)
+}
+
+// NewButlerAgentMonitorHandler creates a monitor stream handler.
+func NewButlerAgentMonitorHandler(repo userLookupRepository) *ButlerAgentMonitorHandler {
+	return &ButlerAgentMonitorHandler{repo: repo}
+}
+
+// SetEmitter wires a broadcast sink (typically hub.BroadcastGeneric).
+func (h *ButlerAgentMonitorHandler) SetEmitter(emit func(any)) {
+	h.emit = emit
+}
+
+// HandleMessage emits BUTLER_AGENT_MESSAGE when Butler and Agent exchange CHAT messages.
+func (h *ButlerAgentMonitorHandler) HandleMessage(ctx context.Context, msg *Message) {
+	if msg == nil || msg.Type != MessageTypeChat || msg.TargetID == 0 || h.repo == nil || h.emit == nil {
+		return
+	}
+
+	sender, err := h.repo.GetUserByID(ctx, msg.SenderID)
+	if err != nil || sender == nil {
+		return
+	}
+	receiver, err := h.repo.GetUserByID(ctx, msg.TargetID)
+	if err != nil || receiver == nil {
+		return
+	}
+
+	if !isButlerAgentPair(sender, receiver) {
+		return
+	}
+
+	agentID := sender.ID
+	if strings.EqualFold(sender.Role, "BUTLER") {
+		agentID = receiver.ID
+	}
+
+	senderRole := strings.ToUpper(strings.TrimSpace(msg.SenderRole))
+	if senderRole == "" {
+		senderRole = strings.ToUpper(strings.TrimSpace(sender.Role))
+	}
+
+	senderName := strings.TrimSpace(msg.SenderName)
+	if senderName == "" {
+		senderName = sender.Username
+	}
+
+	timestamp := strings.TrimSpace(msg.Timestamp)
+	if timestamp == "" {
+		timestamp = time.Now().Format(time.RFC3339Nano)
+	}
+
+	payload := map[string]any{
+		"agent_id":    agentID,
+		"type":        string(msg.Type),
+		"sender_id":   msg.SenderID,
+		"sender_role": senderRole,
+		"sender_name": senderName,
+		"payload":     msg.Payload,
+		"timestamp":   timestamp,
+	}
+	if msg.ID > 0 {
+		payload["id"] = msg.ID
+	}
+
+	h.emit(map[string]any{
+		"type":        string(MessageTypeButlerAgent),
+		"sender_id":   msg.SenderID,
+		"sender_name": senderName,
+		"sender_role": senderRole,
+		"payload":     payload,
+		"timestamp":   timestamp,
+	})
+}
+
 // CompositeHandler combines multiple handlers
 type CompositeHandler struct {
 	handlers []MessageHandler
@@ -268,6 +350,14 @@ func isHumanActor(user *models.User) bool {
 func isSystemRole(role string) bool {
 	normalized := strings.ToUpper(strings.TrimSpace(role))
 	return normalized == "AGENT" || normalized == "BUTLER"
+}
+
+func isButlerAgentPair(sender, receiver *models.User) bool {
+	if sender == nil || receiver == nil {
+		return false
+	}
+	return (strings.EqualFold(sender.Role, "BUTLER") && strings.EqualFold(receiver.Role, "AGENT")) ||
+		(strings.EqualFold(sender.Role, "AGENT") && strings.EqualFold(receiver.Role, "BUTLER"))
 }
 
 // TimeoutContext wraps a context with a timeout for handler execution

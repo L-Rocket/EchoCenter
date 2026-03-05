@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"context"
 	"testing"
 
 	"github.com/lea/echocenter/backend/internal/models"
@@ -56,5 +57,85 @@ func TestIsSystemRole(t *testing.T) {
 	}
 	if isSystemRole("ADMIN") {
 		t.Fatalf("expected ADMIN not to be system role")
+	}
+}
+
+type testUserLookupRepo struct {
+	users map[int]*models.User
+}
+
+func (r *testUserLookupRepo) GetUserByID(_ context.Context, id int) (*models.User, error) {
+	return r.users[id], nil
+}
+
+func TestButlerAgentMonitorHandlerEmitsEvent(t *testing.T) {
+	repo := &testUserLookupRepo{
+		users: map[int]*models.User{
+			2: {ID: 2, Username: "Butler", Role: "BUTLER"},
+			7: {ID: 7, Username: "Agent-7", Role: "AGENT"},
+		},
+	}
+
+	handler := NewButlerAgentMonitorHandler(repo)
+	var emitted any
+	handler.SetEmitter(func(v any) {
+		emitted = v
+	})
+
+	handler.HandleMessage(context.Background(), &Message{
+		Type:       MessageTypeChat,
+		ID:         101,
+		SenderID:   2,
+		SenderName: "Butler",
+		SenderRole: "BUTLER",
+		TargetID:   7,
+		Payload:    "run health check",
+		Timestamp:  "2026-03-05T11:22:33Z",
+	})
+
+	event, ok := emitted.(map[string]any)
+	if !ok {
+		t.Fatalf("expected emitted event map, got %T", emitted)
+	}
+	if event["type"] != string(MessageTypeButlerAgent) {
+		t.Fatalf("unexpected event type: %v", event["type"])
+	}
+
+	payload, ok := event["payload"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected payload map, got %T", event["payload"])
+	}
+	if payload["agent_id"] != 7 {
+		t.Fatalf("expected agent_id=7, got %v", payload["agent_id"])
+	}
+	if payload["sender_role"] != "BUTLER" {
+		t.Fatalf("unexpected sender_role: %v", payload["sender_role"])
+	}
+}
+
+func TestButlerAgentMonitorHandlerSkipsNonButlerAgent(t *testing.T) {
+	repo := &testUserLookupRepo{
+		users: map[int]*models.User{
+			1: {ID: 1, Username: "admin", Role: "ADMIN"},
+			7: {ID: 7, Username: "Agent-7", Role: "AGENT"},
+		},
+	}
+
+	handler := NewButlerAgentMonitorHandler(repo)
+	called := false
+	handler.SetEmitter(func(any) {
+		called = true
+	})
+
+	handler.HandleMessage(context.Background(), &Message{
+		Type:      MessageTypeChat,
+		SenderID:  1,
+		TargetID:  7,
+		Payload:   "hello",
+		Timestamp: "2026-03-05T11:22:33Z",
+	})
+
+	if called {
+		t.Fatalf("expected no monitor event for admin-agent traffic")
 	}
 }

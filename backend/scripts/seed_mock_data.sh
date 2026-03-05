@@ -5,13 +5,17 @@ set -e
 # EchoCenter Mock Data Seeder (API-only)
 # This script will:
 # 1. Login as admin to get a token
-# 2. Register mock agents
-# 3. Send initial status reports to the dashboard
-# 4. Insert initial chat history through dev API endpoints
+# 2. Register Butler and mock agents
+# 3. Seed dashboard log records
+# 4. Seed chat history:
+#    - Admin <-> Agent
+#    - Admin <-> Butler
+#    - Butler <-> Agent (for monitor view)
 
 API_URL="${API_URL:-http://localhost:8080/api}"
 ADMIN_USER="${ADMIN_USER:-admin}"
 ADMIN_PASS="${ADMIN_PASS:-admin123}"
+
 
 echo "--- EchoCenter Seeder (API-only) ---"
 echo "API: $API_URL"
@@ -49,21 +53,47 @@ for agent in "${AGENTS[@]}"; do
     api_post "/users/agents" "{\"username\":\"$agent\"}" > /dev/null
 done
 
-# 4. Ingest Mock Status Messages
-echo "Populating dashboard with initial records..."
-api_post "/messages" '{"agent_id":"Weather-Sentinel","level":"INFO","content":"Atmospheric pressure stabilized. Scanning horizon..."}' > /dev/null
-api_post "/messages" '{"agent_id":"Code-Reviewer-AI","level":"WARNING","content":"Found 3 deprecated imports in backend/go.mod. Optimization recommended."}' > /dev/null
-api_post "/messages" '{"agent_id":"Echo-Bot","level":"INFO","content":"[Handshake] Hello operator! I am connected via WebSocket and ready to reflect your commands."}' > /dev/null
-
-# 5. Seed Chat History via Dev API
-echo "Seeding initial chat history for all agents..."
+# 4. Seed Dashboard Logs
+echo "Populating dashboard with rich mock records..."
 for agent in "${AGENTS[@]}"; do
-    echo "  > Adding history for $agent"
+    api_post "/messages" "{\"agent_id\":\"$agent\",\"level\":\"INFO\",\"content\":\"$agent heartbeat nominal and ready for dispatch.\"}" > /dev/null
+    api_post "/messages" "{\"agent_id\":\"$agent\",\"level\":\"INFO\",\"content\":\"$agent completed scheduled diagnostics pass.\"}" > /dev/null
+    api_post "/messages" "{\"agent_id\":\"$agent\",\"level\":\"WARNING\",\"content\":\"$agent detected minor drift in response latency and applied mitigation.\"}" > /dev/null
+    api_post "/messages" "{\"agent_id\":\"$agent\",\"level\":\"INFO\",\"content\":\"$agent exported latest telemetry snapshot to central archive.\"}" > /dev/null
+done
+
+api_post "/messages" '{"agent_id":"Butler","level":"INFO","content":"Butler synchronized policy matrix with all active agents."}' > /dev/null
+api_post "/messages" '{"agent_id":"Butler","level":"WARNING","content":"Butler observed one delayed acknowledgement and requested retry."}' > /dev/null
+api_post "/messages" '{"agent_id":"Security-Audit-Bot","level":"ERROR","content":"Credential rotation check failed for one expired sandbox token."}' > /dev/null
+api_post "/messages" '{"agent_id":"Code-Reviewer-AI","level":"ERROR","content":"Static analysis pipeline timed out on oversized artifact batch."}' > /dev/null
+api_post "/messages" '{"agent_id":"Storage-Custodian","level":"INFO","content":"Recovered orphaned block metadata and reconciled index entries."}' > /dev/null
+api_post "/messages" '{"agent_id":"Echo-Bot","level":"INFO","content":"WebSocket relay stable with no frame loss in last interval."}' > /dev/null
+api_post "/messages" '{"agent_id":"Weather-Sentinel","level":"WARNING","content":"External weather API quota approaching threshold for this window."}' > /dev/null
+
+# 5. Seed Admin <-> Agent Chats
+echo "Seeding Admin-Agent chat history..."
+for agent in "${AGENTS[@]}"; do
     api_post "/dev/mock/chat" "{\"sender_username\":\"$agent\",\"receiver_username\":\"$ADMIN_USER\",\"content\":\"Initial link established with $agent.\"}" > /dev/null
-    api_post "/dev/mock/chat" "{\"sender_username\":\"$ADMIN_USER\",\"receiver_username\":\"$agent\",\"content\":\"Acknowledged. Report status.\"}" > /dev/null
-    api_post "/dev/mock/chat" "{\"sender_username\":\"$agent\",\"receiver_username\":\"$ADMIN_USER\",\"content\":\"Status: NOMINAL. Ready for commands.\"}" > /dev/null
+    api_post "/dev/mock/chat" "{\"sender_username\":\"$ADMIN_USER\",\"receiver_username\":\"$agent\",\"content\":\"Acknowledged. Report current status.\"}" > /dev/null
+    api_post "/dev/mock/chat" "{\"sender_username\":\"$agent\",\"receiver_username\":\"$ADMIN_USER\",\"content\":\"Status nominal. Task queue is clear.\"}" > /dev/null
+done
+
+# 6. Seed Admin <-> Butler Chats
+echo "Seeding Admin-Butler chat history..."
+api_post "/dev/mock/chat" "{\"sender_username\":\"$ADMIN_USER\",\"receiver_username\":\"Butler\",\"content\":\"Butler, summarize current hive posture.\"}" > /dev/null
+api_post "/dev/mock/chat" "{\"sender_username\":\"Butler\",\"receiver_username\":\"$ADMIN_USER\",\"content\":\"Hive posture is stable. Two warnings and one error require attention.\"}" > /dev/null
+api_post "/dev/mock/chat" "{\"sender_username\":\"$ADMIN_USER\",\"receiver_username\":\"Butler\",\"content\":\"Prioritize security and storage checks.\"}" > /dev/null
+api_post "/dev/mock/chat" "{\"sender_username\":\"Butler\",\"receiver_username\":\"$ADMIN_USER\",\"content\":\"Priorities updated. Dispatching directives to Security-Audit-Bot and Storage-Custodian.\"}" > /dev/null
+
+# 7. Seed Butler <-> Agent Chats (for Butler-Agent Monitor)
+echo "Seeding Butler-Agent monitor conversations..."
+for agent in "${AGENTS[@]}"; do
+    api_post "/dev/mock/chat" "{\"sender_username\":\"Butler\",\"receiver_username\":\"$agent\",\"content\":\"Directive: provide latest execution snapshot and risk summary.\"}" > /dev/null
+    api_post "/dev/mock/chat" "{\"sender_username\":\"$agent\",\"receiver_username\":\"Butler\",\"content\":\"Snapshot ready. Primary systems healthy, minor warning tracked with mitigation in place.\"}" > /dev/null
+    api_post "/dev/mock/chat" "{\"sender_username\":\"Butler\",\"receiver_username\":\"$agent\",\"content\":\"Confirmed. Keep monitoring and report if severity escalates.\"}" > /dev/null
+    api_post "/dev/mock/chat" "{\"sender_username\":\"$agent\",\"receiver_username\":\"Butler\",\"content\":\"Acknowledged. Continuous monitoring active.\"}" > /dev/null
 done
 
 echo ""
 echo "--- Seeding Complete ---"
-echo "Refresh your dashboard. All agents now have history!"
+echo "Dashboard logs and Butler monitor conversations are now populated."

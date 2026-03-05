@@ -11,13 +11,19 @@ type Message struct {
 }
 
 type User struct {
-	ID           int       `json:"id" db:"id"`
-	Username     string    `json:"username" db:"username" binding:"required"`
-	PasswordHash string    `json:"-" db:"password_hash"` // Never expose hash in JSON
-	APIToken     string    `json:"api_token,omitempty" db:"api_token"`
-	Role         string    `json:"role" db:"role"`
-	ActorType    string    `json:"actor_type" db:"actor_type"`
-	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	ID             int        `json:"id" db:"id"`
+	Username       string     `json:"username" db:"username" binding:"required"`
+	PasswordHash   string     `json:"-" db:"password_hash"` // Never expose hash in JSON
+	APIToken       string     `json:"api_token,omitempty" db:"api_token"`
+	Role           string     `json:"role" db:"role"`
+	ActorType      string     `json:"actor_type" db:"actor_type"`
+	TokenHint      string     `json:"token_hint,omitempty"`
+	TokenUpdatedAt *time.Time `json:"token_updated_at,omitempty"`
+	Status         string     `json:"status,omitempty"`
+	Online         bool       `json:"online,omitempty"`
+	LastSeenAt     *time.Time `json:"last_seen_at,omitempty"`
+	LastReport     string     `json:"last_report,omitempty"`
+	CreatedAt      time.Time  `json:"created_at" db:"created_at"`
 }
 
 type LoginRequest struct {

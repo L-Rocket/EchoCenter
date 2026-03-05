@@ -27,9 +27,12 @@ func Setup(r *gin.Engine, h *handler.Handler, authSvc auth.Service) {
 
 		// Agents
 		protected.GET("/users/agents", h.GetAgents)
+		protected.GET("/users/agents/status", h.GetAgentStatuses)
+		protected.GET("/users/butler", h.GetButler)
 
 		// Chat
 		protected.GET("/chat/history/:peer_id", h.GetChatHistory)
+		protected.GET("/chat/butler-agent/:agent_id", h.GetButlerAgentConversation)
 		protected.POST("/chat/auth/response", h.AuthResponse)
 
 		// Admin routes
@@ -38,6 +41,8 @@ func Setup(r *gin.Engine, h *handler.Handler, authSvc auth.Service) {
 		{
 			admin.POST("", h.CreateUser)
 			admin.POST("/agents", h.RegisterAgent)
+			admin.POST("/agents/test-connection", h.TestAgentConnection)
+			admin.PATCH("/agents/:id/token", h.UpdateAgentToken)
 		}
 
 		// Dev mock routes (admin + non-production only)
