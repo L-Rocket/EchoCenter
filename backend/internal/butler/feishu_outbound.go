@@ -25,7 +25,10 @@ func (s *ButlerService) forwardButlerReplyToFeishu(ctx context.Context, receiver
 	}
 
 	connector, err := s.repo.GetFeishuConnector(ctx)
-	if err != nil || connector == nil || !connector.Enabled {
+	if err != nil || connector == nil {
+		return
+	}
+	if !connector.Enabled && !connector.CallbackVerified {
 		return
 	}
 	appID := strings.TrimSpace(connector.AppID)
@@ -43,14 +46,27 @@ func (s *ButlerService) forwardButlerReplyToFeishu(ctx context.Context, receiver
 			break
 		}
 	}
+	targetFeishuUserID := ""
 	if targetChatID == "" {
-		latestChatID, _, err := s.repo.GetLatestFeishuInboundTarget(ctx, connector.ID)
+		latestChatID, latestUserID, err := s.repo.GetLatestFeishuInboundTarget(ctx, connector.ID)
 		if err != nil {
 			log.Printf("[FeishuWS] Failed to load latest inbound target: %v", err)
 		}
 		targetChatID = strings.TrimSpace(latestChatID)
+		targetFeishuUserID = strings.TrimSpace(latestUserID)
 	}
-	if targetChatID == "" {
+	receiveIDType := larkim.ReceiveIdTypeChatId
+	receiveID := targetChatID
+	if receiveID == "" && targetFeishuUserID != "" {
+		if strings.HasPrefix(targetFeishuUserID, "ou_") {
+			receiveIDType = larkim.ReceiveIdTypeOpenId
+		} else {
+			receiveIDType = larkim.ReceiveIdTypeUserId
+		}
+		receiveID = targetFeishuUserID
+	}
+
+	if receiveID == "" {
 		_ = s.repo.AppendFeishuIntegrationLog(ctx, connector.ID, "info", "ws_outbound", "Skipped outbound: no target chat_id")
 		return
 	}
@@ -58,9 +74,9 @@ func (s *ButlerService) forwardButlerReplyToFeishu(ctx context.Context, receiver
 	client := lark.NewClient(appID, appSecret)
 	contentJSON, _ := json.Marshal(map[string]string{"text": content})
 	req := larkim.NewCreateMessageReqBuilder().
-		ReceiveIdType(larkim.ReceiveIdTypeChatId).
+		ReceiveIdType(receiveIDType).
 		Body(larkim.NewCreateMessageReqBodyBuilder().
-			ReceiveId(targetChatID).
+			ReceiveId(receiveID).
 			MsgType("text").
 			Content(string(contentJSON)).
 			Build()).
@@ -88,5 +104,5 @@ func (s *ButlerService) forwardButlerReplyToFeishu(ctx context.Context, receiver
 		return
 	}
 
-	_ = s.repo.AppendFeishuIntegrationLog(ctx, connector.ID, "success", "ws_outbound", "Sent Butler reply to Feishu chat "+targetChatID)
+	_ = s.repo.AppendFeishuIntegrationLog(ctx, connector.ID, "success", "ws_outbound", "Sent Butler reply to Feishu target "+receiveID)
 }

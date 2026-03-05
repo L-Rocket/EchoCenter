@@ -18,6 +18,7 @@ interface FeishuConnectorDTO {
   has_app_secret?: boolean;
   has_verification_token?: boolean;
   has_encrypt_key?: boolean;
+  allowed_chat_ids?: string[];
   callback_verified?: boolean;
   last_verified_at?: string | null;
 }
@@ -28,6 +29,7 @@ interface ConnectorForm {
   appSecret: string;
   verificationToken: string;
   encryptKey: string;
+  allowedChatIds: string;
 }
 
 const INITIAL_FORM: ConnectorForm = {
@@ -36,6 +38,7 @@ const INITIAL_FORM: ConnectorForm = {
   appSecret: '',
   verificationToken: '',
   encryptKey: '',
+  allowedChatIds: '',
 };
 
 const getStatusBadge = (status: ConnectorStatus) => {
@@ -91,6 +94,7 @@ const FeishuIntegrationSettings = () => {
       appSecret: '',
       verificationToken: '',
       encryptKey: '',
+      allowedChatIds: Array.isArray(data.allowed_chat_ids) ? data.allowed_chat_ids.join(',') : '',
     }));
   }, []);
 
@@ -129,6 +133,10 @@ const FeishuIntegrationSettings = () => {
     ...(form.appSecret.trim() ? { app_secret: form.appSecret.trim() } : {}),
     ...(form.verificationToken.trim() ? { verification_token: form.verificationToken.trim() } : {}),
     ...(form.encryptKey.trim() ? { encrypt_key: form.encryptKey.trim() } : {}),
+    allowed_chat_ids: form.allowedChatIds
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean),
   });
 
   const handleSave = async () => {
@@ -278,6 +286,12 @@ const FeishuIntegrationSettings = () => {
                 onChange={(e) => setForm((prev) => ({ ...prev, encryptKey: e.target.value }))}
                 placeholder={tx('Encrypt Key (optional)', 'Encrypt Key（可选）')}
                 className="h-10"
+              />
+              <Input
+                value={form.allowedChatIds}
+                onChange={(e) => setForm((prev) => ({ ...prev, allowedChatIds: e.target.value }))}
+                placeholder={tx('Allowed Chat IDs (comma separated)', '允许发送聊天 Chat ID（逗号分隔）')}
+                className="h-10 md:col-span-2"
               />
               <p className="text-[11px] text-muted-foreground md:col-span-2">
                 {tx('Current server-side secrets:', '当前服务端密钥状态：')}
