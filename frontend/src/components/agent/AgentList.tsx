@@ -136,7 +136,7 @@ const AgentList: React.FC<AgentListProps> = ({
       })}
       {filteredAgents.length === 0 && (
         <div className="p-8 text-center text-xs text-muted-foreground italic">
-          {tx('No active agents detected.', '未检测到活跃代理。')}
+          {tx('No active agents detected.', '未检测到活跃 agent。')}
         </div>
       )}
     </div>

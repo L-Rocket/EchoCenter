@@ -16,7 +16,7 @@ const EmptyState: React.FC = () => {
         <p className="text-muted-foreground max-w-xs mx-auto">
           {tx(
             'No agent activity detected. Systems are standing by for incoming status reports.',
-            '未检测到代理活动，系统正在等待新的状态上报。'
+            '未检测到 agent 活动，系统正在等待新的状态上报。'
           )}
         </p>
         <div className="mt-8 flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-widest">

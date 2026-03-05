@@ -90,7 +90,7 @@ const ButlerPage = () => {
             </div>
             <h2 className="text-lg font-bold">{tx('Butler Unavailable', 'Butler 不可用')}</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              {error || tx('No Butler instance was found in current agents.', '当前代理列表中未找到 Butler 实例。')}
+              {error || tx('No Butler instance was found in current agents.', '当前 agent 列表中未找到 Butler 实例。')}
             </p>
             <Button onClick={fetchAgents} variant="outline" className="mt-6">
               {tx('Retry', '重试')}

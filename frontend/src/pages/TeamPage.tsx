@@ -13,11 +13,11 @@ const TeamPage = () => {
       <div className="space-y-3">
         <div className="space-y-1 text-center md:text-left">
           <h2 className="text-2xl font-bold tracking-tight">
-            {panel === 'agents' ? tx('Agent Operations', '代理管理') : tx('Integrations', '集成配置')}
+            {panel === 'agents' ? tx('Agent Operations', 'agent 管理') : tx('Integrations', '集成配置')}
           </h2>
           <p className="text-sm text-muted-foreground">
             {panel === 'agents'
-              ? tx('Create agents, manage tokens, and verify connectivity.', '创建代理、管理密钥并验证连接。')
+              ? tx('Create agents, manage tokens, and verify connectivity.', '创建 agent、管理密钥并验证连接。')
               : tx('Configure external channels and route them into Butler.', '配置外部渠道并将消息路由到 Butler。')}
           </p>
         </div>
@@ -30,7 +30,7 @@ const TeamPage = () => {
               panel === 'agents' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            {tx('Agents', '代理')}
+            {tx('Agents', 'agent')}
           </button>
           <button
             type="button"

@@ -194,9 +194,9 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
       <CardHeader className="border-b px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <CardTitle className="text-sm font-bold uppercase tracking-wider">{tx('Agent Dialogue Monitor', '代理对话监控')}</CardTitle>
+            <CardTitle className="text-sm font-bold uppercase tracking-wider">{tx('Agent Dialogue Monitor', 'agent 对话监控')}</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
-              {tx('Observe Butler to Agent execution conversations.', '查看 Butler 与代理之间的执行对话。')}
+              {tx('Observe Butler to Agent execution conversations.', '查看 Butler 与 agent 之间的执行对话。')}
             </p>
           </div>
           <Button
@@ -225,7 +225,7 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={tx('Search agents', '搜索代理')}
+                  placeholder={tx('Search agents', '搜索 agent')}
                   className="h-8 pl-8 text-xs"
                 />
               </div>
@@ -249,12 +249,12 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                       )}
                     >
                       <p className="truncate text-xs font-semibold">{agent.username}</p>
-                      <p className="mt-0.5 text-[10px] text-muted-foreground">{tx(`Agent #${agent.id}`, `代理 #${agent.id}`)}</p>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">{tx(`Agent #${agent.id}`, `agent #${agent.id}`)}</p>
                     </button>
                   );
                 })}
                 {filteredAgents.length === 0 && (
-                  <div className="p-4 text-center text-xs text-muted-foreground">{tx('No agents available.', '暂无可用代理。')}</div>
+                  <div className="p-4 text-center text-xs text-muted-foreground">{tx('No agents available.', '暂无可用 agent。')}</div>
                 )}
               </div>
             </ScrollArea>
@@ -268,7 +268,7 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-sm font-bold tracking-tight truncate">
-                    {selectedAgent ? `${butler.username} ${tx('and', '与')} ${selectedAgent.username}` : tx('No agent selected', '未选择代理')}
+                    {selectedAgent ? `${butler.username} ${tx('and', '与')} ${selectedAgent.username}` : tx('No agent selected', '未选择 agent')}
                   </h3>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] animate-pulse" />
@@ -334,7 +334,7 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                             {entry.content}
                           </div>
                           <span className="text-[9px] text-muted-foreground mt-1 px-1 font-bold uppercase tracking-tighter">
-                            {`${isAgent ? tx('Agent', '代理') : 'Butler'} · ${formatTime(entry.timestamp)}`}
+                            {`${isAgent ? tx('Agent', 'agent') : 'Butler'} · ${formatTime(entry.timestamp)}`}
                           </span>
                         </div>
                       </div>

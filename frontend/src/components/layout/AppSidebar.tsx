@@ -90,7 +90,7 @@ export function AppSidebar() {
                     : item.key === 'butler'
                       ? tx('Butler', '管家')
                       : item.key === 'agents'
-                        ? tx('Agents', '代理')
+                        ? tx('Agents', 'agent')
                         : tx('Settings', '设置')
                 return (
                   <SidebarMenuItem key={item.key}>
