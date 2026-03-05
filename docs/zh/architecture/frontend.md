@@ -6,7 +6,7 @@ EchoCenter 前端是一个基于 React 的单页应用 (SPA)，使用 TypeScript
 
 ## 技术栈
 
-- **React 18+** - UI 框架
+- **React 19** - UI 框架
 - **TypeScript** - 类型安全
 - **Tailwind CSS** - 样式框架
 - **shadcn/ui** - UI 组件库
@@ -42,6 +42,21 @@ frontend/
 
 ### 3. UI 组件
 基于 `shadcn/ui` 构建，遵循一致的设计规范，支持响应式布局和深色模式。
+
+### 4. 国际化（i18n）
+- 全局语言状态由 `I18nContext` 提供。
+- 用户可在顶部导航切换英文 / 简体中文。
+- 语言偏好持久化在 `localStorage`（`echocenter-locale`），并同步到 `document.documentElement.lang`。
+
+### 5. 管理工作台
+- 侧边栏管理员入口统一为 **Settings**。
+- Settings 下包含两个操作面板：
+  - **Agent Operations**：创建 agent、刷新/删除 token、检查连通性。
+  - **Integrations**：配置飞书等外部渠道并路由消息到 Butler。
+
+### 6. Butler 工作台
+- **Me ↔ Butler**：与 Butler 的一对一直连通道。
+- **Butler ↔ Agents**：监控 Butler 分发时间线与跨 agent 协作过程。
 
 ## 开发与构建
 

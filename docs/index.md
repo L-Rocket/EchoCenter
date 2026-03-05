@@ -16,10 +16,12 @@ hero:
 features:
   - title: Core Agent Butler
     details: Responsible for coordinating agents and providing intelligent management.
+  - title: Bilingual Workspace
+    details: Built-in English / Simplified Chinese switch across dashboard, chat, and settings.
   - title: Real-time Communication
     details: Low-latency bidirectional messaging based on WebSocket.
   - title: Flexible Extension
-    details: Easily integrate custom agents with multi-language support.
+    details: Easily integrate custom agents and external channels like Feishu.
 ---
 
 ## Quick Start

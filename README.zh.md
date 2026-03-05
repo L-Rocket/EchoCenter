@@ -27,9 +27,12 @@
 - **🤖 多代理协同**：无缝管理和协调各种 AI 代理（支持 Python、Go 等多种语言）。
 - **⚡ 实时消息传递**：基于高性能 WebSocket 实现的低延迟、双向通信。
 - **🧠 Butler 核心**：AI 驱动的协调者，能够理解用户意图并执行复杂的跨代理工作流。
+- **🖥️ 双模式 Butler 工作台**：支持 `我 ↔ Butler` 直连会话与 `Butler ↔ Agents` 监控时间线切换。
+- **🌍 内置中英双语**：核心管理与聊天流程支持 English / 简体中文切换。
+- **⚙️ Settings 管理台**：统一入口管理 Agent（创建/移除/Token）与外部集成（如飞书）。
 - **📊 交互式大盘**：基于 React 的现代化 UI，实时监控代理状态和全系统日志。
 - **🔒 安全架构**：强制性的 JWT 认证机制和针对每个代理的独立 API Token。
-- **📂 持久化历史**：完整的聊天和命令历史默认存储在 SQLite 中，也可通过配置切换到 PostgreSQL。
+- **📂 灵活持久化**：完整的聊天和命令历史默认存储在 SQLite 中，可通过 `DB_DRIVER` + DSN/PG_* 配置切换 PostgreSQL。
 
 ## 🛠 技术栈
 
@@ -64,7 +67,10 @@ make install
 # 编辑 backend/.env 文件，添加你的 BUTLER_API_TOKEN (来自 SiliconFlow 或 OpenAI)
 # 并确保 JWT_SECRET 设置为一个强随机字符串。
 
-# 4. 使用 mock 数据和代理启动 (首次运行推荐)
+# 4. (可选) 在 backend/.env 中选择数据库驱动
+# DB_DRIVER=sqlite (默认) 或 DB_DRIVER=postgres
+
+# 5. 使用 mock 数据和代理启动 (首次运行推荐)
 make mock-start
 ```
 

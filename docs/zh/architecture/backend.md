@@ -62,9 +62,10 @@ backend/
 
 ### 5. 数据存储
 
-- **SQLite** - 本地数据库，启用 WAL (Write-Ahead Logging) 模式以支持并发读写性能。
+- **SQLite / PostgreSQL** - 默认使用 SQLite，本地开发零配置；可通过 `DB_DRIVER=postgres` 切换 PostgreSQL。
 - **数据库迁移** - 内置迁移系统，使用 `migrations` 表追踪已执行的变更，确保 Schema 更新的原子性和可靠性。
-- **Repository** - 数据访问层，将业务逻辑与 SQL 查询解耦。
+- **Repository** - 数据访问层拆分为 users/messages/chat/butler auth/bootstrap 等模块，边界更清晰。
+- **凭据存储拆分** - Butler 授权凭据与聊天/消息存储独立，实现更好的可维护性与可测试性。
 
 ## 架构图
 

@@ -6,7 +6,7 @@ The EchoCenter frontend is a Single Page Application (SPA) based on React, devel
 
 ## Tech Stack
 
-- **React 18+** - UI Framework
+- **React 19** - UI Framework
 - **TypeScript** - Type Safety
 - **Tailwind CSS** - Styling Framework
 - **shadcn/ui** - UI Component Library
@@ -48,6 +48,21 @@ To ensure a fluid user experience while maintaining strict sequential integrity 
 
 ### 4. UI Components
 Built based on `shadcn/ui`, following consistent design specifications, and supporting responsive layout and dark mode.
+
+### 5. Internationalization (i18n)
+- Global language state is provided by `I18nContext`.
+- Users can switch between English and Simplified Chinese from the top navigation.
+- Language preference is persisted in `localStorage` (`echocenter-locale`) and synced to `document.documentElement.lang`.
+
+### 6. Admin Workspace
+- The sidebar now uses **Settings** as the admin entry.
+- Settings includes two operation panels:
+  - **Agent Operations**: create agents, refresh/remove agent tokens, and verify connectivity.
+  - **Integrations**: configure external channels such as Feishu and route messages to Butler.
+
+### 7. Butler Workspace
+- **Me ↔ Butler** mode: direct 1-on-1 channel with Butler.
+- **Butler ↔ Agents** mode: monitor Butler dispatch timeline and cross-agent interactions.
 
 ## Development and Build
 
