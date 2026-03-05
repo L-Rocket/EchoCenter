@@ -1,6 +1,22 @@
 import { create } from 'zustand'
 import type { ChatMessage } from '@/types'
 
+const getMessageTime = (msg: ChatMessage): number => {
+  const t = new Date(msg.timestamp || '').getTime()
+  return Number.isNaN(t) ? Number.MAX_SAFE_INTEGER : t
+}
+
+const compareMessages = (a: ChatMessage, b: ChatMessage): number => {
+  const timeDelta = getMessageTime(a) - getMessageTime(b)
+  if (timeDelta !== 0) return timeDelta
+
+  if (a.id && b.id && a.id !== b.id) return a.id - b.id
+
+  const keyA = `${a.local_id || ''}_${a.stream_id || ''}_${a.sender_id || 0}`
+  const keyB = `${b.local_id || ''}_${b.stream_id || ''}_${b.sender_id || 0}`
+  return keyA.localeCompare(keyB)
+}
+
 interface ChatState {
   messages: Record<number, ChatMessage[]>
   isThinking: boolean
@@ -77,24 +93,14 @@ export const useChatStore = create<ChatState>((set) => ({
           const updated = [...existing]
           // Merge properties, prioritizing server data (message) but keeping local_id if server didn't echo it
           updated[localDuplicateIndex] = { ...oldMsg, ...message }
-          updated.sort((a, b) => {
-            const idA = a.id || Infinity;
-            const idB = b.id || Infinity;
-            if (idA !== idB) return idA - idB;
-            return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-          })
+          updated.sort(compareMessages)
           return { messages: { ...state.messages, [peerId]: updated } }
         }
         return state
       }
 
       const newMessages = [...existing, message]
-      newMessages.sort((a, b) => {
-        const idA = a.id || Infinity;
-        const idB = b.id || Infinity;
-        if (idA !== idB) return idA - idB;
-        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      })
+      newMessages.sort(compareMessages)
 
       return {
         messages: {
@@ -199,12 +205,7 @@ export const useChatStore = create<ChatState>((set) => ({
       })
 
       const newMessages = Array.from(merged.values())
-      newMessages.sort((a, b) => {
-        const idA = a.id || Infinity;
-        const idB = b.id || Infinity;
-        if (idA !== idB) return idA - idB;
-        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      })
+      newMessages.sort(compareMessages)
 
       return {
         messages: {

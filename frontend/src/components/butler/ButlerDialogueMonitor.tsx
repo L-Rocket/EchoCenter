@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { StatusIndicator } from '@/components/ui/status-indicator';
 import { cn } from '@/lib/utils';
 import { userService } from '@/services/userService';
 import type { Agent, ChatMessage } from '@/types';
@@ -22,6 +23,12 @@ interface ButlerDialogueMonitorProps {
   butler: Agent;
   agents: Agent[];
   className?: string;
+}
+
+interface RuntimeStatusBadge {
+  variant: 'success' | 'info' | 'muted' | 'warning';
+  label: string;
+  pulse: boolean;
 }
 
 const MONITOR_TYPES = new Set(['CHAT', 'CHAT_STREAM', 'CHAT_STREAM_END']);
@@ -70,19 +77,66 @@ const formatTime = (timestamp: string) => {
   return date.toLocaleString();
 };
 
+const getRuntimeStatusBadge = (agent?: Agent | null): RuntimeStatusBadge => {
+  if (!agent) return { variant: 'warning', label: 'Unknown', pulse: false };
+  const status = String(agent.status || '').toUpperCase();
+  if (agent.online === true || status === 'ONLINE') {
+    return { variant: 'success', label: 'Online', pulse: true };
+  }
+  if (status === 'IDLE') {
+    return { variant: 'info', label: 'Idle', pulse: false };
+  }
+  if (agent.online === false || status === 'OFFLINE') {
+    return { variant: 'muted', label: 'Offline', pulse: false };
+  }
+  return { variant: 'warning', label: 'Unknown', pulse: false };
+};
+
 const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMonitorProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
   const [loadingAgentId, setLoadingAgentId] = useState<number | null>(null);
   const [dialogues, setDialogues] = useState<Record<number, DialogueEntry[]>>({});
   const [notices, setNotices] = useState<Record<number, string>>({});
+  const [liveAgents, setLiveAgents] = useState<Agent[]>(agents);
+
+  useEffect(() => {
+    setLiveAgents(agents);
+  }, [agents]);
+
+  useEffect(() => {
+    let alive = true;
+
+    const refreshAgents = async () => {
+      try {
+        const data = await userService.getAgents();
+        if (!alive) return;
+        const agentList = (Array.isArray(data) ? data : []).filter(
+          (agent) => (agent.role || '').toUpperCase() !== 'BUTLER'
+        );
+        setLiveAgents(agentList);
+      } catch (_err) {
+        // Keep previous snapshot on transient fetch errors.
+      }
+    };
+
+    const interval = window.setInterval(() => {
+      if (!alive) return;
+      void refreshAgents();
+    }, 10000);
+
+    return () => {
+      alive = false;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   const monitorAgents = useMemo(() => {
-    return agents.filter((agent) => {
+    return liveAgents.filter((agent) => {
       const role = (agent.role || '').toUpperCase();
       return agent.id !== butler.id && role !== 'BUTLER';
     });
-  }, [agents, butler.id]);
+  }, [liveAgents, butler.id]);
 
   const filteredAgents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -130,6 +184,7 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
   const selectedEntries = selectedAgent ? dialogues[selectedAgent.id] || [] : [];
   const selectedNotice = selectedAgent ? notices[selectedAgent.id] ?? '' : '';
   const isLoading = selectedAgent ? loadingAgentId === selectedAgent.id : false;
+  const selectedRuntimeBadge = getRuntimeStatusBadge(selectedAgent);
 
   return (
     <Card className={cn('overflow-hidden py-0 gap-0', className)}>
@@ -175,6 +230,7 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
               <div className="divide-y">
                 {filteredAgents.map((agent) => {
                   const isActive = agent.id === activeAgentId;
+                  const runtimeBadge = getRuntimeStatusBadge(agent);
                   return (
                     <button
                       key={agent.id}
@@ -188,7 +244,15 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                         isActive ? 'bg-primary/10 text-primary' : 'hover:bg-muted/60'
                       )}
                     >
-                      <p className="truncate text-xs font-semibold">{agent.username}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-xs font-semibold">{agent.username}</p>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <StatusIndicator variant={runtimeBadge.variant} pulse={runtimeBadge.pulse} className="h-1.5 w-1.5" />
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                            {runtimeBadge.label}
+                          </span>
+                        </div>
+                      </div>
                       <p className="mt-0.5 text-[10px] text-muted-foreground">Agent #{agent.id}</p>
                     </button>
                   );
@@ -211,9 +275,9 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                     {selectedAgent ? `${butler.username} and ${selectedAgent.username}` : 'No agent selected'}
                   </h3>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] animate-pulse" />
+                    <StatusIndicator variant={selectedRuntimeBadge.variant} pulse={selectedRuntimeBadge.pulse} className="h-1.5 w-1.5" />
                     <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Monitor Feed
+                      {selectedAgent ? `Agent ${selectedRuntimeBadge.label}` : 'Monitor Feed'}
                     </span>
                   </div>
                 </div>
