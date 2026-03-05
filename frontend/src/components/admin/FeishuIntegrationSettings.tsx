@@ -60,6 +60,9 @@ const FeishuIntegrationSettings = () => {
   const [enabled, setEnabled] = useState(false);
   const [callbackVerified, setCallbackVerified] = useState(false);
   const [lastVerifiedAt, setLastVerifiedAt] = useState<string>('');
+  const [hasAppSecret, setHasAppSecret] = useState(false);
+  const [hasVerificationToken, setHasVerificationToken] = useState(false);
+  const [hasEncryptKey, setHasEncryptKey] = useState(false);
   const [form, setForm] = useState<ConnectorForm>(INITIAL_FORM);
   const [isSecretVisible, setIsSecretVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -78,6 +81,9 @@ const FeishuIntegrationSettings = () => {
     setEnabled(Boolean(data.enabled));
     setCallbackVerified(Boolean(data.callback_verified));
     setLastVerifiedAt(data.last_verified_at || '');
+    setHasAppSecret(Boolean(data.has_app_secret));
+    setHasVerificationToken(Boolean(data.has_verification_token));
+    setHasEncryptKey(Boolean(data.has_encrypt_key));
 
     setForm((prev) => ({
       connectorName: data.connector_name || prev.connectorName || INITIAL_FORM.connectorName,
@@ -108,6 +114,10 @@ const FeishuIntegrationSettings = () => {
   const validateRequired = () => {
     if (!form.connectorName.trim() || !form.appId.trim()) {
       setError(tx('Connector name and App ID are required.', '连接器名称和 App ID 为必填项。'));
+      return false;
+    }
+    if (!hasAppSecret && !form.appSecret.trim()) {
+      setError(tx('App Secret is required for first-time setup.', '首次配置必须填写 App Secret。'));
       return false;
     }
     return true;
@@ -243,7 +253,10 @@ const FeishuIntegrationSettings = () => {
                   value={form.appSecret}
                   type={isSecretVisible ? 'text' : 'password'}
                   onChange={(e) => setForm((prev) => ({ ...prev, appSecret: e.target.value }))}
-                  placeholder={tx('App Secret (leave empty to keep unchanged)', 'App Secret（留空表示不修改）')}
+                  placeholder={tx(
+                    hasAppSecret ? 'App Secret (configured, leave empty to keep)' : 'App Secret (required)',
+                    hasAppSecret ? 'App Secret（已配置，留空表示不修改）' : 'App Secret（必填）'
+                  )}
                   className="h-10 pr-10 font-mono"
                 />
                 <button
@@ -266,6 +279,12 @@ const FeishuIntegrationSettings = () => {
                 placeholder={tx('Encrypt Key (optional)', 'Encrypt Key（可选）')}
                 className="h-10"
               />
+              <p className="text-[11px] text-muted-foreground md:col-span-2">
+                {tx('Current server-side secrets:', '当前服务端密钥状态：')}
+                {` App Secret=${hasAppSecret ? tx('set', '已设置') : tx('empty', '未设置')}, `}
+                {`Verification Token=${hasVerificationToken ? tx('set', '已设置') : tx('empty', '未设置')}, `}
+                {`Encrypt Key=${hasEncryptKey ? tx('set', '已设置') : tx('empty', '未设置')}`}
+              </p>
               <Input value={wsURL} readOnly className="h-10 font-mono text-xs md:col-span-2" />
             </div>
           </section>
@@ -311,4 +330,3 @@ const FeishuIntegrationSettings = () => {
 };
 
 export default FeishuIntegrationSettings;
-

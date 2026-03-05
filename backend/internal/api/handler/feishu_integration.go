@@ -112,11 +112,11 @@ func (h *Handler) VerifyFeishuCallback(c *gin.Context) {
 		return
 	}
 
-	if strings.TrimSpace(connector.AppID) == "" || strings.TrimSpace(connector.VerificationToken) == "" {
-		_ = h.repo.AppendFeishuIntegrationLog(c.Request.Context(), id, "error", "verify_callback", "Missing app_id or verification_token")
+	if strings.TrimSpace(connector.AppID) == "" || strings.TrimSpace(connector.AppSecret) == "" {
+		_ = h.repo.AppendFeishuIntegrationLog(c.Request.Context(), id, "error", "verify_callback", "Missing app_id or app_secret")
 		c.JSON(http.StatusOK, gin.H{
 			"ok":      false,
-			"message": "app_id and verification_token are required before verification",
+			"message": "app_id and app_secret are required before verification",
 		})
 		return
 	}
