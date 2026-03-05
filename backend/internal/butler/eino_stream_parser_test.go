@@ -39,7 +39,7 @@ func TestStreamCommandParser_CommandAcrossChunks(t *testing.T) {
 	}
 
 	emit, stop = parser.consumeChunk("AGENT: {\"target_agent_id\": 3, \"command\": \"status\", ")
-	if emit != "Before command. " || stop {
+	if emit != "" || stop {
 		t.Fatalf("unexpected output when command starts: emit=%q stop=%v", emit, stop)
 	}
 
@@ -48,7 +48,7 @@ func TestStreamCommandParser_CommandAcrossChunks(t *testing.T) {
 		t.Fatalf("expected stream to stop after complete command: emit=%q stop=%v", emit, stop)
 	}
 
-	if parser.content() != "Before command. " {
+	if parser.content() != "" {
 		t.Fatalf("unexpected content: %q", parser.content())
 	}
 
@@ -63,6 +63,30 @@ func TestStreamCommandParser_CommandAcrossChunks(t *testing.T) {
 	}
 	if got := cmdMap["command"].(string); got != "status" {
 		t.Fatalf("unexpected command parsed: %s", got)
+	}
+}
+
+func TestStreamCommandParser_CommandInSingleChunkDropsPreface(t *testing.T) {
+	parser := newStreamCommandParser()
+
+	emit, stop := parser.consumeChunk(`I will check now. COMMAND_AGENT: {"target_agent_id": 7, "command": "get_status", "reasoning": "user asked"}`)
+	if emit != "" {
+		t.Fatalf("expected no emitted preface when command exists, got: %q", emit)
+	}
+	if !stop {
+		t.Fatalf("expected parser to stop after complete command in single chunk")
+	}
+
+	if parser.content() != "" {
+		t.Fatalf("expected empty user-facing content when command exists, got: %q", parser.content())
+	}
+
+	cmdMap, _, ok := parseCommandFromContent(parser.commandText())
+	if !ok {
+		t.Fatalf("expected command parse success")
+	}
+	if got := cmdMap["target_agent_id"].(float64); got != 7 {
+		t.Fatalf("unexpected target agent id parsed: %v", got)
 	}
 }
 
