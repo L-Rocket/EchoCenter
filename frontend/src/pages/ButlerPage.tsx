@@ -17,7 +17,7 @@ const ButlerPage = () => {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const panelHeightClass = 'h-[calc(100dvh-330px)] min-h-[460px]';
+  const panelHeightClass = 'h-[calc(100dvh-240px)] min-h-[560px]';
 
   const fetchAgents = async () => {
     setLoading(true);
@@ -59,7 +59,7 @@ const ButlerPage = () => {
             mode === 'me_butler' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
           )}
         >
-          Me {'<>'} Butler
+          Direct Butler Chat
         </button>
         <button
           type="button"
@@ -69,7 +69,7 @@ const ButlerPage = () => {
             mode === 'butler_monitor' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
           )}
         >
-          Butler {'<>'} Agents
+          Butler-Agent Monitor
         </button>
       </div>
 

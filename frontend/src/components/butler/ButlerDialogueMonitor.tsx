@@ -259,61 +259,97 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
             </ScrollArea>
           </div>
 
-          <div className="min-h-0 flex flex-col">
-            <div className="border-b px-4 py-2.5 flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="truncate text-xs font-semibold">
-                  {selectedAgent ? `${butler.username} <> ${selectedAgent.username}` : 'No agent selected'}
-                </p>
-                <p className="text-[10px] text-muted-foreground">Timeline feed</p>
+          <div className="min-h-0 flex flex-col bg-card">
+            <header className="h-16 border-b flex items-center justify-between px-6 backdrop-blur-sm shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="bg-primary/10 p-2 rounded-xl text-primary border border-primary/20 shadow-sm">
+                  <Bot className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold tracking-tight truncate">
+                    {selectedAgent ? `${butler.username} and ${selectedAgent.username}` : 'No agent selected'}
+                  </h3>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] animate-pulse" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Monitor Feed
+                    </span>
+                  </div>
+                </div>
               </div>
               {selectedSource && (
-                <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+                <Badge variant="outline" className="text-[10px] uppercase tracking-wider shrink-0">
                   {getSourceLabel(selectedSource)}
                 </Badge>
               )}
-            </div>
+            </header>
 
-            {selectedNotice && (
-              <div className="border-b px-4 py-2 text-[10px] text-amber-700 bg-amber-50">{selectedNotice}</div>
-            )}
+            <div className="flex-grow overflow-y-auto bg-muted/20 p-4">
+              <div className="flex flex-col space-y-4">
+                {selectedNotice && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+                    {selectedNotice}
+                  </div>
+                )}
 
-            <ScrollArea className="flex-1 min-h-0">
-              <div className="space-y-3 p-4">
                 {isLoading && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Syncing monitor stream...
+                  <div className="flex justify-center py-6">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Syncing monitor stream...
+                    </div>
                   </div>
                 )}
 
                 {!isLoading && selectedEntries.length === 0 && (
-                  <div className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
-                    No monitor messages yet.
+                  <div className="flex flex-col items-center justify-center py-16 text-center opacity-40">
+                    <div className="p-4 bg-muted rounded-full mb-4">
+                      <Terminal className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                      No Monitor Messages
+                    </p>
                   </div>
                 )}
 
                 {!isLoading &&
-                  selectedEntries.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className={cn(
-                        'max-w-[92%] rounded-lg border px-3 py-2',
-                        entry.speaker === 'agent' ? 'ml-auto bg-muted/50' : 'bg-primary/5 border-primary/20'
-                      )}
-                    >
-                      <div className="mb-1 flex items-center justify-between gap-2">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          {entry.speaker === 'agent' ? <Terminal className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
-                          {entry.speaker === 'agent' ? 'Agent' : 'Butler'}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">{formatTime(entry.timestamp)}</span>
+                  selectedEntries.map((entry) => {
+                    const isAgent = entry.speaker === 'agent';
+                    return (
+                      <div key={entry.id} className={cn('flex', isAgent ? 'justify-end' : 'justify-start')}>
+                        <div className={cn('flex flex-col max-w-[85%] md:max-w-[80%]', isAgent ? 'items-end' : 'items-start')}>
+                          <div
+                            className={cn(
+                              'rounded-2xl px-4 py-2.5 text-sm shadow-sm border whitespace-pre-wrap break-words',
+                              isAgent
+                                ? 'bg-indigo-600 text-white border-indigo-500 rounded-tr-none'
+                                : 'bg-card text-card-foreground border rounded-tl-none'
+                            )}
+                          >
+                            {entry.content}
+                          </div>
+                          <span className="text-[9px] text-muted-foreground mt-1 px-1 font-bold uppercase tracking-tighter">
+                            {`${isAgent ? 'Agent' : 'Butler'} · ${formatTime(entry.timestamp)}`}
+                          </span>
+                        </div>
                       </div>
-                      <p className="text-xs leading-relaxed break-words">{entry.content}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
               </div>
-            </ScrollArea>
+            </div>
+
+            <footer className="p-4 border-t bg-card shrink-0">
+              <div className="max-w-3xl mx-auto">
+                <div className="h-10 rounded-xl border bg-muted/50 px-3 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Read-Only Monitor Mode
+                  </span>
+                  <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+                    No Input
+                  </Badge>
+                </div>
+              </div>
+            </footer>
           </div>
         </div>
       </CardContent>
