@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -167,7 +168,7 @@ func (h *hub) routeToTarget(message *Message) {
 
 	// Echo back to sender for chat messages
 	if message.Type == MessageTypeChat || message.Type == MessageTypeChatStream || message.Type == MessageTypeChatStreamEnd {
-		if sender, ok := h.clients[message.SenderID]; ok && message.SenderID != message.TargetID {
+		if sender, ok := h.clients[message.SenderID]; ok && message.SenderID != message.TargetID && shouldEchoToSender(message) {
 			select {
 			case sender.send <- message:
 			default:
@@ -175,6 +176,13 @@ func (h *hub) routeToTarget(message *Message) {
 			}
 		}
 	}
+}
+
+func shouldEchoToSender(message *Message) bool {
+	role := strings.ToUpper(strings.TrimSpace(message.SenderRole))
+	// Do not echo CHAT traffic back to system actors, otherwise an AGENT client may
+	// consume its own response and recursively generate follow-up output.
+	return role != "AGENT" && role != "BUTLER"
 }
 
 func (h *hub) broadcastToAll(message *Message) {
