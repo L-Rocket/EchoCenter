@@ -77,7 +77,8 @@ echo -e "${YELLOW}[2/5] Starting backend service...${NC}"
 cd "$BACKEND_DIR"
 go build -o bin/server ./cmd/server
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] run-mock start" >> "$BACKEND_LOG_FILE"
-./bin/server >> "$BACKEND_LOG_FILE" 2>&1 &
+# Keep backend logs visible in terminal while persisting the same stream to file.
+./bin/server > >(tee -a "$BACKEND_LOG_FILE") 2>&1 &
 BACKEND_PID=$!
 echo -e "${GREEN}  Backend started (PID: $BACKEND_PID, log: $BACKEND_LOG_FILE)${NC}"
 
