@@ -3,37 +3,56 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/url"
 	"strings"
 	"time"
 
-	"github.com/gorilla/websocket"
+	larkdispatcher "github.com/larksuite/oapi-sdk-go/v3/event/dispatcher"
+	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
+	larkws "github.com/larksuite/oapi-sdk-go/v3/ws"
 	"github.com/lea/echocenter/backend/internal/butler"
 )
 
-const feishuWSReadTimeout = 90 * time.Second
+type feishuWSRuntime struct {
+	key    string
+	cancel context.CancelFunc
+	done   chan struct{}
+}
 
-// StartFeishuWebSocketBridge starts Feishu long-connection consumption.
+// StartFeishuWebSocketBridge starts Feishu long-connection consumption by using official SDK.
 // It is best-effort and never returns an error to caller.
 func (h *Handler) StartFeishuWebSocketBridge(ctx context.Context, wsURL string, reconnectInterval time.Duration) {
-	wsURL = strings.TrimSpace(wsURL)
-	if wsURL == "" {
-		log.Println("[FeishuWS] Disabled: empty FEISHU_WS_URL")
-		return
-	}
 	if reconnectInterval <= 0 {
 		reconnectInterval = 5 * time.Second
 	}
+	domain := feishuDomainFromWSURL(wsURL)
+	log.Printf("[FeishuWS] SDK bridge started (domain=%s check_interval=%s)", domain, reconnectInterval)
 
-	log.Printf("[FeishuWS] Bridge started (url=%s reconnect=%s)", wsURL, reconnectInterval)
+	var runtime *feishuWSRuntime
+	stopRuntime := func(reason string) {
+		if runtime == nil {
+			return
+		}
+		if reason != "" {
+			log.Printf("[FeishuWS] Stopping active client: %s", reason)
+		}
+		runtime.cancel()
+		runtime = nil
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("[FeishuWS] Bridge stopped")
+			stopRuntime("context canceled")
+			log.Println("[FeishuWS] SDK bridge stopped")
 			return
 		default:
+		}
+
+		if runtime != nil && isClosed(runtime.done) {
+			runtime = nil
 		}
 
 		connector, err := h.repo.GetFeishuConnector(ctx)
@@ -42,7 +61,9 @@ func (h *Handler) StartFeishuWebSocketBridge(ctx context.Context, wsURL string, 
 			sleepWithContext(ctx, reconnectInterval)
 			continue
 		}
+
 		if connector == nil {
+			stopRuntime("connector missing")
 			sleepWithContext(ctx, reconnectInterval)
 			continue
 		}
@@ -50,71 +71,88 @@ func (h *Handler) StartFeishuWebSocketBridge(ctx context.Context, wsURL string, 
 		appID := strings.TrimSpace(connector.AppID)
 		appSecret := strings.TrimSpace(connector.AppSecret)
 		if appID == "" || appSecret == "" {
-			log.Println("[FeishuWS] Waiting for app_id/app_secret before connecting")
+			stopRuntime("waiting for app_id/app_secret")
 			sleepWithContext(ctx, reconnectInterval)
 			continue
 		}
 
-		targetURL, err := buildFeishuWSURL(wsURL, appID, appSecret)
-		if err != nil {
-			log.Printf("[FeishuWS] Invalid FEISHU_WS_URL: %v", err)
+		runtimeKey := fmt.Sprintf("%d|%s|%s|%s|%s|%s",
+			connector.ID,
+			appID,
+			appSecret,
+			strings.TrimSpace(connector.VerificationToken),
+			strings.TrimSpace(connector.EncryptKey),
+			domain,
+		)
+
+		if runtime != nil && runtime.key == runtimeKey {
 			sleepWithContext(ctx, reconnectInterval)
 			continue
 		}
 
-		conn, _, err := websocket.DefaultDialer.DialContext(ctx, targetURL, nil)
-		if err != nil {
-			log.Printf("[FeishuWS] Connect failed: %v", err)
-			sleepWithContext(ctx, reconnectInterval)
-			continue
+		stopRuntime("configuration changed")
+		clientCtx, cancel := context.WithCancel(ctx)
+		done := make(chan struct{})
+		runtime = &feishuWSRuntime{
+			key:    runtimeKey,
+			cancel: cancel,
+			done:   done,
 		}
 
-		log.Printf("[FeishuWS] Connected to %s", targetURL)
-		_ = h.repo.AppendFeishuIntegrationLog(ctx, connector.ID, "info", "ws_connected", "Feishu WS long connection established")
+		go func(connectorID int, appID, appSecret, verificationToken, encryptKey string) {
+			defer close(done)
+			h.runFeishuWSClient(clientCtx, connectorID, appID, appSecret, verificationToken, encryptKey, domain)
+		}(connector.ID, appID, appSecret, connector.VerificationToken, connector.EncryptKey)
 
-		err = h.consumeFeishuWS(ctx, conn)
-		_ = conn.Close()
-		if err != nil && !isWSNormalClose(err) {
-			log.Printf("[FeishuWS] Connection closed with error: %v", err)
-		}
-		_ = h.repo.AppendFeishuIntegrationLog(ctx, connector.ID, "info", "ws_disconnected", "Feishu WS long connection disconnected")
 		sleepWithContext(ctx, reconnectInterval)
 	}
 }
 
-func (h *Handler) consumeFeishuWS(ctx context.Context, conn *websocket.Conn) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
+func (h *Handler) runFeishuWSClient(
+	ctx context.Context,
+	connectorID int,
+	appID, appSecret, verificationToken, encryptKey, domain string,
+) {
+	dispatcher := larkdispatcher.NewEventDispatcher(
+		strings.TrimSpace(verificationToken),
+		strings.TrimSpace(encryptKey),
+	)
+	dispatcher.OnP2MessageReceiveV1(func(eventCtx context.Context, event *larkim.P2MessageReceiveV1) error {
+		return h.processFeishuWSMessageEvent(eventCtx, event)
+	})
 
-		_ = conn.SetReadDeadline(time.Now().Add(feishuWSReadTimeout))
-		_, raw, err := conn.ReadMessage()
-		if err != nil {
-			return err
-		}
-		if len(raw) == 0 {
-			continue
-		}
+	client := larkws.NewClient(
+		strings.TrimSpace(appID),
+		strings.TrimSpace(appSecret),
+		larkws.WithDomain(domain),
+		larkws.WithAutoReconnect(true),
+		larkws.WithEventHandler(dispatcher),
+	)
 
-		payload, ackID := unwrapFeishuWSMessage(raw)
-		if ackID != "" {
-			_ = conn.WriteJSON(map[string]any{"id": ackID, "uuid": ackID})
-		}
-		if payload == nil {
-			continue
-		}
-
-		rawPayload, err := json.Marshal(payload)
-		if err != nil {
-			rawPayload = raw
-		}
-		if err := h.processFeishuWSInbound(ctx, payload, rawPayload); err != nil {
-			log.Printf("[FeishuWS] Inbound processing error: %v", err)
-		}
+	_ = h.repo.AppendFeishuIntegrationLog(ctx, connectorID, "info", "ws_connecting", "Feishu WS SDK client starting")
+	err := client.Start(ctx)
+	if err != nil && ctx.Err() == nil {
+		log.Printf("[FeishuWS] SDK client exited with error: %v", err)
+		_ = h.repo.AppendFeishuIntegrationLog(ctx, connectorID, "error", "ws_client_error", err.Error())
+		return
 	}
+	_ = h.repo.AppendFeishuIntegrationLog(ctx, connectorID, "info", "ws_disconnected", "Feishu WS SDK client stopped")
+}
+
+func (h *Handler) processFeishuWSMessageEvent(ctx context.Context, event *larkim.P2MessageReceiveV1) error {
+	if event == nil {
+		return nil
+	}
+
+	rawPayload, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+	payload := map[string]any{}
+	if err := json.Unmarshal(rawPayload, &payload); err != nil {
+		return err
+	}
+	return h.processFeishuWSInbound(ctx, payload, rawPayload)
 }
 
 func (h *Handler) processFeishuWSInbound(ctx context.Context, payload map[string]any, rawBody []byte) error {
@@ -123,7 +161,7 @@ func (h *Handler) processFeishuWSInbound(ctx context.Context, payload map[string
 		return err
 	}
 
-	if !verifyFeishuWSToken(payload, connector.VerificationToken) {
+	if hasFeishuWSToken(payload) && !verifyFeishuWSToken(payload, connector.VerificationToken) {
 		_ = h.repo.AppendFeishuIntegrationLog(ctx, connector.ID, "error", "ws_auth", "Rejected WS event due to invalid token")
 		return nil
 	}
@@ -191,55 +229,6 @@ func (h *Handler) processFeishuWSInbound(ctx context.Context, payload map[string
 	return nil
 }
 
-func unwrapFeishuWSMessage(raw []byte) (map[string]any, string) {
-	var envelope map[string]any
-	if err := json.Unmarshal(raw, &envelope); err != nil {
-		return nil, ""
-	}
-
-	ackID := firstNonEmptyString(
-		stringFromMap(envelope, "uuid"),
-		stringFromMap(envelope, "id"),
-		stringFromMap(envelope, "message_id"),
-		stringFromMap(mapFromPayload(envelope, "header"), "event_id"),
-	)
-
-	payloadRaw, ok := envelope["payload"]
-	if !ok {
-		if _, hasEvent := envelope["event"]; hasEvent {
-			return envelope, ackID
-		}
-		return nil, ackID
-	}
-
-	switch v := payloadRaw.(type) {
-	case map[string]any:
-		return v, ackID
-	case string:
-		var payload map[string]any
-		if err := json.Unmarshal([]byte(v), &payload); err == nil {
-			return payload, ackID
-		}
-	}
-	return nil, ackID
-}
-
-func buildFeishuWSURL(baseURL, appID, appSecret string) (string, error) {
-	parsed, err := url.Parse(strings.TrimSpace(baseURL))
-	if err != nil {
-		return "", err
-	}
-	q := parsed.Query()
-	if strings.TrimSpace(q.Get("app_id")) == "" {
-		q.Set("app_id", strings.TrimSpace(appID))
-	}
-	if strings.TrimSpace(q.Get("app_secret")) == "" {
-		q.Set("app_secret", strings.TrimSpace(appSecret))
-	}
-	parsed.RawQuery = q.Encode()
-	return parsed.String(), nil
-}
-
 func sleepWithContext(ctx context.Context, d time.Duration) {
 	timer := time.NewTimer(d)
 	defer timer.Stop()
@@ -249,8 +238,25 @@ func sleepWithContext(ctx context.Context, d time.Duration) {
 	}
 }
 
-func isWSNormalClose(err error) bool {
-	return websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway)
+func feishuDomainFromWSURL(rawURL string) string {
+	trimmed := strings.TrimSpace(rawURL)
+	if trimmed == "" {
+		return "https://open.feishu.cn"
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "https://open.feishu.cn"
+	}
+	host := strings.TrimSpace(parsed.Host)
+	if host == "" {
+		return "https://open.feishu.cn"
+	}
+	return "https://" + host
+}
+
+func hasFeishuWSToken(payload map[string]any) bool {
+	got := strings.TrimSpace(extractFeishuToken(payload))
+	return got != ""
 }
 
 func verifyFeishuWSToken(payload map[string]any, expected string) bool {
@@ -265,4 +271,13 @@ func verifyFeishuWSToken(payload map[string]any, expected string) bool {
 		return false
 	}
 	return token == expected
+}
+
+func isClosed(ch <-chan struct{}) bool {
+	select {
+	case <-ch:
+		return true
+	default:
+		return false
+	}
 }
