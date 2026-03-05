@@ -361,9 +361,7 @@ func normalizeFeishuConnectorInput(input *models.FeishuConnector) *models.Feishu
 		}
 	}
 	out.PrefixCommand = strings.TrimSpace(out.PrefixCommand)
-	if out.PrefixCommand == "" {
-		out.PrefixCommand = "/butler"
-	}
+	// Empty prefix means accept plain-text messages without command prefix.
 	if out.RateLimitPerMinute <= 0 {
 		out.RateLimitPerMinute = 30
 	}
