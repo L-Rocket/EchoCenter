@@ -16,6 +16,7 @@ Last updated: 2026-03-05
 - Suggested: `GET /api/chat/butler-agent/:agent_id` (or equivalent query on chat history)
 - Purpose: expose Butler <-> Agent execution conversation/history for auditing UI.
 - Current gap: existing chat history API is user-peer based, and Butler-Agent traffic is not fully available as direct history.
+- Frontend now added: Butler page "Agent Dialogue Monitor" and currently falls back to local-derived/mock data when endpoint is unavailable.
 
 4. Create agent with caller-provided token
 - Suggested: `POST /api/users/agents` should accept and persist `api_token` when provided.
@@ -46,6 +47,11 @@ Last updated: 2026-03-05
 - Suggested: `GET /api/users/agents?page=1&limit=20&q=keyword`
 - Purpose: prevent large management list payloads and support scalable pagination/search.
 - Current frontend fallback: client-side pagination over full list.
+
+10. Butler-agent monitor streaming event
+- Suggested: WebSocket event `BUTLER_AGENT_MESSAGE` with payload `{ agent_id, sender_role, content, timestamp }`.
+- Purpose: update Butler monitor timeline in real time without polling.
+- Current frontend fallback: manual refresh + local chat-store derived timeline + mock seed.
 
 ## Notes
 

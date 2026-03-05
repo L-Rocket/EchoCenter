@@ -41,6 +41,11 @@ export const userService = {
     const response = await api.get<ChatMessage[]>(`/api/chat/history/${agentId}`);
     return response.data;
   },
+
+  getButlerAgentConversation: async (agentId: number) => {
+    const response = await api.get<ChatMessage[]>(`/api/chat/butler-agent/${agentId}`);
+    return response.data;
+  },
   
   sendAuthResponse: async (actionId: string, approved: boolean) => {
     const response = await api.post('/api/chat/auth/response', {
