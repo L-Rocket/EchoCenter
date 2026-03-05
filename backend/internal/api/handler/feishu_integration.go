@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,6 +15,8 @@ import (
 	"github.com/lea/echocenter/backend/internal/models"
 	apperrors "github.com/lea/echocenter/backend/pkg/errors"
 )
+
+const feishuTenantAccessTokenURL = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
 
 func (h *Handler) GetFeishuConnector(c *gin.Context) {
 	connector, err := h.repo.GetFeishuConnector(c.Request.Context())
@@ -117,6 +120,24 @@ func (h *Handler) VerifyFeishuCallback(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"ok":      false,
 			"message": "app_id and app_secret are required before verification",
+		})
+		return
+	}
+
+	if ok, detail, verifyErr := verifyFeishuAppCredentials(c.Request.Context(), connector.AppID, connector.AppSecret); verifyErr != nil {
+		_ = h.repo.AppendFeishuIntegrationLog(c.Request.Context(), id, "error", "verify_callback", "Feishu auth check failed: "+verifyErr.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"ok":      false,
+			"message": "failed to verify credentials with feishu",
+			"detail":  verifyErr.Error(),
+		})
+		return
+	} else if !ok {
+		_ = h.repo.AppendFeishuIntegrationLog(c.Request.Context(), id, "error", "verify_callback", "Feishu auth rejected credentials: "+detail)
+		c.JSON(http.StatusOK, gin.H{
+			"ok":      false,
+			"message": "feishu rejected app credentials",
+			"detail":  detail,
 		})
 		return
 	}
@@ -561,6 +582,53 @@ func defaultFeishuConnector() models.FeishuConnector {
 		UserWhitelist:      []string{},
 		CallbackVerified:   false,
 	}
+}
+
+func verifyFeishuAppCredentials(ctx context.Context, appID, appSecret string) (bool, string, error) {
+	reqBody, err := json.Marshal(map[string]string{
+		"app_id":     strings.TrimSpace(appID),
+		"app_secret": strings.TrimSpace(appSecret),
+	})
+	if err != nil {
+		return false, "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, feishuTenantAccessTokenURL, strings.NewReader(string(reqBody)))
+	if err != nil {
+		return false, "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, "", err
+	}
+	defer resp.Body.Close()
+
+	rawBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, "", err
+	}
+
+	var parsed struct {
+		Code              int    `json:"code"`
+		Msg               string `json:"msg"`
+		TenantAccessToken string `json:"tenant_access_token"`
+	}
+	if err := json.Unmarshal(rawBody, &parsed); err != nil {
+		return false, "", err
+	}
+
+	if parsed.Code != 0 || strings.TrimSpace(parsed.TenantAccessToken) == "" {
+		detail := fmt.Sprintf("code=%d msg=%s", parsed.Code, strings.TrimSpace(parsed.Msg))
+		if resp.StatusCode != http.StatusOK {
+			detail = fmt.Sprintf("%s http_status=%d", detail, resp.StatusCode)
+		}
+		return false, detail, nil
+	}
+
+	return true, "ok", nil
 }
 
 func defaultFeishuConnectorResponse() gin.H {
