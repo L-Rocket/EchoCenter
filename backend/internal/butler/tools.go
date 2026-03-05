@@ -23,7 +23,7 @@ var (
 	repoInstance     repository.Repository
 )
 
-const agentResponseTimeout = 90 * time.Second
+const agentResponseTimeout = 30 * time.Second
 
 // SetRepository sets the repository instance for tools
 func SetRepository(repo repository.Repository) {
@@ -151,7 +151,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 	case <-time.After(agentResponseTimeout):
 		removePendingResponse(input.TargetAgentID, respChan)
 		log.Printf("[Butler Tool] TIMEOUT waiting for Agent %d", input.TargetAgentID)
-		return "Timeout: Target agent did not respond within 90 seconds.", nil
+		return "Timeout: Target agent did not respond within 30 seconds.", nil
 	}
 }
 
@@ -231,7 +231,7 @@ func ExecuteCommandDirect(ctx context.Context, targetAgentID int, command string
 	case <-time.After(agentResponseTimeout):
 		removePendingResponse(targetAgentID, respChan)
 		log.Printf("[Butler Tool] TIMEOUT waiting for Agent %d", targetAgentID)
-		return "Timeout: Target agent did not respond within 90 seconds.", nil
+		return "Timeout: Target agent did not respond within 30 seconds.", nil
 	}
 }
 
