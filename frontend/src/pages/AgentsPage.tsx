@@ -1,24 +1,38 @@
 import { useState } from 'react'
-import { MessageSquare, ShieldAlert } from 'lucide-react'
+import { MessageSquare, Search, ShieldAlert } from 'lucide-react'
 import AgentList from '@/components/agent/AgentList'
 import ChatView from '@/components/agent/ChatView'
 import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import type { Agent } from '@/types'
 
 const AgentsPage = () => {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   return (
-    <Card className="h-[calc(100vh-160px)] overflow-hidden flex flex-col md:flex-row">
+    <Card className="h-[calc(100dvh-220px)] overflow-hidden flex flex-col md:flex-row">
       <div className="w-full md:w-80 shrink-0 flex flex-col h-1/2 md:h-full">
         <div className="p-4 border-b flex items-center justify-between">
           <h3 className="text-sm font-bold uppercase tracking-wider">Agents</h3>
           <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
         </div>
+        <div className="border-b p-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search agents"
+              className="h-9 pl-9 text-xs"
+            />
+          </div>
+        </div>
         <AgentList 
           onSelectAgent={setSelectedAgent} 
           selectedAgentId={selectedAgent?.id} 
           excludeRoles={['BUTLER']}
+          searchQuery={searchQuery}
         />
       </div>
 
