@@ -241,6 +241,14 @@ make run-mock-sqllite
 make run-mock-postgre
 ```
 
+## 飞书连接器接入
+
+服务启动后，飞书接入步骤见：
+
+- [飞书接入指南](./feishu-integration.md)
+
+文档包含回调地址暴露、飞书平台配置、回调验证、启用流程和排错方法。
+
 ### 手动启动
 
 如果你更喜欢手动启动服务：

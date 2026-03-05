@@ -241,6 +241,14 @@ make run-mock-sqllite
 make run-mock-postgre
 ```
 
+## Feishu Connector Setup
+
+After services are running, Feishu onboarding is documented here:
+
+- [Feishu Integration](./feishu-integration.md)
+
+This includes callback URL exposure, platform-side config, verification, enable flow, and troubleshooting.
+
 ### Manual Startup
 
 If you prefer to start services manually:

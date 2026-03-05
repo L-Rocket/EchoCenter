@@ -64,6 +64,27 @@ Authorization: Bearer <jwt_token>
 ### `PATCH /api/users/agents/:id/token`
 更新/轮换 Agent Token。
 
+### `GET /api/integrations/feishu`
+读取当前飞书连接器配置。
+
+### `POST /api/integrations/feishu`
+创建飞书连接器草稿配置。
+
+### `PATCH /api/integrations/feishu/:id`
+更新飞书连接器草稿配置。
+
+### `POST /api/integrations/feishu/:id/verify-callback`
+验证回调可用性并标记为已验证。
+
+### `POST /api/integrations/feishu/:id/test-message`
+创建测试消息请求/日志（后续外发能力挂载点）。
+
+### `PATCH /api/integrations/feishu/:id/enable`
+启用/禁用连接器（`enabled=true` 需要先验证回调）。
+
+### `GET /api/integrations/feishu/:id/logs?cursor=&limit=20`
+按游标分页查询连接器日志。
+
 ## 开发 Mock 端点（仅管理员 + 非生产环境）
 
 ### `POST /api/dev/mock/reset`
@@ -74,3 +95,8 @@ Authorization: Bearer <jwt_token>
 
 ### `GET /api/dev/mock/agent-token/:username`
 按用户名获取原始 Agent Token（用于本地启动脚本）。
+
+## 公开集成回调端点
+
+### `POST /api/integrations/feishu/callback`
+飞书事件回调入口（无需 JWT）。

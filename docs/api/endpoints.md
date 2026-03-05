@@ -64,6 +64,27 @@ Validate whether an `api_token` is registered.
 ### `PATCH /api/users/agents/:id/token`
 Rotate/update agent token.
 
+### `GET /api/integrations/feishu`
+Get current Feishu connector config.
+
+### `POST /api/integrations/feishu`
+Create Feishu connector config draft.
+
+### `PATCH /api/integrations/feishu/:id`
+Update Feishu connector config draft.
+
+### `POST /api/integrations/feishu/:id/verify-callback`
+Verify callback readiness and mark connector as verified.
+
+### `POST /api/integrations/feishu/:id/test-message`
+Create a test-message request/log entry (outbound delivery hook point).
+
+### `PATCH /api/integrations/feishu/:id/enable`
+Enable/disable connector (`enabled=true` requires callback verified).
+
+### `GET /api/integrations/feishu/:id/logs?cursor=&limit=20`
+Query connector logs with cursor pagination.
+
 ## Dev Mock Endpoints (Admin + Non-production Only)
 
 ### `POST /api/dev/mock/reset`
@@ -74,3 +95,8 @@ Insert mock chat record.
 
 ### `GET /api/dev/mock/agent-token/:username`
 Get raw agent token for local bootstrap scripts.
+
+## Public Integration Callback
+
+### `POST /api/integrations/feishu/callback`
+Feishu event callback endpoint (no JWT required).
