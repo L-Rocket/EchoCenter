@@ -562,39 +562,22 @@ func (h *Handler) handleFeishuAuthDecisionCard(ctx context.Context, event *larkc
 	}
 	go svc.ExecutePendingCommand(context.Background(), actionID, adminID, approved)
 
-	statusText := "已拒绝"
-	headerTemplate := "red"
-	if approved {
-		statusText = "已批准，正在执行"
-		headerTemplate = "green"
-	}
-	resultCard := map[string]any{
-		"config": map[string]any{
-			"wide_screen_mode": true,
-			"update_multi":     true,
-		},
-		"header": map[string]any{
-			"template": headerTemplate,
-			"title": map[string]any{
-				"tag":     "plain_text",
-				"content": "授权结果",
-			},
-		},
-		"elements": []any{
-			map[string]any{
-				"tag":     "markdown",
-				"content": fmt.Sprintf("请求 `%s` %s。", actionID, statusText),
-			},
-		},
-	}
-
 	toast := "已拒绝执行"
 	if approved {
 		toast = "已批准，开始执行"
 	}
+	decision := "rejected"
+	if approved {
+		decision = "approved"
+	}
+	if connector, err := h.repo.GetFeishuConnector(ctx); err == nil && connector != nil {
+		_ = h.repo.AppendFeishuIntegrationLog(ctx, connector.ID, "success", "ws_auth_card_decision", fmt.Sprintf("action_id=%s decision=%s", actionID, decision))
+	}
+
+	// NOTE: For card.action.trigger callbacks, returning toast-only is the most robust shape.
+	// Some Feishu tenants reject card update payloads with 200340 when schema mismatches.
 	return &larkcallback.CardActionTriggerResponse{
 		Toast: &larkcallback.Toast{Type: "success", Content: toast},
-		Card:  &larkcallback.Card{Type: "raw", Data: resultCard},
 	}, nil
 }
 
