@@ -190,6 +190,10 @@ func NewCommandAgentTool() tool.InvokableTool {
 // This is used when the command has already been approved
 func ExecuteCommandDirect(ctx context.Context, targetAgentID int, command string, reasoning string) (string, error) {
 	log.Printf("[Butler Tool] Directly executing command to Agent %d: %s", targetAgentID, command)
+	if b := GetButler(); b != nil && b.hub != nil && !b.hub.HasClient(targetAgentID) {
+		log.Printf("[Butler Tool] Agent %d is offline, skipping command dispatch", targetAgentID)
+		return "Target agent is offline (WebSocket not connected).", nil
+	}
 
 	// Prepare to receive response
 	respChan := make(chan string, 1)

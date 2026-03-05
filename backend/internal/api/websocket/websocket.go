@@ -68,6 +68,7 @@ type Hub interface {
 	Register(client *Client)
 	Unregister(client *Client)
 	GetClient(userID int) (*Client, bool)
+	HasClient(userID int) bool
 	BroadcastGeneric(msg any)
 }
 
@@ -233,6 +234,13 @@ func (h *hub) GetClient(userID int) (*Client, bool) {
 	defer h.mu.RUnlock()
 	client, ok := h.clients[userID]
 	return client, ok
+}
+
+func (h *hub) HasClient(userID int) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	_, ok := h.clients[userID]
+	return ok
 }
 
 // BroadcastGeneric broadcasts a generic message (for compatibility with butler package)

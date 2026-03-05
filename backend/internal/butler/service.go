@@ -15,6 +15,7 @@ import (
 // HubInterface defines the interface for WebSocket hub
 type HubInterface interface {
 	BroadcastGeneric(msg any)
+	HasClient(userID int) bool
 }
 
 // Service defines the butler service interface
