@@ -84,6 +84,10 @@ api_post "/messages" '{"agent_id":"Weather-Sentinel","level":"WARNING","content"
 # 5. Seed Admin <-> Agent Chats
 echo "Seeding Admin-Agent chat history..."
 for agent in "${AGENTS[@]}"; do
+    # Storage-Custodian is a real running agent in mock bootstrap; keep its chat history clean.
+    if [ "$agent" = "Storage-Custodian" ]; then
+        continue
+    fi
     api_post "/dev/mock/chat" "{\"sender_username\":\"$agent\",\"receiver_username\":\"$ADMIN_USER\",\"content\":\"Initial link established with $agent.\"}" > /dev/null
     api_post "/dev/mock/chat" "{\"sender_username\":\"$ADMIN_USER\",\"receiver_username\":\"$agent\",\"content\":\"Acknowledged. Report current status.\"}" > /dev/null
     api_post "/dev/mock/chat" "{\"sender_username\":\"$agent\",\"receiver_username\":\"$ADMIN_USER\",\"content\":\"Status nominal. Task queue is clear.\"}" > /dev/null

@@ -136,6 +136,17 @@ User Instruction: {payload}"""
                             "sender_role": "AGENT"
                         }))
                     else:
+                        # Emit a final CHAT frame (with stream_id) so backend can persist response history.
+                        await ws.send(json.dumps({
+                            "type": "CHAT",
+                            "target_id": sender_id,
+                            "payload": full_reply,
+                            "stream_id": stream_id,
+                            "sender_id": 7,
+                            "sender_name": "Storage-Custodian",
+                            "sender_role": "AGENT"
+                        }))
+
                         # End of stream for human users
                         await ws.send(json.dumps({
                             "type": "CHAT_STREAM_END",
