@@ -12,7 +12,6 @@ import (
 	larkdispatcher "github.com/larksuite/oapi-sdk-go/v3/event/dispatcher"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 	larkws "github.com/larksuite/oapi-sdk-go/v3/ws"
-	"github.com/lea/echocenter/backend/internal/butler"
 )
 
 type feishuWSRuntime struct {
@@ -220,8 +219,8 @@ func (h *Handler) processFeishuWSInbound(ctx context.Context, payload map[string
 		return err
 	}
 
-	if svc := butler.GetButler(); svc != nil {
-		go svc.HandleUserMessage(context.Background(), bridgeUserID, text)
+	if err := h.routeFeishuInboundToButler(ctx, bridgeUserID, text); err != nil {
+		return err
 	}
 
 	detail := "Accepted inbound WS message " + inbound.MessageID + " from feishu_user=" + inbound.FeishuUserID + " chat=" + inbound.ChatID

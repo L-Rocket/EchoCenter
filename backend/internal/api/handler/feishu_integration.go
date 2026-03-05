@@ -372,8 +372,9 @@ func (h *Handler) HandleFeishuCallback(c *gin.Context) {
 		return
 	}
 
-	if svc := butler.GetButler(); svc != nil {
-		go svc.HandleUserMessage(context.Background(), bridgeUserID, text)
+	if err := h.routeFeishuInboundToButler(c.Request.Context(), bridgeUserID, text); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
 	}
 
 	detail := fmt.Sprintf("Accepted inbound message %s from feishu_user=%s chat=%s", inbound.MessageID, inbound.FeishuUserID, inbound.ChatID)
@@ -512,6 +513,37 @@ func (h *Handler) ensureFeishuBridgeUser(ctx context.Context, _ string) (int, er
 	}
 
 	return 0, apperrors.New(apperrors.ErrNotFound, "admin user not found")
+}
+
+func (h *Handler) routeFeishuInboundToButler(ctx context.Context, senderID int, payload string) error {
+	payload = strings.TrimSpace(payload)
+	if payload == "" {
+		return nil
+	}
+
+	svc := butler.GetButler()
+	if svc == nil {
+		return apperrors.New(apperrors.ErrInternal, "butler service not initialized")
+	}
+	butlerID := svc.GetButlerID()
+	if butlerID <= 0 {
+		return apperrors.New(apperrors.ErrInternal, "invalid butler user id")
+	}
+
+	if h.hub != nil {
+		h.hub.BroadcastGeneric(map[string]any{
+			"type":        "CHAT",
+			"sender_id":   senderID,
+			"sender_name": "admin",
+			"sender_role": "ADMIN",
+			"target_id":   butlerID,
+			"payload":     payload,
+		})
+		return nil
+	}
+
+	go svc.HandleUserMessage(context.Background(), senderID, payload)
+	return nil
 }
 
 func defaultFeishuConnector() models.FeishuConnector {
