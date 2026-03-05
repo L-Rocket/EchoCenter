@@ -29,7 +29,8 @@ function App() {
                 
                 {/* Admin Only Routes */}
                 <Route element={<RequireAuth adminOnly />}>
-                  <Route path="/team" element={<TeamPage />} />
+                  <Route path="/settings" element={<TeamPage />} />
+                  <Route path="/team" element={<Navigate to="/settings" replace />} />
                 </Route>
 
                 {/* Default Redirect */}

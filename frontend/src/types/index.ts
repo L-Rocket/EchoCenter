@@ -4,6 +4,7 @@ export interface User {
   id: number;
   username: string;
   role: string;
+  api_token?: string;
   created_at?: string;
 }
 

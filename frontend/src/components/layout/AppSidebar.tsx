@@ -1,10 +1,11 @@
 import {
   LayoutDashboard,
-  Shield,
-  Users,
+  Crown,
+  Settings,
   Terminal,
   LogOut,
   Bot,
+  UserCircle2,
 } from "lucide-react"
 import { useNavigate, NavLink } from "react-router-dom"
 
@@ -31,7 +32,7 @@ const navItems = [
   {
     title: "Butler",
     path: "/butler",
-    icon: Shield,
+    icon: Crown,
   },
   {
     title: "Agents",
@@ -39,9 +40,9 @@ const navItems = [
     icon: Bot,
   },
   {
-    title: "Team",
-    path: "/team",
-    icon: Users,
+    title: "Settings",
+    path: "/settings",
+    icon: Settings,
     adminOnly: true,
   },
 ]
@@ -106,7 +107,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <div className="flex items-center gap-3 px-3 py-2 group-data-[collapsible=icon]:px-2">
               <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-muted text-muted-foreground group-data-[collapsible=icon]:mx-auto">
-                <Users className="size-4" />
+                <UserCircle2 className="size-4" />
               </div>
               <div className="flex flex-col text-left text-xs group-data-[collapsible=icon]:hidden">
                 <span className="truncate font-medium">{user?.username}</span>

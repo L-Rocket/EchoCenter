@@ -24,9 +24,9 @@ export const MainLayout: React.FC = () => {
               <Outlet />
             </div>
           </main>
-          <footer className="border-t bg-card py-6">
+          <footer className="border-t bg-card py-3">
             <div className="container max-w-5xl mx-auto px-4 text-center">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[11px] text-muted-foreground">
                 &copy; {new Date().getFullYear()} EchoCenter &bull; Intelligence Monitoring Hub
               </p>
             </div>
