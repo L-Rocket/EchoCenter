@@ -40,6 +40,7 @@ func (h *Handler) CreateFeishuConnector(c *gin.Context) {
 		h.respondWithError(c, http.StatusBadRequest, err)
 		return
 	}
+	enforceFeishuServerManagedDefaults(&connector)
 
 	if err := h.repo.CreateFeishuConnector(c.Request.Context(), &connector); err != nil {
 		h.respondWithError(c, http.StatusInternalServerError, err)
@@ -77,6 +78,11 @@ func (h *Handler) UpdateFeishuConnector(c *gin.Context) {
 	if err := applyFeishuPayload(&updated, payload); err != nil {
 		h.respondWithError(c, http.StatusBadRequest, err)
 		return
+	}
+	copyFeishuServerManagedFields(&updated, *existing)
+	if shouldInvalidateFeishuVerification(*existing, updated) {
+		invalidateFeishuVerification(&updated)
+		_ = h.repo.AppendFeishuIntegrationLog(c.Request.Context(), id, "info", "callback_verification_reset", "Callback verification reset due to callback auth config change")
 	}
 	updated.ID = id
 
@@ -474,7 +480,7 @@ func extractFeishuToken(payload map[string]any) string {
 func (h *Handler) verifyFeishuToken(got, expected string) bool {
 	expected = strings.TrimSpace(expected)
 	if expected == "" {
-		return true
+		return false
 	}
 	return strings.TrimSpace(got) == expected
 }
@@ -615,8 +621,6 @@ func applyFeishuPayload(connector *models.FeishuConnector, payload map[string]an
 	}
 
 	setString(&connector.ConnectorName, "connector_name", "connectorName")
-	setBool(&connector.Enabled, "enabled")
-	setString(&connector.Status, "status")
 	setString(&connector.AppID, "app_id", "appId")
 	setString(&connector.AppSecret, "app_secret", "appSecret")
 	setString(&connector.VerificationToken, "verification_token", "verificationToken")
@@ -628,7 +632,6 @@ func applyFeishuPayload(connector *models.FeishuConnector, payload map[string]an
 	setBool(&connector.IgnoreBotMessages, "ignore_bot_messages", "ignoreBotMessages")
 	setInt(&connector.RateLimitPerMinute, "rate_limit_per_minute", "rateLimitPerMinute")
 	setString(&connector.CallbackURL, "callback_url", "callbackUrl")
-	setBool(&connector.CallbackVerified, "callback_verified", "callbackVerified")
 
 	if values, ok := lookupStringList(payload, "allowed_chat_ids", "allowedChatIds"); ok {
 		connector.AllowedChatIDs = values
@@ -642,6 +645,42 @@ func applyFeishuPayload(connector *models.FeishuConnector, payload map[string]an
 	}
 
 	return nil
+}
+
+func enforceFeishuServerManagedDefaults(connector *models.FeishuConnector) {
+	if connector == nil {
+		return
+	}
+	connector.Enabled = false
+	connector.Status = "not_connected"
+	connector.CallbackVerified = false
+	connector.LastVerifiedAt = nil
+}
+
+func copyFeishuServerManagedFields(dst *models.FeishuConnector, existing models.FeishuConnector) {
+	if dst == nil {
+		return
+	}
+	dst.Enabled = existing.Enabled
+	dst.Status = existing.Status
+	dst.CallbackVerified = existing.CallbackVerified
+	dst.LastVerifiedAt = existing.LastVerifiedAt
+}
+
+func shouldInvalidateFeishuVerification(before, after models.FeishuConnector) bool {
+	return !strings.EqualFold(strings.TrimSpace(before.AppID), strings.TrimSpace(after.AppID)) ||
+		!strings.EqualFold(strings.TrimSpace(before.VerificationToken), strings.TrimSpace(after.VerificationToken)) ||
+		!strings.EqualFold(strings.TrimSpace(before.CallbackURL), strings.TrimSpace(after.CallbackURL))
+}
+
+func invalidateFeishuVerification(connector *models.FeishuConnector) {
+	if connector == nil {
+		return
+	}
+	connector.CallbackVerified = false
+	connector.LastVerifiedAt = nil
+	connector.Enabled = false
+	connector.Status = "not_connected"
 }
 
 func lookupString(payload map[string]any, keys ...string) (string, bool) {
