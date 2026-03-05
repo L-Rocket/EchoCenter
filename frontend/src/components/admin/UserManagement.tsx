@@ -573,7 +573,24 @@ const UserManagement = () => {
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 min-w-0">
-                        <p className="text-sm font-mono truncate">{maskToken(tokenDisplay)}</p>
+                        <p className="text-sm font-mono truncate">
+                          {tokenVisible[agent.id] ? (tokenValue || tokenDisplay || 'Not set') : maskToken(tokenDisplay)}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-[10px] shrink-0"
+                          onClick={() =>
+                            setTokenVisible((prev) => ({
+                              ...prev,
+                              [agent.id]: !prev[agent.id],
+                            }))
+                          }
+                          disabled={!tokenValue}
+                        >
+                          {tokenVisible[agent.id] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        </Button>
                         <Button
                           type="button"
                           variant="outline"
