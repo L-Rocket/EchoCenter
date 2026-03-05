@@ -49,6 +49,14 @@ func main() {
 	butler.SetRepository(repo)
 	agent, err := repo.InitializeButler(context.Background())
 
+	// Mark stale pending authorization cards as expired on each startup.
+	// This avoids showing old "Approve/Reject" cards after frontend/backend restarts.
+	if expiredCount, expireErr := repo.ExpirePendingAuthRequests(context.Background()); expireErr != nil {
+		log.Printf("WARNING: failed to expire pending auth requests: %v", expireErr)
+	} else if expiredCount > 0 {
+		log.Printf("Expired %d stale pending AUTH_REQUEST records", expiredCount)
+	}
+
 	// Initialize WebSocket hub with Butler and persistence handlers
 	persistHandler := websocket.NewPersistingMessageHandler(repo)
 	monitorHandler := websocket.NewButlerAgentMonitorHandler(repo)

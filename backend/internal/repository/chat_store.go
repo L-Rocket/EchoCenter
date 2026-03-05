@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/lea/echocenter/backend/internal/models"
@@ -137,4 +138,55 @@ func (r *sqlRepository) UpdateAuthRequestStatus(ctx context.Context, actionID st
 	}
 
 	return nil
+}
+
+// ExpirePendingAuthRequests marks stale AUTH_REQUEST records as EXPIRED.
+// This prevents old pending approvals from repeatedly showing up after restarts.
+func (r *sqlRepository) ExpirePendingAuthRequests(ctx context.Context) (int, error) {
+	rows, err := r.queryContext(ctx, "SELECT id, content FROM chat_messages WHERE type = 'AUTH_REQUEST'")
+	if err != nil {
+		return 0, apperrors.Wrap(apperrors.ErrDatabase, "failed to query AUTH_REQUEST messages", err)
+	}
+	defer rows.Close()
+
+	type updateOp struct {
+		id      int
+		content string
+	}
+	var updates []updateOp
+
+	for rows.Next() {
+		var id int
+		var content string
+		if err := rows.Scan(&id, &content); err != nil {
+			continue
+		}
+
+		var payload map[string]any
+		if err := json.Unmarshal([]byte(content), &payload); err != nil {
+			continue
+		}
+
+		status, _ := payload["status"].(string)
+		if strings.EqualFold(strings.TrimSpace(status), "PENDING") {
+			payload["status"] = "EXPIRED"
+			newContent, _ := json.Marshal(payload)
+			updates = append(updates, updateOp{id: id, content: string(newContent)})
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return 0, apperrors.Wrap(apperrors.ErrDatabase, "failed iterating AUTH_REQUEST messages", err)
+	}
+
+	updated := 0
+	for _, op := range updates {
+		if _, err := r.execContext(ctx, "UPDATE chat_messages SET content = ? WHERE id = ?", op.content, op.id); err != nil {
+			log.Printf("[Repository] Failed to expire AUTH_REQUEST message %d: %v", op.id, err)
+			continue
+		}
+		updated++
+	}
+
+	return updated, nil
 }

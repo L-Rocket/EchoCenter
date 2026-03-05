@@ -30,6 +30,7 @@ type ChatRepository interface {
 	SaveChatMessage(ctx context.Context, msg *models.ChatMessage) error
 	GetChatHistory(ctx context.Context, user1ID, user2ID int, limit int) ([]models.ChatMessage, error)
 	UpdateAuthRequestStatus(ctx context.Context, actionID string, status string) error
+	ExpirePendingAuthRequests(ctx context.Context) (int, error)
 }
 
 // ButlerRepository manages Butler authorization records.
