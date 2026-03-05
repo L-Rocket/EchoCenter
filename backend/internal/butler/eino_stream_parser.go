@@ -2,19 +2,15 @@ package butler
 
 import "strings"
 
-const streamCheckBufferFlushThreshold = 100
-
 type streamCommandParser struct {
 	fullReply     strings.Builder
 	commandBuffer strings.Builder
 	checkBuffer   strings.Builder
 	inCommand     bool
-
-	flushThreshold int
 }
 
 func newStreamCommandParser() *streamCommandParser {
-	return &streamCommandParser{flushThreshold: streamCheckBufferFlushThreshold}
+	return &streamCommandParser{}
 }
 
 func (p *streamCommandParser) consumeChunk(chunk string) (emit string, shouldStop bool) {
@@ -42,13 +38,6 @@ func (p *streamCommandParser) consumeChunk(chunk string) (emit string, shouldSto
 			if strings.Count(cmdStr, "{") > 0 && strings.Count(cmdStr, "{") == strings.Count(cmdStr, "}") {
 				return emit, true
 			}
-			return emit, false
-		}
-
-		if p.checkBuffer.Len() > p.flushThreshold {
-			emit = p.checkBuffer.String()
-			p.fullReply.WriteString(emit)
-			p.checkBuffer.Reset()
 			return emit, false
 		}
 

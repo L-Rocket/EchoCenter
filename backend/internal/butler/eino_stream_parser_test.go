@@ -90,19 +90,26 @@ func TestStreamCommandParser_CommandInSingleChunkDropsPreface(t *testing.T) {
 	}
 }
 
-func TestStreamCommandParser_FlushThreshold(t *testing.T) {
+func TestStreamCommandParser_DoesNotFlushEarlyBeforeCommandDecision(t *testing.T) {
 	parser := newStreamCommandParser()
-	parser.flushThreshold = 5
 
 	emit, stop := parser.consumeChunk("123456")
-	if emit != "123456" {
-		t.Fatalf("expected immediate flush, got: %q", emit)
+	if emit != "" {
+		t.Fatalf("expected no early emit, got: %q", emit)
 	}
 	if stop {
 		t.Fatalf("did not expect stop")
 	}
 
+	if parser.content() != "" {
+		t.Fatalf("expected parser content buffered until flush, got: %q", parser.content())
+	}
+
+	remaining := parser.flushRemaining()
+	if remaining != "123456" {
+		t.Fatalf("expected flushRemaining to output buffered content, got: %q", remaining)
+	}
 	if parser.content() != "123456" {
-		t.Fatalf("unexpected parser content: %q", parser.content())
+		t.Fatalf("unexpected parser content after flush: %q", parser.content())
 	}
 }
