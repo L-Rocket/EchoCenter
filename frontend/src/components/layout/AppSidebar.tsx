@@ -39,8 +39,8 @@ const navItems = [
     icon: Bot,
   },
   {
-    title: "Team",
-    path: "/team",
+    title: "Settings",
+    path: "/settings",
     icon: Users,
     adminOnly: true,
   },

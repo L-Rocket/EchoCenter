@@ -58,7 +58,7 @@ Last updated: 2026-03-05
 
 11. Read Feishu connector config
 - Suggested: `GET /api/integrations/feishu`
-- Purpose: hydrate Team > Integrations page with persisted connector fields.
+- Purpose: hydrate Settings > Integrations page with persisted connector fields.
 - Response contract (recommended):
   - `id`, `connector_name`, `enabled`, `status`
   - `app_id`, `verification_token`, `encrypt_key` (secret fields can return masked value + `has_secret`)
@@ -112,5 +112,5 @@ Last updated: 2026-03-05
 ## Notes
 
 - Current frontend branch already supports separate Butler page (`/butler`) and excludes Butler from Agents UI.
-- Agent creation and token management UI is now on Team/Admin page; Agents page is chat-focused with search only.
+- Agent creation and token management UI is now on Settings/Admin page; Agents page is chat-focused with search only.
 - These backend APIs are not required for current UI to run, but are required for cleaner data flow and richer history views.
