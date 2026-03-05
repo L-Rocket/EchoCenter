@@ -15,4 +15,11 @@ Retrieves latest 50 messages.
 - Returns: Array of messages in reverse chronological order.
 
 ## Database
-Uses SQLite stored in `./data/echo_center.db`.
+Default database is SQLite via `DB_PATH`.
+Set `DB_DRIVER=postgres` to use PostgreSQL via `DB_DSN`.
+If `DB_DSN` is empty, DSN is built from `PG_HOST`, `PG_PORT`, `PG_USER`, `PG_PASSWORD`, `PG_DATABASE`, `PG_SSLMODE`.
+
+## Mock Dev Endpoints
+`/api/dev/mock/*` endpoints are enabled only when `APP_ENV` is not `production`.
+
+When `DB_DRIVER=postgres`, `make run-mock` automatically ensures (or recreates when `RESET=1`) the target database before backend startup.

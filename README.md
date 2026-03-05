@@ -29,7 +29,7 @@
 - **🧠 Butler Core**: An AI-driven coordinator that understands user intent and executes complex multi-agent workflows.
 - **📊 Interactive Dashboard**: Modern React-based UI for monitoring agent status and system-wide logs.
 - **🔒 Secure Architecture**: Mandatory JWT authentication and per-agent API tokens.
-- **📂 Persistent History**: Full chat and command history stored in an optimized SQLite database with WAL mode.
+- **📂 Persistent History**: Full chat and command history stored in SQLite by default, with PostgreSQL available via configuration.
 
 ## 🛠 Tech Stack
 
@@ -38,7 +38,7 @@
 | **Go 1.22+** | **React 19** | **Python 3.9+** |
 | Gin Gonic | TypeScript | OpenAI SDK |
 | Gorilla WebSocket | Tailwind CSS (v4) | websockets |
-| SQLite (WAL) | Zustand | psutil |
+| SQLite (WAL) / PostgreSQL | Zustand | psutil |
 | Eino (AI Brain) | Shadcn/ui | python-dotenv |
 
 ## 🚀 Quick Start

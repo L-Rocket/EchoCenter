@@ -19,6 +19,7 @@ func newTestRepo(t *testing.T) Repository {
 
 	dbPath := filepath.Join(t.TempDir(), "echo_test.db")
 	repo, err := New(&config.DatabaseConfig{
+		Driver:          "sqlite",
 		Path:            dbPath,
 		MaxOpenConns:    1,
 		MaxIdleConns:    1,
@@ -80,6 +81,34 @@ func TestUpdateAuthorizationStatusNotFound(t *testing.T) {
 	err := repo.UpdateAuthorizationStatus(context.Background(), "missing-id", "APPROVED")
 	require.Error(t, err)
 	assert.True(t, apperrors.Is(err, apperrors.ErrNotFound))
+}
+
+func TestResetMockDataClearsTablesAndResetsIdentity(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	err := repo.InitializeAdmin(ctx, "admin", "admin123", 4)
+	require.NoError(t, err)
+
+	err = repo.CreateUser(ctx, &models.User{Username: "alice", PasswordHash: "h", Role: "MEMBER"})
+	require.NoError(t, err)
+
+	msg := &models.Message{AgentID: "a", Level: "INFO", Content: "hello"}
+	err = repo.CreateMessage(ctx, msg)
+	require.NoError(t, err)
+	require.NotZero(t, msg.ID)
+
+	err = repo.ResetMockData(ctx)
+	require.NoError(t, err)
+
+	users, err := repo.GetUsers(ctx)
+	require.NoError(t, err)
+	assert.Len(t, users, 0)
+
+	next := &models.Message{AgentID: "b", Level: "INFO", Content: "after reset"}
+	err = repo.CreateMessage(ctx, next)
+	require.NoError(t, err)
+	assert.Equal(t, 1, next.ID)
 }
 
 func TestIsUniqueConstraintErrorSafeForShortMessages(t *testing.T) {

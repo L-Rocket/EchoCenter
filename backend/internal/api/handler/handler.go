@@ -4,27 +4,49 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lea/echocenter/backend/internal/api/websocket"
 	"github.com/lea/echocenter/backend/internal/auth"
 	"github.com/lea/echocenter/backend/internal/butler"
+	"github.com/lea/echocenter/backend/internal/config"
 	"github.com/lea/echocenter/backend/internal/models"
 	"github.com/lea/echocenter/backend/internal/repository"
 	apperrors "github.com/lea/echocenter/backend/pkg/errors"
 )
 
 type Handler struct {
-	repo    repository.Repository
-	authSvc auth.Service
-	hub     websocket.Hub
+	repo                 repository.Repository
+	authSvc              auth.Service
+	hub                  websocket.Hub
+	appEnv               string
+	initialAdminUser     string
+	initialAdminPassword string
+	bcryptCost           int
 }
 
-func NewHandler(repo repository.Repository, authSvc auth.Service, hub websocket.Hub) *Handler {
+func NewHandler(repo repository.Repository, authSvc auth.Service, hub websocket.Hub, cfg *config.Config) *Handler {
+	appEnv := "development"
+	initialAdminUser := ""
+	initialAdminPassword := ""
+	bcryptCost := 12
+
+	if cfg != nil {
+		appEnv = strings.ToLower(strings.TrimSpace(cfg.Server.Env))
+		initialAdminUser = cfg.Auth.InitialAdminUser
+		initialAdminPassword = cfg.Auth.InitialAdminPassword
+		bcryptCost = cfg.Auth.BcryptCost
+	}
+
 	return &Handler{
-		repo:    repo,
-		authSvc: authSvc,
-		hub:     hub,
+		repo:                 repo,
+		authSvc:              authSvc,
+		hub:                  hub,
+		appEnv:               appEnv,
+		initialAdminUser:     initialAdminUser,
+		initialAdminPassword: initialAdminPassword,
+		bcryptCost:           bcryptCost,
 	}
 }
 

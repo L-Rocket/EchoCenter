@@ -77,7 +77,7 @@ func main() {
 	go hub.Run(rootCtx)
 
 	// Initialize handlers
-	h := handler.NewHandler(repo, authSvc, hub)
+	h := handler.NewHandler(repo, authSvc, hub, cfg)
 
 	// Setup Gin router
 	gin.SetMode(gin.ReleaseMode)

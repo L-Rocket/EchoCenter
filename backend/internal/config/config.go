@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -22,12 +24,15 @@ type Config struct {
 type ServerConfig struct {
 	Host         string
 	Port         int
+	Env          string
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 }
 
 // DatabaseConfig holds database configuration
 type DatabaseConfig struct {
+	Driver          string
+	DSN             string
 	Path            string
 	MaxOpenConns    int
 	MaxIdleConns    int
@@ -60,10 +65,13 @@ func Load() (*Config, error) {
 		Server: ServerConfig{
 			Host:         getEnv("SERVER_HOST", "0.0.0.0"),
 			Port:         getEnvAsInt("SERVER_PORT", 8080),
+			Env:          getEnv("APP_ENV", "development"),
 			ReadTimeout:  getEnvAsDuration("SERVER_READ_TIMEOUT", 15*time.Second),
 			WriteTimeout: getEnvAsDuration("SERVER_WRITE_TIMEOUT", 15*time.Second),
 		},
 		Database: DatabaseConfig{
+			Driver:          getEnv("DB_DRIVER", "sqlite"),
+			DSN:             getPostgresDSN(),
 			Path:            getEnv("DB_PATH", "./data/echo_center.db"),
 			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 25),
 			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 5),
@@ -133,4 +141,32 @@ func getEnvAsSlice(key string, defaultValue []string) []string {
 		return strings.Split(value, ",")
 	}
 	return defaultValue
+}
+
+// getPostgresDSN returns DB_DSN if set, otherwise builds DSN from PG_* variables.
+func getPostgresDSN() string {
+	if dsn := strings.TrimSpace(os.Getenv("DB_DSN")); dsn != "" {
+		return dsn
+	}
+
+	host := getEnv("PG_HOST", "localhost")
+	port := getEnvAsInt("PG_PORT", 5432)
+	user := getEnv("PG_USER", "postgres")
+	password := os.Getenv("PG_PASSWORD")
+	database := getEnv("PG_DATABASE", "echocenter")
+	sslMode := getEnv("PG_SSLMODE", "disable")
+
+	u := &url.URL{
+		Scheme:   "postgres",
+		Host:     net.JoinHostPort(host, strconv.Itoa(port)),
+		Path:     "/" + database,
+		RawQuery: "sslmode=" + url.QueryEscape(sslMode),
+	}
+	if password != "" {
+		u.User = url.UserPassword(user, password)
+	} else {
+		u.User = url.User(user)
+	}
+
+	return u.String()
 }

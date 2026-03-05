@@ -4,13 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/lea/echocenter/backend/internal/config"
 	"github.com/lea/echocenter/backend/internal/models"
 	apperrors "github.com/lea/echocenter/backend/pkg/errors"
@@ -46,6 +50,7 @@ type Repository interface {
 	// Admin
 	InitializeAdmin(ctx context.Context, username, password string, bcryptCost int) error
 	InitializeButler(ctx context.Context) (*models.User, error)
+	ResetMockData(ctx context.Context) error
 
 	// Close
 	Close() error
@@ -60,28 +65,59 @@ type MessageFilter struct {
 	Limit   int
 }
 
-// sqliteRepository implements Repository using SQLite
-type sqliteRepository struct {
-	db *sql.DB
+const (
+	driverPostgres = "postgres"
+	driverSQLite   = "sqlite"
+)
+
+type schemaMigration struct {
+	name       string
+	statements []string
+}
+
+// sqlRepository implements Repository with pluggable SQL drivers.
+type sqlRepository struct {
+	db     *sql.DB
+	driver string
 }
 
 // New creates a new repository instance
 func New(cfg *config.DatabaseConfig) (Repository, error) {
-	// Ensure the directory for the database exists
-	dbDir := filepath.Dir(cfg.Path)
-	if err := os.MkdirAll(dbDir, 0755); err != nil {
-		return nil, apperrors.Wrap(apperrors.ErrInternal, "failed to create database directory", err)
+	driver := strings.ToLower(strings.TrimSpace(cfg.Driver))
+	if driver == "" {
+		driver = driverPostgres
 	}
 
-	// Add busy timeout and journal mode parameters to avoid SQLITE_BUSY errors
-	dsn := cfg.Path + "?_busy_timeout=5000&_journal_mode=WAL"
-	db, err := sql.Open("sqlite", dsn)
-	if err != nil {
-		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to open database", err)
+	var (
+		db  *sql.DB
+		err error
+	)
+
+	switch driver {
+	case driverPostgres, "postgresql":
+		driver = driverPostgres
+		db, err = sql.Open("pgx", cfg.DSN)
+		if err != nil {
+			return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to open postgres database", err)
+		}
+	case driverSQLite:
+		// Ensure the directory for the database exists
+		dbDir := filepath.Dir(cfg.Path)
+		if err := os.MkdirAll(dbDir, 0755); err != nil {
+			return nil, apperrors.Wrap(apperrors.ErrInternal, "failed to create database directory", err)
+		}
+
+		// Add busy timeout and journal mode parameters to avoid SQLITE_BUSY errors
+		dsn := cfg.Path + "?_busy_timeout=5000&_journal_mode=WAL"
+		db, err = sql.Open("sqlite", dsn)
+		if err != nil {
+			return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to open sqlite database", err)
+		}
+	default:
+		return nil, apperrors.New(apperrors.ErrInternal, fmt.Sprintf("unsupported DB_DRIVER: %s", cfg.Driver))
 	}
 
 	// Configure connection pool
-	// With WAL mode, we can have multiple readers and one writer
 	db.SetMaxOpenConns(cfg.MaxOpenConns)
 	db.SetMaxIdleConns(cfg.MaxIdleConns)
 	db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
@@ -90,7 +126,10 @@ func New(cfg *config.DatabaseConfig) (Repository, error) {
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to ping database", err)
 	}
 
-	repo := &sqliteRepository{db: db}
+	repo := &sqlRepository{
+		db:     db,
+		driver: driver,
+	}
 
 	if err := repo.migrate(); err != nil {
 		return nil, err
@@ -100,80 +139,22 @@ func New(cfg *config.DatabaseConfig) (Repository, error) {
 }
 
 // migrate creates database tables and indexes with a tracking table
-func (r *sqliteRepository) migrate() error {
+func (r *sqlRepository) migrate() error {
 	// Create migrations table first
 	_, err := r.db.Exec(`CREATE TABLE IF NOT EXISTS migrations (
 		name TEXT PRIMARY KEY,
-		executed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);`)
 	if err != nil {
 		return apperrors.Wrap(apperrors.ErrDatabase, "failed to create migrations table", err)
 	}
 
-	migrations := []struct {
-		name string
-		sql  string
-	}{
-		{
-			name: "001_create_messages_table",
-			sql: `CREATE TABLE IF NOT EXISTS messages (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				agent_id TEXT NOT NULL,
-				level TEXT NOT NULL,
-				content TEXT NOT NULL,
-				timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-			);`,
-		},
-		{
-			name: "002_create_users_table",
-			sql: `CREATE TABLE IF NOT EXISTS users (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				username TEXT NOT NULL UNIQUE,
-				password_hash TEXT NOT NULL,
-				api_token TEXT UNIQUE,
-				role TEXT NOT NULL DEFAULT 'MEMBER',
-				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-			);`,
-		},
-		{
-			name: "003_create_chat_messages_table",
-			sql: `CREATE TABLE IF NOT EXISTS chat_messages (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				local_id TEXT UNIQUE,
-				sender_id INTEGER NOT NULL,
-				receiver_id INTEGER NOT NULL,
-				type TEXT DEFAULT 'CHAT',
-				content TEXT NOT NULL,
-				timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-				FOREIGN KEY(sender_id) REFERENCES users(id),
-				FOREIGN KEY(receiver_id) REFERENCES users(id)
-			);`,
-		},
-		{
-			name: "004_create_butler_authorizations_table",
-			sql: `CREATE TABLE IF NOT EXISTS butler_authorizations (
-				id TEXT PRIMARY KEY,
-				target_agent_id INTEGER NOT NULL,
-				proposed_command TEXT NOT NULL,
-				reasoning TEXT NOT NULL,
-				status TEXT NOT NULL DEFAULT 'PENDING',
-				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-				responded_at DATETIME,
-				FOREIGN KEY(target_agent_id) REFERENCES users(id)
-			);`,
-		},
-		{
-			name: "005_create_indexes",
-			sql: `CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages (timestamp DESC, id DESC);
-				CREATE INDEX IF NOT EXISTS idx_chat_pair_time ON chat_messages (sender_id, receiver_id, timestamp DESC);
-				CREATE INDEX IF NOT EXISTS idx_butler_status ON butler_authorizations (status);`,
-		},
-	}
+	migrations := r.getMigrations()
 
 	for _, m := range migrations {
 		// Check if migration already executed
 		var exists int
-		err := r.db.QueryRow("SELECT COUNT(*) FROM migrations WHERE name = ?", m.name).Scan(&exists)
+		err := r.queryRow("SELECT COUNT(*) FROM migrations WHERE name = ?", m.name).Scan(&exists)
 		if err != nil {
 			return apperrors.Wrap(apperrors.ErrDatabase, "failed to check migration status", err)
 		}
@@ -190,13 +171,15 @@ func (r *sqliteRepository) migrate() error {
 			return apperrors.Wrap(apperrors.ErrDatabase, "failed to start migration transaction", err)
 		}
 
-		if _, err := tx.Exec(m.sql); err != nil {
-			tx.Rollback()
-			return apperrors.Wrap(apperrors.ErrDatabase, fmt.Sprintf("failed to run migration: %s", m.name), err)
+		for _, stmt := range m.statements {
+			if _, err := r.txExec(tx, stmt); err != nil {
+				_ = tx.Rollback()
+				return apperrors.Wrap(apperrors.ErrDatabase, fmt.Sprintf("failed to run migration: %s", m.name), err)
+			}
 		}
 
-		if _, err := tx.Exec("INSERT INTO migrations (name) VALUES (?)", m.name); err != nil {
-			tx.Rollback()
+		if _, err := r.txExec(tx, "INSERT INTO migrations (name) VALUES (?)", m.name); err != nil {
+			_ = tx.Rollback()
 			return apperrors.Wrap(apperrors.ErrDatabase, "failed to record migration", err)
 		}
 
@@ -208,17 +191,205 @@ func (r *sqliteRepository) migrate() error {
 	return nil
 }
 
-// CreateMessage creates a new message
-func (r *sqliteRepository) CreateMessage(ctx context.Context, msg *models.Message) error {
-	query := `INSERT INTO messages (agent_id, level, content) VALUES (?, ?, ?)`
-	result, err := r.db.ExecContext(ctx, query, msg.AgentID, msg.Level, msg.Content)
-	if err != nil {
-		return apperrors.Wrap(apperrors.ErrDatabase, "failed to create message", err)
+func (r *sqlRepository) getMigrations() []schemaMigration {
+	if r.driver == driverPostgres {
+		return []schemaMigration{
+			{
+				name: "001_create_messages_table",
+				statements: []string{
+					`CREATE TABLE IF NOT EXISTS messages (
+						id BIGSERIAL PRIMARY KEY,
+						agent_id TEXT NOT NULL,
+						level TEXT NOT NULL,
+						content TEXT NOT NULL,
+						timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+					)`,
+				},
+			},
+			{
+				name: "002_create_users_table",
+				statements: []string{
+					`CREATE TABLE IF NOT EXISTS users (
+						id BIGSERIAL PRIMARY KEY,
+						username TEXT NOT NULL UNIQUE,
+						password_hash TEXT NOT NULL,
+						api_token TEXT UNIQUE,
+						role TEXT NOT NULL DEFAULT 'MEMBER',
+						created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+					)`,
+				},
+			},
+			{
+				name: "003_create_chat_messages_table",
+				statements: []string{
+					`CREATE TABLE IF NOT EXISTS chat_messages (
+						id BIGSERIAL PRIMARY KEY,
+						local_id TEXT UNIQUE,
+						sender_id BIGINT NOT NULL REFERENCES users(id),
+						receiver_id BIGINT NOT NULL REFERENCES users(id),
+						type TEXT DEFAULT 'CHAT',
+						content TEXT NOT NULL,
+						timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+					)`,
+				},
+			},
+			{
+				name: "004_create_butler_authorizations_table",
+				statements: []string{
+					`CREATE TABLE IF NOT EXISTS butler_authorizations (
+						id TEXT PRIMARY KEY,
+						target_agent_id BIGINT NOT NULL REFERENCES users(id),
+						proposed_command TEXT NOT NULL,
+						reasoning TEXT NOT NULL,
+						status TEXT NOT NULL DEFAULT 'PENDING',
+						created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+						responded_at TIMESTAMPTZ
+					)`,
+				},
+			},
+			{
+				name: "005_create_indexes",
+				statements: []string{
+					`CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages (timestamp DESC, id DESC)`,
+					`CREATE INDEX IF NOT EXISTS idx_chat_pair_time ON chat_messages (sender_id, receiver_id, timestamp DESC)`,
+					`CREATE INDEX IF NOT EXISTS idx_butler_status ON butler_authorizations (status)`,
+				},
+			},
+		}
 	}
 
-	id, err := result.LastInsertId()
+	return []schemaMigration{
+		{
+			name: "001_create_messages_table",
+			statements: []string{
+				`CREATE TABLE IF NOT EXISTS messages (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					agent_id TEXT NOT NULL,
+					level TEXT NOT NULL,
+					content TEXT NOT NULL,
+					timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+				)`,
+			},
+		},
+		{
+			name: "002_create_users_table",
+			statements: []string{
+				`CREATE TABLE IF NOT EXISTS users (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					username TEXT NOT NULL UNIQUE,
+					password_hash TEXT NOT NULL,
+					api_token TEXT UNIQUE,
+					role TEXT NOT NULL DEFAULT 'MEMBER',
+					created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+				)`,
+			},
+		},
+		{
+			name: "003_create_chat_messages_table",
+			statements: []string{
+				`CREATE TABLE IF NOT EXISTS chat_messages (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					local_id TEXT UNIQUE,
+					sender_id INTEGER NOT NULL,
+					receiver_id INTEGER NOT NULL,
+					type TEXT DEFAULT 'CHAT',
+					content TEXT NOT NULL,
+					timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+					FOREIGN KEY(sender_id) REFERENCES users(id),
+					FOREIGN KEY(receiver_id) REFERENCES users(id)
+				)`,
+			},
+		},
+		{
+			name: "004_create_butler_authorizations_table",
+			statements: []string{
+				`CREATE TABLE IF NOT EXISTS butler_authorizations (
+					id TEXT PRIMARY KEY,
+					target_agent_id INTEGER NOT NULL,
+					proposed_command TEXT NOT NULL,
+					reasoning TEXT NOT NULL,
+					status TEXT NOT NULL DEFAULT 'PENDING',
+					created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+					responded_at DATETIME,
+					FOREIGN KEY(target_agent_id) REFERENCES users(id)
+				)`,
+			},
+		},
+		{
+			name: "005_create_indexes",
+			statements: []string{
+				`CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages (timestamp DESC, id DESC)`,
+				`CREATE INDEX IF NOT EXISTS idx_chat_pair_time ON chat_messages (sender_id, receiver_id, timestamp DESC)`,
+				`CREATE INDEX IF NOT EXISTS idx_butler_status ON butler_authorizations (status)`,
+			},
+		},
+	}
+}
+
+func (r *sqlRepository) rebind(query string) string {
+	if r.driver != driverPostgres {
+		return query
+	}
+
+	var b strings.Builder
+	b.Grow(len(query) + 10)
+
+	index := 1
+	for i := 0; i < len(query); i++ {
+		if query[i] == '?' {
+			b.WriteByte('$')
+			b.WriteString(strconv.Itoa(index))
+			index++
+			continue
+		}
+		b.WriteByte(query[i])
+	}
+	return b.String()
+}
+
+func (r *sqlRepository) execContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return r.db.ExecContext(ctx, r.rebind(query), args...)
+}
+
+func (r *sqlRepository) queryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return r.db.QueryContext(ctx, r.rebind(query), args...)
+}
+
+func (r *sqlRepository) queryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	return r.db.QueryRowContext(ctx, r.rebind(query), args...)
+}
+
+func (r *sqlRepository) queryRow(query string, args ...any) *sql.Row {
+	return r.db.QueryRow(r.rebind(query), args...)
+}
+
+func (r *sqlRepository) txExec(tx *sql.Tx, query string, args ...any) (sql.Result, error) {
+	return tx.Exec(r.rebind(query), args...)
+}
+
+func (r *sqlRepository) insertAndReturnID(ctx context.Context, baseQuery string, args ...any) (int64, error) {
+	if r.driver == driverPostgres {
+		var id int64
+		err := r.queryRowContext(ctx, baseQuery+" RETURNING id", args...).Scan(&id)
+		if err != nil {
+			return 0, err
+		}
+		return id, nil
+	}
+
+	result, err := r.execContext(ctx, baseQuery, args...)
 	if err != nil {
-		return apperrors.Wrap(apperrors.ErrDatabase, "failed to get last insert id", err)
+		return 0, err
+	}
+	return result.LastInsertId()
+}
+
+// CreateMessage creates a new message
+func (r *sqlRepository) CreateMessage(ctx context.Context, msg *models.Message) error {
+	query := `INSERT INTO messages (agent_id, level, content) VALUES (?, ?, ?)`
+	id, err := r.insertAndReturnID(ctx, query, msg.AgentID, msg.Level, msg.Content)
+	if err != nil {
+		return apperrors.Wrap(apperrors.ErrDatabase, "failed to create message", err)
 	}
 
 	msg.ID = int(id)
@@ -227,7 +398,7 @@ func (r *sqliteRepository) CreateMessage(ctx context.Context, msg *models.Messag
 }
 
 // GetMessages retrieves messages with filtering
-func (r *sqliteRepository) GetMessages(ctx context.Context, filter MessageFilter) ([]models.Message, error) {
+func (r *sqlRepository) GetMessages(ctx context.Context, filter MessageFilter) ([]models.Message, error) {
 	query := `SELECT id, agent_id, level, content, timestamp FROM messages WHERE 1=1`
 	var args []any
 
@@ -247,7 +418,7 @@ func (r *sqliteRepository) GetMessages(ctx context.Context, filter MessageFilter
 	query += ` ORDER BY timestamp DESC, id DESC LIMIT ? OFFSET ?`
 	args = append(args, filter.Limit, filter.Offset)
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.queryContext(ctx, query, args...)
 	if err != nil {
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to query messages", err)
 	}
@@ -270,14 +441,14 @@ func (r *sqliteRepository) GetMessages(ctx context.Context, filter MessageFilter
 }
 
 // CreateUser creates a new user
-func (r *sqliteRepository) CreateUser(ctx context.Context, user *models.User) error {
+func (r *sqlRepository) CreateUser(ctx context.Context, user *models.User) error {
 	var apiToken string
 	if user.Role == "AGENT" {
 		apiToken = fmt.Sprintf("agent-%s-token-%d", user.Username, time.Now().Unix())
 	}
 
 	query := `INSERT INTO users (username, password_hash, api_token, role) VALUES (?, ?, ?, ?)`
-	_, err := r.db.ExecContext(ctx, query, user.Username, user.PasswordHash, apiToken, user.Role)
+	_, err := r.execContext(ctx, query, user.Username, user.PasswordHash, apiToken, user.Role)
 	if err != nil {
 		if isUniqueConstraintError(err) {
 			return apperrors.Wrap(apperrors.ErrConflict, "username already exists", err)
@@ -288,12 +459,12 @@ func (r *sqliteRepository) CreateUser(ctx context.Context, user *models.User) er
 }
 
 // GetUserByUsername retrieves a user by username
-func (r *sqliteRepository) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
+func (r *sqlRepository) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	var user models.User
 	var apiToken sql.NullString
 
 	query := `SELECT id, username, password_hash, api_token, role, created_at FROM users WHERE username = ?`
-	err := r.db.QueryRowContext(ctx, query, username).Scan(
+	err := r.queryRowContext(ctx, query, username).Scan(
 		&user.ID, &user.Username, &user.PasswordHash, &apiToken, &user.Role, &user.CreatedAt,
 	)
 
@@ -311,12 +482,12 @@ func (r *sqliteRepository) GetUserByUsername(ctx context.Context, username strin
 }
 
 // GetUserByID retrieves a user by ID
-func (r *sqliteRepository) GetUserByID(ctx context.Context, id int) (*models.User, error) {
+func (r *sqlRepository) GetUserByID(ctx context.Context, id int) (*models.User, error) {
 	var user models.User
 	var apiToken sql.NullString
 
 	query := `SELECT id, username, password_hash, api_token, role, created_at FROM users WHERE id = ?`
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
+	err := r.queryRowContext(ctx, query, id).Scan(
 		&user.ID, &user.Username, &user.PasswordHash, &apiToken, &user.Role, &user.CreatedAt,
 	)
 
@@ -334,11 +505,11 @@ func (r *sqliteRepository) GetUserByID(ctx context.Context, id int) (*models.Use
 }
 
 // GetAgentByToken retrieves an agent by API token
-func (r *sqliteRepository) GetAgentByToken(ctx context.Context, token string) (*models.User, error) {
+func (r *sqlRepository) GetAgentByToken(ctx context.Context, token string) (*models.User, error) {
 	var user models.User
 
 	query := `SELECT id, username, role, created_at FROM users WHERE api_token = ? AND role = 'AGENT'`
-	err := r.db.QueryRowContext(ctx, query, token).Scan(
+	err := r.queryRowContext(ctx, query, token).Scan(
 		&user.ID, &user.Username, &user.Role, &user.CreatedAt,
 	)
 
@@ -354,9 +525,9 @@ func (r *sqliteRepository) GetAgentByToken(ctx context.Context, token string) (*
 }
 
 // GetAgents retrieves all agents (including Butler)
-func (r *sqliteRepository) GetAgents(ctx context.Context) ([]models.User, error) {
+func (r *sqlRepository) GetAgents(ctx context.Context) ([]models.User, error) {
 	query := `SELECT id, username, role, created_at FROM users WHERE role IN ('AGENT', 'BUTLER')`
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.queryContext(ctx, query)
 	if err != nil {
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to query agents", err)
 	}
@@ -379,9 +550,9 @@ func (r *sqliteRepository) GetAgents(ctx context.Context) ([]models.User, error)
 }
 
 // GetUsers retrieves all users
-func (r *sqliteRepository) GetUsers(ctx context.Context) ([]models.User, error) {
+func (r *sqlRepository) GetUsers(ctx context.Context) ([]models.User, error) {
 	query := `SELECT id, username, role, created_at FROM users`
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.queryContext(ctx, query)
 	if err != nil {
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to query users", err)
 	}
@@ -404,9 +575,9 @@ func (r *sqliteRepository) GetUsers(ctx context.Context) ([]models.User, error) 
 }
 
 // CreateAgent creates a new agent
-func (r *sqliteRepository) CreateAgent(ctx context.Context, username, token string) error {
+func (r *sqlRepository) CreateAgent(ctx context.Context, username, token string) error {
 	query := `INSERT INTO users (username, password_hash, api_token, role) VALUES (?, ?, ?, ?)`
-	_, err := r.db.ExecContext(ctx, query, username, "AGENT_TOKEN_ONLY", token, "AGENT")
+	_, err := r.execContext(ctx, query, username, "AGENT_TOKEN_ONLY", token, "AGENT")
 	if err != nil {
 		if isUniqueConstraintError(err) {
 			return apperrors.Wrap(apperrors.ErrConflict, "agent username already exists", err)
@@ -417,7 +588,7 @@ func (r *sqliteRepository) CreateAgent(ctx context.Context, username, token stri
 }
 
 // SaveChatMessage saves a chat message
-func (r *sqliteRepository) SaveChatMessage(ctx context.Context, msg *models.ChatMessage) error {
+func (r *sqlRepository) SaveChatMessage(ctx context.Context, msg *models.ChatMessage) error {
 	msgType := msg.Type
 	if msgType == "" {
 		msgType = "CHAT"
@@ -427,7 +598,7 @@ func (r *sqliteRepository) SaveChatMessage(ctx context.Context, msg *models.Chat
 	if msg.LocalID != "" {
 		var existingID int
 		var existingTime time.Time
-		err := r.db.QueryRowContext(ctx, "SELECT id, timestamp FROM chat_messages WHERE local_id = ?", msg.LocalID).Scan(&existingID, &existingTime)
+		err := r.queryRowContext(ctx, "SELECT id, timestamp FROM chat_messages WHERE local_id = ?", msg.LocalID).Scan(&existingID, &existingTime)
 		if err == nil {
 			// Message already exists, just return its assigned ID and Timestamp
 			msg.ID = existingID
@@ -439,23 +610,20 @@ func (r *sqliteRepository) SaveChatMessage(ctx context.Context, msg *models.Chat
 	// Use high-precision timestamp
 	timestamp := time.Now()
 
-	var err error
-	var result sql.Result
+	var (
+		err error
+		id  int64
+	)
 	if msg.LocalID != "" {
 		query := `INSERT INTO chat_messages (local_id, sender_id, receiver_id, type, content, timestamp) VALUES (?, ?, ?, ?, ?, ?)`
-		result, err = r.db.ExecContext(ctx, query, msg.LocalID, msg.SenderID, msg.ReceiverID, msgType, msg.Payload, timestamp)
+		id, err = r.insertAndReturnID(ctx, query, msg.LocalID, msg.SenderID, msg.ReceiverID, msgType, msg.Payload, timestamp)
 	} else {
 		query := `INSERT INTO chat_messages (sender_id, receiver_id, type, content, timestamp) VALUES (?, ?, ?, ?, ?)`
-		result, err = r.db.ExecContext(ctx, query, msg.SenderID, msg.ReceiverID, msgType, msg.Payload, timestamp)
+		id, err = r.insertAndReturnID(ctx, query, msg.SenderID, msg.ReceiverID, msgType, msg.Payload, timestamp)
 	}
 
 	if err != nil {
 		return apperrors.Wrap(apperrors.ErrDatabase, "failed to save chat message", err)
-	}
-
-	id, err := result.LastInsertId()
-	if err != nil {
-		return apperrors.Wrap(apperrors.ErrDatabase, "failed to get last insert id", err)
 	}
 
 	msg.ID = int(id)
@@ -464,7 +632,7 @@ func (r *sqliteRepository) SaveChatMessage(ctx context.Context, msg *models.Chat
 }
 
 // GetChatHistory retrieves chat history between two users
-func (r *sqliteRepository) GetChatHistory(ctx context.Context, user1ID, user2ID int, limit int) ([]models.ChatMessage, error) {
+func (r *sqlRepository) GetChatHistory(ctx context.Context, user1ID, user2ID int, limit int) ([]models.ChatMessage, error) {
 	query := `
 		SELECT id, local_id, sender_id, receiver_id, type, content, timestamp 
 		FROM chat_messages 
@@ -472,7 +640,7 @@ func (r *sqliteRepository) GetChatHistory(ctx context.Context, user1ID, user2ID 
 		ORDER BY timestamp ASC, id ASC 
 		LIMIT ?
 	`
-	rows, err := r.db.QueryContext(ctx, query, user1ID, user2ID, user2ID, user1ID, limit)
+	rows, err := r.queryContext(ctx, query, user1ID, user2ID, user2ID, user1ID, limit)
 	if err != nil {
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to query chat history", err)
 	}
@@ -505,9 +673,9 @@ func (r *sqliteRepository) GetChatHistory(ctx context.Context, user1ID, user2ID 
 }
 
 // UpdateAuthRequestStatus updates the status of an AUTH_REQUEST message in chat history
-func (r *sqliteRepository) UpdateAuthRequestStatus(ctx context.Context, actionID string, status string) error {
+func (r *sqlRepository) UpdateAuthRequestStatus(ctx context.Context, actionID string, status string) error {
 	// Fetch all AUTH_REQUEST messages
-	rows, err := r.db.QueryContext(ctx, "SELECT id, content FROM chat_messages WHERE type = 'AUTH_REQUEST'")
+	rows, err := r.queryContext(ctx, "SELECT id, content FROM chat_messages WHERE type = 'AUTH_REQUEST'")
 	if err != nil {
 		return apperrors.Wrap(apperrors.ErrDatabase, "failed to query AUTH_REQUEST message", err)
 	}
@@ -540,7 +708,7 @@ func (r *sqliteRepository) UpdateAuthRequestStatus(ctx context.Context, actionID
 	rows.Close() // Close rows BEFORE executing updates to prevent SQLITE_BUSY
 
 	for _, op := range updates {
-		_, err = r.db.ExecContext(ctx, "UPDATE chat_messages SET content = ? WHERE id = ?", op.content, op.id)
+		_, err = r.execContext(ctx, "UPDATE chat_messages SET content = ? WHERE id = ?", op.content, op.id)
 		if err != nil {
 			log.Printf("[Repository] Failed to update message %d: %v", op.id, err)
 		} else {
@@ -552,9 +720,9 @@ func (r *sqliteRepository) UpdateAuthRequestStatus(ctx context.Context, actionID
 }
 
 // SaveAuthorization saves a butler authorization
-func (r *sqliteRepository) SaveAuthorization(ctx context.Context, auth *models.ButlerAuthorization) error {
+func (r *sqlRepository) SaveAuthorization(ctx context.Context, auth *models.ButlerAuthorization) error {
 	query := `INSERT INTO butler_authorizations (id, target_agent_id, proposed_command, reasoning) VALUES (?, ?, ?, ?)`
-	_, err := r.db.ExecContext(ctx, query, auth.ID, auth.TargetAgentID, auth.ProposedCommand, auth.Reasoning)
+	_, err := r.execContext(ctx, query, auth.ID, auth.TargetAgentID, auth.ProposedCommand, auth.Reasoning)
 	if err != nil {
 		return apperrors.Wrap(apperrors.ErrDatabase, "failed to save authorization", err)
 	}
@@ -562,9 +730,9 @@ func (r *sqliteRepository) SaveAuthorization(ctx context.Context, auth *models.B
 }
 
 // UpdateAuthorizationStatus updates the status of a butler authorization
-func (r *sqliteRepository) UpdateAuthorizationStatus(ctx context.Context, id string, status string) error {
+func (r *sqlRepository) UpdateAuthorizationStatus(ctx context.Context, id string, status string) error {
 	query := `UPDATE butler_authorizations SET status = ?, responded_at = CURRENT_TIMESTAMP WHERE id = ?`
-	result, err := r.db.ExecContext(ctx, query, status, id)
+	result, err := r.execContext(ctx, query, status, id)
 	if err != nil {
 		return apperrors.Wrap(apperrors.ErrDatabase, "failed to update authorization status", err)
 	}
@@ -582,12 +750,12 @@ func (r *sqliteRepository) UpdateAuthorizationStatus(ctx context.Context, id str
 }
 
 // GetAuthorization retrieves a butler authorization by ID
-func (r *sqliteRepository) GetAuthorization(ctx context.Context, id string) (*models.ButlerAuthorization, error) {
+func (r *sqlRepository) GetAuthorization(ctx context.Context, id string) (*models.ButlerAuthorization, error) {
 	var auth models.ButlerAuthorization
 	var respondedAt sql.NullTime
 
 	query := `SELECT id, target_agent_id, proposed_command, reasoning, status, created_at, responded_at FROM butler_authorizations WHERE id = ?`
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
+	err := r.queryRowContext(ctx, query, id).Scan(
 		&auth.ID, &auth.TargetAgentID, &auth.ProposedCommand, &auth.Reasoning,
 		&auth.Status, &auth.CreatedAt, &respondedAt,
 	)
@@ -606,13 +774,13 @@ func (r *sqliteRepository) GetAuthorization(ctx context.Context, id string) (*mo
 }
 
 // InitializeAdmin creates the initial admin user if no users exist
-func (r *sqliteRepository) InitializeAdmin(ctx context.Context, username, password string, bcryptCost int) error {
+func (r *sqlRepository) InitializeAdmin(ctx context.Context, username, password string, bcryptCost int) error {
 	if username == "" || password == "" {
 		return nil
 	}
 
 	var count int
-	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users").Scan(&count)
+	err := r.queryRowContext(ctx, "SELECT COUNT(*) FROM users").Scan(&count)
 	if err != nil {
 		return apperrors.Wrap(apperrors.ErrDatabase, "failed to check user count", err)
 	}
@@ -626,7 +794,7 @@ func (r *sqliteRepository) InitializeAdmin(ctx context.Context, username, passwo
 		return apperrors.Wrap(apperrors.ErrInternal, "failed to hash password", err)
 	}
 
-	_, err = r.db.ExecContext(ctx,
+	_, err = r.execContext(ctx,
 		"INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
 		username, string(hashedPassword), "ADMIN",
 	)
@@ -638,10 +806,10 @@ func (r *sqliteRepository) InitializeAdmin(ctx context.Context, username, passwo
 }
 
 // InitializeButler ensures the Butler agent exists in the database
-func (r *sqliteRepository) InitializeButler(ctx context.Context) (*models.User, error) {
+func (r *sqlRepository) InitializeButler(ctx context.Context) (*models.User, error) {
 	var user models.User
 	query := `SELECT id, username, role, api_token FROM users WHERE username = 'Butler' AND role = 'BUTLER' LIMIT 1`
-	err := r.db.QueryRowContext(ctx, query).Scan(&user.ID, &user.Username, &user.Role, &user.APIToken)
+	err := r.queryRowContext(ctx, query).Scan(&user.ID, &user.Username, &user.Role, &user.APIToken)
 
 	if err == nil {
 		return &user, nil // Already exists
@@ -657,13 +825,12 @@ func (r *sqliteRepository) InitializeButler(ctx context.Context) (*models.User, 
 	// Use a dummy password since Butler logs in via token
 	dummyHash := "$2a$12$ve.vOPXLOXQ.XOnIDovYnu.id.X6Z.id.X6Z.id.X6Z.id.X6Z"
 
-	query = `INSERT INTO users (username, password_hash, api_token, role) VALUES ('Butler', ?, ?, 'BUTLER')`
-	res, err := r.db.ExecContext(ctx, query, dummyHash, token)
+	query = `INSERT INTO users (username, password_hash, api_token, role) VALUES (?, ?, ?, ?)`
+	id, err := r.insertAndReturnID(ctx, query, "Butler", dummyHash, token, "BUTLER")
 	if err != nil {
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to create Butler", err)
 	}
 
-	id, _ := res.LastInsertId()
 	user.ID = int(id)
 	user.Username = "Butler"
 	user.Role = "BUTLER"
@@ -672,8 +839,45 @@ func (r *sqliteRepository) InitializeButler(ctx context.Context) (*models.User, 
 	return &user, nil
 }
 
+// ResetMockData removes runtime data for local mock bootstrap.
+func (r *sqlRepository) ResetMockData(ctx context.Context) error {
+	if r.driver == driverPostgres {
+		query := `TRUNCATE TABLE butler_authorizations, chat_messages, messages, users RESTART IDENTITY CASCADE`
+		if _, err := r.execContext(ctx, query); err != nil {
+			return apperrors.Wrap(apperrors.ErrDatabase, "failed to reset postgres mock data", err)
+		}
+		return nil
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return apperrors.Wrap(apperrors.ErrDatabase, "failed to begin sqlite reset transaction", err)
+	}
+
+	statements := []string{
+		"DELETE FROM butler_authorizations",
+		"DELETE FROM chat_messages",
+		"DELETE FROM messages",
+		"DELETE FROM users",
+		"DELETE FROM sqlite_sequence WHERE name IN ('users','messages','chat_messages')",
+	}
+
+	for _, stmt := range statements {
+		if _, err := tx.Exec(stmt); err != nil {
+			_ = tx.Rollback()
+			return apperrors.Wrap(apperrors.ErrDatabase, "failed to reset sqlite mock data", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return apperrors.Wrap(apperrors.ErrDatabase, "failed to commit sqlite reset transaction", err)
+	}
+
+	return nil
+}
+
 // Close closes the database connection
-func (r *sqliteRepository) Close() error {
+func (r *sqlRepository) Close() error {
 	if r.db != nil {
 		return r.db.Close()
 	}
@@ -685,6 +889,12 @@ func isUniqueConstraintError(err error) bool {
 	if err == nil {
 		return false
 	}
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return true
+	}
+
 	// SQLite unique constraint errors contain "unique constraint failed"
 	return strings.Contains(strings.ToLower(err.Error()), "unique constraint failed")
 }

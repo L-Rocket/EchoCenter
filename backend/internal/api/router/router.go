@@ -39,5 +39,14 @@ func Setup(r *gin.Engine, h *handler.Handler, authSvc auth.Service) {
 			admin.POST("", h.CreateUser)
 			admin.POST("/agents", h.RegisterAgent)
 		}
+
+		// Dev mock routes (admin + non-production only)
+		dev := protected.Group("/dev/mock")
+		dev.Use(middleware.AdminOnly(authSvc))
+		{
+			dev.POST("/reset", h.DevMockReset)
+			dev.POST("/chat", h.DevMockInsertChat)
+			dev.GET("/agent-token/:username", h.DevGetAgentToken)
+		}
 	}
 }
