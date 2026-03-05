@@ -172,7 +172,8 @@ func TestCreateAgentStoresMachineCredentialAndLookupByToken(t *testing.T) {
 	agents, err := repo.GetAgents(ctx)
 	require.NoError(t, err)
 	require.Len(t, agents, 1)
-	assert.Equal(t, "tok-agent-A", agents[0].APIToken)
+	assert.Equal(t, "", agents[0].APIToken)
+	assert.NotEmpty(t, agents[0].TokenHint)
 }
 
 func TestUpdateAgentTokenReplacesLookupToken(t *testing.T) {

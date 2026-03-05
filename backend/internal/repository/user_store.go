@@ -279,7 +279,6 @@ func (r *sqlRepository) GetAgents(ctx context.Context) ([]models.User, error) {
 			u.ActorType = actorTypeFromRole(u.Role)
 		}
 		if apiToken.Valid {
-			u.APIToken = apiToken.String
 			u.TokenHint = tokenHint(apiToken.String)
 		}
 		if tokenUpdated.Valid {
@@ -333,7 +332,6 @@ func (r *sqlRepository) GetUsers(ctx context.Context) ([]models.User, error) {
 			u.ActorType = actorTypeFromRole(u.Role)
 		}
 		if apiToken.Valid {
-			u.APIToken = apiToken.String
 			u.TokenHint = tokenHint(apiToken.String)
 		}
 		if tokenUpdated.Valid {

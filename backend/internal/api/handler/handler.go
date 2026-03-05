@@ -223,7 +223,9 @@ func (h *Handler) GetAgents(c *gin.Context) {
 				continue
 			}
 		}
-		filtered = append(filtered, h.withPresence(agent))
+		secured := h.withPresence(agent)
+		secured.APIToken = ""
+		filtered = append(filtered, secured)
 	}
 
 	c.Header("X-Total-Count", strconv.Itoa(len(filtered)))
@@ -255,7 +257,9 @@ func (h *Handler) GetButler(c *gin.Context) {
 
 	for _, user := range agents {
 		if strings.EqualFold(user.Role, "BUTLER") {
-			c.JSON(http.StatusOK, h.withPresence(user))
+			secured := h.withPresence(user)
+			secured.APIToken = ""
+			c.JSON(http.StatusOK, secured)
 			return
 		}
 	}
