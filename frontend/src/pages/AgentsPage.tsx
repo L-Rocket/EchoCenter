@@ -18,6 +18,7 @@ const AgentsPage = () => {
         <AgentList 
           onSelectAgent={setSelectedAgent} 
           selectedAgentId={selectedAgent?.id} 
+          excludeRoles={['BUTLER']}
         />
       </div>
 

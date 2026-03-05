@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  Shield,
   Users,
   Terminal,
   LogOut,
@@ -26,6 +27,11 @@ const navItems = [
     title: "Dashboard",
     path: "/dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    title: "Butler",
+    path: "/butler",
+    icon: Shield,
   },
   {
     title: "Agents",

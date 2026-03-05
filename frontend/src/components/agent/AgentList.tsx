@@ -8,9 +8,14 @@ import { userService } from '@/services/userService';
 interface AgentListProps {
   onSelectAgent: (agent: Agent) => void;
   selectedAgentId?: number;
+  excludeRoles?: string[];
 }
 
-const AgentList: React.FC<AgentListProps> = ({ onSelectAgent, selectedAgentId }) => {
+const AgentList: React.FC<AgentListProps> = ({
+  onSelectAgent,
+  selectedAgentId,
+  excludeRoles = [],
+}) => {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,11 +33,16 @@ const AgentList: React.FC<AgentListProps> = ({ onSelectAgent, selectedAgentId })
     fetchAgents();
   }, []);
 
+  const normalizedExcludeRoles = excludeRoles.map((role) => role.toUpperCase());
+  const filteredAgents = agents.filter(
+    (agent) => !normalizedExcludeRoles.includes((agent.role || '').toUpperCase())
+  );
+
   if (loading) return <div className="p-4 text-center text-xs text-muted-foreground">Syncing hive...</div>;
 
   return (
     <div className="flex flex-col divide-y h-full overflow-y-auto border-r">
-      {agents.map((agent) => (
+      {filteredAgents.map((agent) => (
         <button
           key={agent.id}
           onClick={() => onSelectAgent(agent)}
@@ -64,7 +74,7 @@ const AgentList: React.FC<AgentListProps> = ({ onSelectAgent, selectedAgentId })
           </div>
         </button>
       ))}
-      {(agents || []).length === 0 && (
+      {filteredAgents.length === 0 && (
         <div className="p-8 text-center text-xs text-muted-foreground italic">
           No active agents detected.
         </div>

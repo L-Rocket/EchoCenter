@@ -7,6 +7,7 @@ import RequireAuth from './components/layout/RequireAuth'
 // Pages
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
+import ButlerPage from './pages/ButlerPage'
 import AgentsPage from './pages/AgentsPage'
 import TeamPage from './pages/TeamPage'
 
@@ -23,6 +24,7 @@ function App() {
             <Route element={<RequireAuth />}>
               <Route element={<MainLayout />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/butler" element={<ButlerPage />} />
                 <Route path="/agents" element={<AgentsPage />} />
                 
                 {/* Admin Only Routes */}
