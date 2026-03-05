@@ -117,21 +117,27 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 	// Deliver message to target agent
 	if b := GetButler(); b != nil {
 		commandMsg := fmt.Sprintf("[DIRECTIVE] %s", input.Command)
-		if repoInstance != nil {
-			_ = repoInstance.SaveChatMessage(ctx, &models.ChatMessage{
-				SenderID:   b.butlerID,
-				ReceiverID: input.TargetAgentID,
-				Payload:    commandMsg,
-			})
+		chatMsg := &models.ChatMessage{
+			SenderID:   b.butlerID,
+			ReceiverID: input.TargetAgentID,
+			Payload:    commandMsg,
 		}
-		b.hub.BroadcastGeneric(map[string]any{
+		if repoInstance != nil {
+			_ = repoInstance.SaveChatMessage(ctx, chatMsg)
+		}
+		msg := map[string]any{
 			"type":        "CHAT",
 			"sender_id":   b.butlerID,
 			"sender_name": b.butlerName,
 			"sender_role": "BUTLER",
 			"target_id":   input.TargetAgentID,
 			"payload":     commandMsg,
-		})
+		}
+		if chatMsg.ID > 0 {
+			msg["id"] = chatMsg.ID
+			msg["timestamp"] = chatMsg.Timestamp.Format(time.RFC3339Nano)
+		}
+		b.hub.BroadcastGeneric(msg)
 	}
 
 	// 6. WAIT for the agent to report back (max 30s)
@@ -191,21 +197,27 @@ func ExecuteCommandDirect(ctx context.Context, targetAgentID int, command string
 	// Deliver message to target agent
 	if b := GetButler(); b != nil {
 		commandMsg := fmt.Sprintf("[DIRECTIVE] %s", command)
-		if repoInstance != nil {
-			_ = repoInstance.SaveChatMessage(ctx, &models.ChatMessage{
-				SenderID:   b.butlerID,
-				ReceiverID: targetAgentID,
-				Payload:    commandMsg,
-			})
+		chatMsg := &models.ChatMessage{
+			SenderID:   b.butlerID,
+			ReceiverID: targetAgentID,
+			Payload:    commandMsg,
 		}
-		b.hub.BroadcastGeneric(map[string]any{
+		if repoInstance != nil {
+			_ = repoInstance.SaveChatMessage(ctx, chatMsg)
+		}
+		msg := map[string]any{
 			"type":        "CHAT",
 			"sender_id":   b.butlerID,
 			"sender_name": b.butlerName,
 			"sender_role": "BUTLER",
 			"target_id":   targetAgentID,
 			"payload":     commandMsg,
-		})
+		}
+		if chatMsg.ID > 0 {
+			msg["id"] = chatMsg.ID
+			msg["timestamp"] = chatMsg.Timestamp.Format(time.RFC3339Nano)
+		}
+		b.hub.BroadcastGeneric(msg)
 	}
 
 	// WAIT for the agent to report back (max 30s)

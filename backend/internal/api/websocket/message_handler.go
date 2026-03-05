@@ -164,8 +164,8 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 		return
 	}
 
-	if !h.involvesHumanUser(ctx, msg) {
-		log.Printf("[PersistingMessageHandler] Skipping message from %d to %d (no human user involved)", msg.SenderID, msg.TargetID)
+	if !h.shouldPersistMessage(ctx, msg) {
+		log.Printf("[PersistingMessageHandler] Skipping message from %d to %d (persistence policy)", msg.SenderID, msg.TargetID)
 		return
 	}
 
@@ -313,7 +313,7 @@ func (h *CompositeHandler) HandleMessage(ctx context.Context, msg *Message) {
 	}
 }
 
-func (h *PersistingMessageHandler) involvesHumanUser(ctx context.Context, msg *Message) bool {
+func (h *PersistingMessageHandler) shouldPersistMessage(ctx context.Context, msg *Message) bool {
 	sender, err := h.repo.GetUserByID(ctx, msg.SenderID)
 	if err != nil {
 		log.Printf("[PersistingMessageHandler] failed to load sender %d: %v (fallback to persist)", msg.SenderID, err)
@@ -326,12 +326,18 @@ func (h *PersistingMessageHandler) involvesHumanUser(ctx context.Context, msg *M
 		return true
 	}
 
+	return shouldPersistChatPair(sender, receiver, msg.SenderRole)
+}
+
+func shouldPersistChatPair(sender, receiver *models.User, senderRole string) bool {
 	if isHumanActor(sender) || isHumanActor(receiver) {
 		return true
 	}
-
+	if isButlerAgentPair(sender, receiver) {
+		return true
+	}
 	// Fallback compatibility for old rows before actor_type backfill.
-	return !isSystemRole(msg.SenderRole)
+	return !isSystemRole(senderRole)
 }
 
 func isHumanActor(user *models.User) bool {

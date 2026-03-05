@@ -9,8 +9,6 @@ set -e
 # 3. Seed dashboard log records
 # 4. Seed chat history:
 #    - Admin <-> Agent
-#    - Admin <-> Butler
-#    - Butler <-> Agent (for monitor view)
 
 API_URL="${API_URL:-http://localhost:8080/api}"
 ADMIN_USER="${ADMIN_USER:-admin}"
@@ -42,15 +40,30 @@ if [ -z "$TOKEN" ]; then
 fi
 echo "Login successful."
 
-# 2. Register Butler (idempotent)
+# 2. Register Butler (idempotent, no mock conversation seeding below)
 echo "Registering Butler..."
 api_post "/users/agents" '{"username":"Butler"}' > /dev/null
 
 # 3. Register Agents
-declare -a AGENTS=("Weather-Sentinel" "Code-Reviewer-AI" "Security-Audit-Bot" "Echo-Bot" "Storage-Custodian")
-for agent in "${AGENTS[@]}"; do
+declare -a AGENTS=(
+    "Weather-Sentinel"
+    "Code-Reviewer-AI"
+    "Security-Audit-Bot"
+    "Echo-Bot"
+    "Storage-Custodian"
+)
+declare -a AGENT_TOKENS=(
+    "mock-weather-sentinel-token"
+    "mock-code-reviewer-ai-token"
+    "mock-security-audit-bot-token"
+    "mock-echo-bot-token"
+    "mock-storage-custodian-token"
+)
+for i in "${!AGENTS[@]}"; do
+    agent="${AGENTS[$i]}"
+    token="${AGENT_TOKENS[$i]}"
     echo "Registering/Verifying agent: $agent..."
-    api_post "/users/agents" "{\"username\":\"$agent\"}" > /dev/null
+    api_post "/users/agents" "{\"username\":\"$agent\",\"api_token\":\"$token\"}" > /dev/null
 done
 
 # 4. Seed Dashboard Logs
@@ -62,8 +75,6 @@ for agent in "${AGENTS[@]}"; do
     api_post "/messages" "{\"agent_id\":\"$agent\",\"level\":\"INFO\",\"content\":\"$agent exported latest telemetry snapshot to central archive.\"}" > /dev/null
 done
 
-api_post "/messages" '{"agent_id":"Butler","level":"INFO","content":"Butler synchronized policy matrix with all active agents."}' > /dev/null
-api_post "/messages" '{"agent_id":"Butler","level":"WARNING","content":"Butler observed one delayed acknowledgement and requested retry."}' > /dev/null
 api_post "/messages" '{"agent_id":"Security-Audit-Bot","level":"ERROR","content":"Credential rotation check failed for one expired sandbox token."}' > /dev/null
 api_post "/messages" '{"agent_id":"Code-Reviewer-AI","level":"ERROR","content":"Static analysis pipeline timed out on oversized artifact batch."}' > /dev/null
 api_post "/messages" '{"agent_id":"Storage-Custodian","level":"INFO","content":"Recovered orphaned block metadata and reconciled index entries."}' > /dev/null
@@ -78,22 +89,10 @@ for agent in "${AGENTS[@]}"; do
     api_post "/dev/mock/chat" "{\"sender_username\":\"$agent\",\"receiver_username\":\"$ADMIN_USER\",\"content\":\"Status nominal. Task queue is clear.\"}" > /dev/null
 done
 
-# 6. Seed Admin <-> Butler Chats
-echo "Seeding Admin-Butler chat history..."
-api_post "/dev/mock/chat" "{\"sender_username\":\"$ADMIN_USER\",\"receiver_username\":\"Butler\",\"content\":\"Butler, summarize current hive posture.\"}" > /dev/null
-api_post "/dev/mock/chat" "{\"sender_username\":\"Butler\",\"receiver_username\":\"$ADMIN_USER\",\"content\":\"Hive posture is stable. Two warnings and one error require attention.\"}" > /dev/null
-api_post "/dev/mock/chat" "{\"sender_username\":\"$ADMIN_USER\",\"receiver_username\":\"Butler\",\"content\":\"Prioritize security and storage checks.\"}" > /dev/null
-api_post "/dev/mock/chat" "{\"sender_username\":\"Butler\",\"receiver_username\":\"$ADMIN_USER\",\"content\":\"Priorities updated. Dispatching directives to Security-Audit-Bot and Storage-Custodian.\"}" > /dev/null
-
-# 7. Seed Butler <-> Agent Chats (for Butler-Agent Monitor)
-echo "Seeding Butler-Agent monitor conversations..."
-for agent in "${AGENTS[@]}"; do
-    api_post "/dev/mock/chat" "{\"sender_username\":\"Butler\",\"receiver_username\":\"$agent\",\"content\":\"Directive: provide latest execution snapshot and risk summary.\"}" > /dev/null
-    api_post "/dev/mock/chat" "{\"sender_username\":\"$agent\",\"receiver_username\":\"Butler\",\"content\":\"Snapshot ready. Primary systems healthy, minor warning tracked with mitigation in place.\"}" > /dev/null
-    api_post "/dev/mock/chat" "{\"sender_username\":\"Butler\",\"receiver_username\":\"$agent\",\"content\":\"Confirmed. Keep monitoring and report if severity escalates.\"}" > /dev/null
-    api_post "/dev/mock/chat" "{\"sender_username\":\"$agent\",\"receiver_username\":\"Butler\",\"content\":\"Acknowledged. Continuous monitoring active.\"}" > /dev/null
-done
-
 echo ""
 echo "--- Seeding Complete ---"
-echo "Dashboard logs and Butler monitor conversations are now populated."
+echo "Dashboard logs and Admin-Agent conversations are now populated."
+echo "Mock agent tokens:"
+for i in "${!AGENTS[@]}"; do
+    echo "  - ${AGENTS[$i]} => ${AGENT_TOKENS[$i]}"
+done

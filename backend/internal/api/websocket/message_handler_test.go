@@ -60,6 +60,32 @@ func TestIsSystemRole(t *testing.T) {
 	}
 }
 
+func TestShouldPersistChatPair(t *testing.T) {
+	if !shouldPersistChatPair(
+		&models.User{Role: "ADMIN", ActorType: "HUMAN"},
+		&models.User{Role: "AGENT", ActorType: "SYSTEM"},
+		"ADMIN",
+	) {
+		t.Fatalf("expected human-agent chat to persist")
+	}
+
+	if !shouldPersistChatPair(
+		&models.User{Role: "BUTLER", ActorType: "SYSTEM"},
+		&models.User{Role: "AGENT", ActorType: "SYSTEM"},
+		"BUTLER",
+	) {
+		t.Fatalf("expected butler-agent chat to persist")
+	}
+
+	if shouldPersistChatPair(
+		&models.User{Role: "AGENT", ActorType: "SYSTEM"},
+		&models.User{Role: "AGENT", ActorType: "SYSTEM"},
+		"AGENT",
+	) {
+		t.Fatalf("expected agent-agent chat not to persist")
+	}
+}
+
 type testUserLookupRepo struct {
 	users map[int]*models.User
 }

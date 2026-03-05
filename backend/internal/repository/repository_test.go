@@ -168,6 +168,11 @@ func TestCreateAgentStoresMachineCredentialAndLookupByToken(t *testing.T) {
 	require.NoError(t, sqlRepo.queryRowContext(ctx, "SELECT COUNT(*) FROM machine_credentials").Scan(&machineCount))
 	assert.Equal(t, 0, humanCount)
 	assert.Equal(t, 1, machineCount)
+
+	agents, err := repo.GetAgents(ctx)
+	require.NoError(t, err)
+	require.Len(t, agents, 1)
+	assert.Equal(t, "tok-agent-A", agents[0].APIToken)
 }
 
 func TestUpdateAgentTokenReplacesLookupToken(t *testing.T) {

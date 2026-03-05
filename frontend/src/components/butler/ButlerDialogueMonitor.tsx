@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bot, Loader2, RefreshCw, Search, Terminal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,10 +7,8 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { userService } from '@/services/userService';
-import { useChatStore } from '@/store/useChatStore';
 import type { Agent, ChatMessage } from '@/types';
 
-type DialogueSource = 'backend' | 'derived' | 'mock';
 type DialogueSpeaker = 'butler' | 'agent';
 
 interface DialogueEntry {
@@ -57,37 +55,13 @@ const mapToDialogueEntries = (messages: ChatMessage[], agentId: number): Dialogu
       };
     })
     .filter((entry): entry is DialogueEntry => Boolean(entry))
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-};
-
-const buildMockEntries = (agentName: string): DialogueEntry[] => {
-  const now = Date.now();
-  return [
-    {
-      id: `mock-${agentName}-1`,
-      speaker: 'agent',
-      content: `Telemetry for ${agentName} is stable. No critical alerts.`,
-      timestamp: new Date(now - 90 * 1000).toISOString(),
-    },
-    {
-      id: `mock-${agentName}-2`,
-      speaker: 'butler',
-      content: `Confirming routing policy and fallback path for ${agentName}.`,
-      timestamp: new Date(now - 3 * 60 * 1000).toISOString(),
-    },
-    {
-      id: `mock-${agentName}-3`,
-      speaker: 'agent',
-      content: 'Policy confirmed. Last command batch finished successfully.',
-      timestamp: new Date(now - 6 * 60 * 1000).toISOString(),
-    },
-  ];
-};
-
-const getSourceLabel = (source: DialogueSource) => {
-  if (source === 'backend') return 'Backend';
-  if (source === 'derived') return 'Local Derived';
-  return 'Mock Fallback';
+    .sort((a, b) => {
+      const at = new Date(a.timestamp).getTime();
+      const bt = new Date(b.timestamp).getTime();
+      if (Number.isNaN(at) || Number.isNaN(bt)) return 0;
+      if (at === bt) return a.id.localeCompare(b.id);
+      return at - bt;
+    });
 };
 
 const formatTime = (timestamp: string) => {
@@ -101,10 +75,7 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
   const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
   const [loadingAgentId, setLoadingAgentId] = useState<number | null>(null);
   const [dialogues, setDialogues] = useState<Record<number, DialogueEntry[]>>({});
-  const [sources, setSources] = useState<Record<number, DialogueSource>>({});
   const [notices, setNotices] = useState<Record<number, string>>({});
-
-  const chatMessages = useChatStore((state) => state.messages);
 
   const monitorAgents = useMemo(() => {
     return agents.filter((agent) => {
@@ -126,53 +97,23 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
     return filteredAgents[0]?.id ?? null;
   }, [filteredAgents, selectedAgentId]);
 
-  const getFallbackConversation = useCallback(
-    (agent: Agent) => {
-      const localMessages = chatMessages[agent.id] || [];
-      const derived = mapToDialogueEntries(localMessages, agent.id);
-      if (derived.length > 0) {
-        return { entries: derived, source: 'derived' as DialogueSource, notice: '' };
-      }
-      return {
-        entries: buildMockEntries(agent.username || `Agent #${agent.id}`),
-        source: 'mock' as DialogueSource,
-        notice: 'Backend monitor stream is not available yet. Showing simulated timeline.',
-      };
-    },
-    [chatMessages]
-  );
-
   const loadConversation = useCallback(
     async (agent: Agent) => {
       setLoadingAgentId(agent.id);
-      let nextSource: DialogueSource = 'mock';
-      let entries: DialogueEntry[] = [];
-      let nextNotice = '';
 
       try {
         const backendMessages = await userService.getButlerAgentConversation(agent.id);
-        const mapped = mapToDialogueEntries(Array.isArray(backendMessages) ? backendMessages : [], agent.id);
-        if (mapped.length > 0) {
-          entries = mapped;
-          nextSource = 'backend';
-        }
+        const entries = mapToDialogueEntries(Array.isArray(backendMessages) ? backendMessages : [], agent.id);
+        setDialogues((prev) => ({ ...prev, [agent.id]: entries }));
+        setNotices((prev) => ({ ...prev, [agent.id]: '' }));
       } catch (_err) {
-        // backend endpoint not ready yet, fall back below
+        setDialogues((prev) => ({ ...prev, [agent.id]: [] }));
+        setNotices((prev) => ({ ...prev, [agent.id]: 'Failed to load monitor messages from backend.' }));
+      } finally {
+        setLoadingAgentId((prev) => (prev === agent.id ? null : prev));
       }
-
-      if (entries.length === 0) {
-        const fallback = getFallbackConversation(agent);
-        entries = fallback.entries;
-        nextSource = fallback.source;
-        nextNotice = fallback.notice;
-      }
-
-      setDialogues((prev) => ({ ...prev, [agent.id]: entries }));
-      setSources((prev) => ({ ...prev, [agent.id]: nextSource }));
-      setNotices((prev) => ({ ...prev, [agent.id]: nextNotice }));
-      setLoadingAgentId((prev) => (prev === agent.id ? null : prev));
     },
-    [getFallbackConversation]
+    []
   );
 
   const selectedAgent = useMemo(
@@ -180,14 +121,14 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
     [monitorAgents, activeAgentId]
   );
 
-  const fallbackSelected = useMemo(
-    () => (selectedAgent ? getFallbackConversation(selectedAgent) : null),
-    [selectedAgent, getFallbackConversation]
-  );
+  useEffect(() => {
+    if (!selectedAgent) return;
+    if (dialogues[selectedAgent.id]) return;
+    void loadConversation(selectedAgent);
+  }, [selectedAgent, dialogues, loadConversation]);
 
-  const selectedEntries = selectedAgent ? dialogues[selectedAgent.id] || fallbackSelected?.entries || [] : [];
-  const selectedSource = selectedAgent ? sources[selectedAgent.id] || fallbackSelected?.source : undefined;
-  const selectedNotice = selectedAgent ? notices[selectedAgent.id] ?? fallbackSelected?.notice ?? '' : '';
+  const selectedEntries = selectedAgent ? dialogues[selectedAgent.id] || [] : [];
+  const selectedNotice = selectedAgent ? notices[selectedAgent.id] ?? '' : '';
   const isLoading = selectedAgent ? loadingAgentId === selectedAgent.id : false;
 
   return (
@@ -277,9 +218,9 @@ const ButlerDialogueMonitor = ({ butler, agents, className }: ButlerDialogueMoni
                   </div>
                 </div>
               </div>
-              {selectedSource && (
+              {selectedAgent && (
                 <Badge variant="outline" className="text-[10px] uppercase tracking-wider shrink-0">
-                  {getSourceLabel(selectedSource)}
+                  Backend
                 </Badge>
               )}
             </header>

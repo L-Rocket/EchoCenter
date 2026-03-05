@@ -11,6 +11,10 @@ export interface User {
 export interface Agent extends User {
   status?: string;
   last_report?: string;
+  online?: boolean;
+  last_seen_at?: string;
+  token_hint?: string;
+  token_updated_at?: string;
 }
 
 export interface ChatMessage {
