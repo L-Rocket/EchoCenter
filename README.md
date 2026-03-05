@@ -27,9 +27,12 @@
 - **🤖 Multi-Agent Fleet**: Seamlessly manage and coordinate diverse AI agents (Python, Go, etc.).
 - **⚡ Real-time Messaging**: Low-latency communication powered by a robust WebSocket implementation.
 - **🧠 Butler Core**: An AI-driven coordinator that understands user intent and executes complex multi-agent workflows.
+- **🖥️ Dual Butler Workspace**: Switch between direct conversation mode (`Me ↔ Butler`) and a timeline monitor (`Butler ↔ Agents`).
+- **🌍 Bilingual UI**: Built-in English / Simplified Chinese language toggle for core admin and chat workflows.
+- **⚙️ Settings Workspace**: Unified admin area for agent operations (create/remove agent, token lifecycle) and integrations (Feishu routing configuration).
 - **📊 Interactive Dashboard**: Modern React-based UI for monitoring agent status and system-wide logs.
 - **🔒 Secure Architecture**: Mandatory JWT authentication and per-agent API tokens.
-- **📂 Persistent History**: Full chat and command history stored in SQLite by default, with PostgreSQL available via configuration.
+- **📂 Flexible Persistence**: Full chat and command history stored in SQLite by default, with PostgreSQL enabled through `DB_DRIVER` + DSN/PG_* configuration.
 
 ## 🛠 Tech Stack
 
@@ -64,7 +67,10 @@ make install
 # Edit backend/.env and add your BUTLER_API_TOKEN (e.g., from SiliconFlow or OpenAI)
 # and ensure JWT_SECRET is set to a strong random string.
 
-# 4. Launch with mock data and agents (recommended for first run)
+# 4. (Optional) Choose database driver in backend/.env
+# DB_DRIVER=sqlite (default) or DB_DRIVER=postgres
+
+# 5. Launch with mock data and agents (recommended for first run)
 make mock-start
 ```
 
