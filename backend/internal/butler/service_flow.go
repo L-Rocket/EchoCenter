@@ -119,6 +119,16 @@ func (s *ButlerService) handlePendingCommandRequest(ctx context.Context, senderI
 		"payload":     authPayload,
 		"timestamp":   authChatMsg.Timestamp.Format(time.RFC3339Nano),
 	})
+
+	// Best-effort outbound relay: mirror authorization request to Feishu as an interactive card.
+	go s.forwardAuthRequestToFeishu(
+		context.Background(),
+		senderID,
+		streamID,
+		authPayload["target_agent_name"].(string),
+		fmt.Sprint(authPayload["command"]),
+		fmt.Sprint(authPayload["reason"]),
+	)
 }
 
 func (s *ButlerService) buildSystemState(ctx context.Context) string {

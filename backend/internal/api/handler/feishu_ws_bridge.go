@@ -14,6 +14,7 @@ import (
 	larkcallback "github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 	larkws "github.com/larksuite/oapi-sdk-go/v3/ws"
+	"github.com/lea/echocenter/backend/internal/butler"
 	"github.com/lea/echocenter/backend/internal/models"
 )
 
@@ -429,9 +430,22 @@ func (h *Handler) processFeishuWSCardAction(ctx context.Context, event *larkcall
 	}
 
 	action := strings.TrimSpace(stringFromAny(event.Event.Action.Value["action"]))
-	if action != "feishu_verify_submit" {
+	switch action {
+	case "feishu_verify_submit":
+		return h.handleFeishuVerifyCardSubmit(ctx, event)
+	case "feishu_auth_decision":
+		return h.handleFeishuAuthDecisionCard(ctx, event)
+	default:
 		return &larkcallback.CardActionTriggerResponse{
 			Toast: &larkcallback.Toast{Type: "info", Content: "未识别的卡片动作"},
+		}, nil
+	}
+}
+
+func (h *Handler) handleFeishuVerifyCardSubmit(ctx context.Context, event *larkcallback.CardActionTriggerEvent) (*larkcallback.CardActionTriggerResponse, error) {
+	if event == nil || event.Event == nil || event.Event.Action == nil {
+		return &larkcallback.CardActionTriggerResponse{
+			Toast: &larkcallback.Toast{Type: "error", Content: "无效的卡片提交"},
 		}, nil
 	}
 
@@ -514,6 +528,73 @@ func (h *Handler) processFeishuWSCardAction(ctx context.Context, event *larkcall
 	return &larkcallback.CardActionTriggerResponse{
 		Toast: &larkcallback.Toast{Type: "success", Content: "飞书验证成功"},
 		Card:  &larkcallback.Card{Type: "raw", Data: successCard},
+	}, nil
+}
+
+func (h *Handler) handleFeishuAuthDecisionCard(ctx context.Context, event *larkcallback.CardActionTriggerEvent) (*larkcallback.CardActionTriggerResponse, error) {
+	if event == nil || event.Event == nil || event.Event.Action == nil {
+		return &larkcallback.CardActionTriggerResponse{
+			Toast: &larkcallback.Toast{Type: "error", Content: "无效的授权提交"},
+		}, nil
+	}
+
+	actionID := strings.TrimSpace(stringFromAny(event.Event.Action.Value["action_id"]))
+	approvedRaw := strings.ToLower(strings.TrimSpace(stringFromAny(event.Event.Action.Value["approved"])))
+	approved := approvedRaw == "true" || approvedRaw == "1" || approvedRaw == "yes"
+	if actionID == "" {
+		return &larkcallback.CardActionTriggerResponse{
+			Toast: &larkcallback.Toast{Type: "error", Content: "缺少 action_id"},
+		}, nil
+	}
+
+	svc := butler.GetButler()
+	if svc == nil {
+		return &larkcallback.CardActionTriggerResponse{
+			Toast: &larkcallback.Toast{Type: "error", Content: "Butler 未初始化"},
+		}, nil
+	}
+
+	adminID, err := h.ensureFeishuBridgeUser(ctx, "")
+	if err != nil {
+		return &larkcallback.CardActionTriggerResponse{
+			Toast: &larkcallback.Toast{Type: "error", Content: "管理员身份解析失败"},
+		}, nil
+	}
+	go svc.ExecutePendingCommand(context.Background(), actionID, adminID, approved)
+
+	statusText := "已拒绝"
+	headerTemplate := "red"
+	if approved {
+		statusText = "已批准，正在执行"
+		headerTemplate = "green"
+	}
+	resultCard := map[string]any{
+		"config": map[string]any{
+			"wide_screen_mode": true,
+			"update_multi":     true,
+		},
+		"header": map[string]any{
+			"template": headerTemplate,
+			"title": map[string]any{
+				"tag":     "plain_text",
+				"content": "授权结果",
+			},
+		},
+		"elements": []any{
+			map[string]any{
+				"tag":     "markdown",
+				"content": fmt.Sprintf("请求 `%s` %s。", actionID, statusText),
+			},
+		},
+	}
+
+	toast := "已拒绝执行"
+	if approved {
+		toast = "已批准，开始执行"
+	}
+	return &larkcallback.CardActionTriggerResponse{
+		Toast: &larkcallback.Toast{Type: "success", Content: toast},
+		Card:  &larkcallback.Card{Type: "raw", Data: resultCard},
 	}, nil
 }
 
