@@ -23,6 +23,8 @@ var (
 	repoInstance     repository.Repository
 )
 
+const agentResponseTimeout = 90 * time.Second
+
 // SetRepository sets the repository instance for tools
 func SetRepository(repo repository.Repository) {
 	repoInstance = repo
@@ -140,16 +142,16 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 		b.hub.BroadcastGeneric(msg)
 	}
 
-	// 6. WAIT for the agent to report back (max 30s)
+	// 6. WAIT for the agent to report back.
 	log.Printf("[Butler Tool] Waiting for Agent %d to reply...", input.TargetAgentID)
 	select {
 	case realResult := <-respChan:
 		log.Printf("[Butler Tool] Received REAL response from Agent %d: %s", input.TargetAgentID, truncateString(realResult, 20))
 		return realResult, nil
-	case <-time.After(30 * time.Second):
+	case <-time.After(agentResponseTimeout):
 		removePendingResponse(input.TargetAgentID, respChan)
 		log.Printf("[Butler Tool] TIMEOUT waiting for Agent %d", input.TargetAgentID)
-		return "Timeout: Target agent did not respond within 30 seconds.", nil
+		return "Timeout: Target agent did not respond within 90 seconds.", nil
 	}
 }
 
@@ -220,16 +222,16 @@ func ExecuteCommandDirect(ctx context.Context, targetAgentID int, command string
 		b.hub.BroadcastGeneric(msg)
 	}
 
-	// WAIT for the agent to report back (max 30s)
+	// WAIT for the agent to report back.
 	log.Printf("[Butler Tool] Waiting for Agent %d to reply...", targetAgentID)
 	select {
 	case realResult := <-respChan:
 		log.Printf("[Butler Tool] Received REAL response from Agent %d: %s", targetAgentID, truncateString(realResult, 20))
 		return realResult, nil
-	case <-time.After(30 * time.Second):
+	case <-time.After(agentResponseTimeout):
 		removePendingResponse(targetAgentID, respChan)
 		log.Printf("[Butler Tool] TIMEOUT waiting for Agent %d", targetAgentID)
-		return "Timeout: Target agent did not respond within 30 seconds.", nil
+		return "Timeout: Target agent did not respond within 90 seconds.", nil
 	}
 }
 
