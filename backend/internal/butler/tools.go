@@ -18,7 +18,7 @@ import (
 // PendingActions stores channels to resume Eino tool execution
 var (
 	pendingActions   = make(map[string]chan bool)
-	pendingResponses = make(map[int]chan string)
+	pendingResponses = make(map[int][]chan string)
 	actionsMu        sync.Mutex
 	repoInstance     repository.Repository
 )
@@ -111,10 +111,8 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 
 	// Prepare to receive response
 	respChan := make(chan string, 1)
-	actionsMu.Lock()
-	pendingResponses[input.TargetAgentID] = respChan
+	enqueuePendingResponse(input.TargetAgentID, respChan)
 	log.Printf("[Butler Tool] Registered listener for Agent %d response", input.TargetAgentID)
-	actionsMu.Unlock()
 
 	// Deliver message to target agent
 	if b := GetButler(); b != nil {
@@ -143,9 +141,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 		log.Printf("[Butler Tool] Received REAL response from Agent %d: %s", input.TargetAgentID, truncateString(realResult, 20))
 		return realResult, nil
 	case <-time.After(30 * time.Second):
-		actionsMu.Lock()
-		delete(pendingResponses, input.TargetAgentID)
-		actionsMu.Unlock()
+		removePendingResponse(input.TargetAgentID, respChan)
 		log.Printf("[Butler Tool] TIMEOUT waiting for Agent %d", input.TargetAgentID)
 		return "Timeout: Target agent did not respond within 30 seconds.", nil
 	}
@@ -161,13 +157,8 @@ func truncateString(s string, maxLen int) string {
 
 // RegisterAgentResponse allows the Hub to feed agent replies back to the tool
 func RegisterAgentResponse(agentID int, payload string) bool {
-	actionsMu.Lock()
-	ch, ok := pendingResponses[agentID]
+	ch, ok := popPendingResponse(agentID)
 	log.Printf("[Butler Registry] Checking for listener ID %d... Found: %v", agentID, ok)
-	if ok {
-		delete(pendingResponses, agentID)
-	}
-	actionsMu.Unlock()
 
 	if ok {
 		select {
@@ -194,10 +185,8 @@ func ExecuteCommandDirect(ctx context.Context, targetAgentID int, command string
 
 	// Prepare to receive response
 	respChan := make(chan string, 1)
-	actionsMu.Lock()
-	pendingResponses[targetAgentID] = respChan
+	enqueuePendingResponse(targetAgentID, respChan)
 	log.Printf("[Butler Tool] Registered listener for Agent %d response", targetAgentID)
-	actionsMu.Unlock()
 
 	// Deliver message to target agent
 	if b := GetButler(); b != nil {
@@ -226,11 +215,58 @@ func ExecuteCommandDirect(ctx context.Context, targetAgentID int, command string
 		log.Printf("[Butler Tool] Received REAL response from Agent %d: %s", targetAgentID, truncateString(realResult, 20))
 		return realResult, nil
 	case <-time.After(30 * time.Second):
-		actionsMu.Lock()
-		delete(pendingResponses, targetAgentID)
-		actionsMu.Unlock()
+		removePendingResponse(targetAgentID, respChan)
 		log.Printf("[Butler Tool] TIMEOUT waiting for Agent %d", targetAgentID)
 		return "Timeout: Target agent did not respond within 30 seconds.", nil
+	}
+}
+
+func enqueuePendingResponse(agentID int, ch chan string) {
+	actionsMu.Lock()
+	defer actionsMu.Unlock()
+	pendingResponses[agentID] = append(pendingResponses[agentID], ch)
+}
+
+func popPendingResponse(agentID int) (chan string, bool) {
+	actionsMu.Lock()
+	defer actionsMu.Unlock()
+
+	queue := pendingResponses[agentID]
+	if len(queue) == 0 {
+		return nil, false
+	}
+
+	ch := queue[0]
+	if len(queue) == 1 {
+		delete(pendingResponses, agentID)
+	} else {
+		pendingResponses[agentID] = queue[1:]
+	}
+
+	return ch, true
+}
+
+func removePendingResponse(agentID int, target chan string) {
+	actionsMu.Lock()
+	defer actionsMu.Unlock()
+
+	queue := pendingResponses[agentID]
+	if len(queue) == 0 {
+		return
+	}
+
+	for i, ch := range queue {
+		if ch != target {
+			continue
+		}
+
+		queue = append(queue[:i], queue[i+1:]...)
+		if len(queue) == 0 {
+			delete(pendingResponses, agentID)
+		} else {
+			pendingResponses[agentID] = queue
+		}
+		return
 	}
 }
 

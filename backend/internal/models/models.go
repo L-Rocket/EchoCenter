@@ -16,6 +16,7 @@ type User struct {
 	PasswordHash string    `json:"-" db:"password_hash"` // Never expose hash in JSON
 	APIToken     string    `json:"api_token,omitempty" db:"api_token"`
 	Role         string    `json:"role" db:"role"`
+	ActorType    string    `json:"actor_type" db:"actor_type"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 }
 
@@ -40,11 +41,11 @@ type ChatMessage struct {
 }
 
 type ButlerAuthorization struct {
-	ID              string    `json:"id" db:"id"`
-	TargetAgentID   int       `json:"target_agent_id" db:"target_agent_id"`
-	ProposedCommand string    `json:"proposed_command" db:"proposed_command"`
-	Reasoning       string    `json:"reasoning" db:"reasoning"`
-	Status          string    `json:"status" db:"status"`
-	CreatedAt       time.Time `json:"created_at" db:"created_at"`
+	ID              string     `json:"id" db:"id"`
+	TargetAgentID   int        `json:"target_agent_id" db:"target_agent_id"`
+	ProposedCommand string     `json:"proposed_command" db:"proposed_command"`
+	Reasoning       string     `json:"reasoning" db:"reasoning"`
+	Status          string     `json:"status" db:"status"`
+	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
 	RespondedAt     *time.Time `json:"responded_at,omitempty" db:"responded_at"`
 }

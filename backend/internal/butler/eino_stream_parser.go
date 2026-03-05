@@ -1,0 +1,82 @@
+package butler
+
+import "strings"
+
+const streamCheckBufferFlushThreshold = 100
+
+type streamCommandParser struct {
+	fullReply     strings.Builder
+	commandBuffer strings.Builder
+	checkBuffer   strings.Builder
+	inCommand     bool
+
+	flushThreshold int
+}
+
+func newStreamCommandParser() *streamCommandParser {
+	return &streamCommandParser{flushThreshold: streamCheckBufferFlushThreshold}
+}
+
+func (p *streamCommandParser) consumeChunk(chunk string) (emit string, shouldStop bool) {
+	if chunk == "" {
+		return "", false
+	}
+
+	if !p.inCommand {
+		p.checkBuffer.WriteString(chunk)
+		checkStr := p.checkBuffer.String()
+
+		if strings.Contains(checkStr, commandPrefix) {
+			p.inCommand = true
+			parts := strings.SplitN(checkStr, commandPrefix, 2)
+			if len(parts) > 0 && parts[0] != "" {
+				emit = parts[0]
+				p.fullReply.WriteString(emit)
+			}
+
+			p.commandBuffer.WriteString(commandPrefix)
+			if len(parts) > 1 {
+				p.commandBuffer.WriteString(parts[1])
+			}
+
+			p.checkBuffer.Reset()
+			return emit, false
+		}
+
+		if p.checkBuffer.Len() > p.flushThreshold {
+			emit = p.checkBuffer.String()
+			p.fullReply.WriteString(emit)
+			p.checkBuffer.Reset()
+			return emit, false
+		}
+
+		return "", false
+	}
+
+	p.commandBuffer.WriteString(chunk)
+	cmdStr := p.commandBuffer.String()
+	if strings.Count(cmdStr, "{") > 0 && strings.Count(cmdStr, "{") == strings.Count(cmdStr, "}") {
+		return "", true
+	}
+
+	return "", false
+}
+
+func (p *streamCommandParser) flushRemaining() string {
+	if p.inCommand || p.checkBuffer.Len() == 0 {
+		return ""
+	}
+
+	emit := p.checkBuffer.String()
+	p.fullReply.WriteString(emit)
+	p.checkBuffer.Reset()
+	return emit
+}
+
+func (p *streamCommandParser) content() string {
+	return p.fullReply.String()
+}
+
+func (p *streamCommandParser) commandText() string {
+	return p.commandBuffer.String()
+}
