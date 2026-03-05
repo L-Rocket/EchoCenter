@@ -1,7 +1,8 @@
-.PHONY: help install dev dev-backend dev-frontend build lint test clean mock-start
+.PHONY: help install run run-mock dev dev-backend dev-frontend build lint test clean mock-start run-mock-sqllite run-mock-postgre
 
 # Default goal
 .DEFAULT_GOAL := help
+RESET ?= 1
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -30,8 +31,20 @@ dev: ## Run both backend and frontend in parallel
 	@echo "Starting backend and frontend... (Press Ctrl+C to stop)"
 	@trap 'kill 0' INT; (cd backend && go run cmd/server/main.go) & (cd frontend && npm run dev)
 
-mock-start: ## Launch full stack with mock data and agents
-	cd backend/scripts && ./mock-start.sh
+run: ## Run backend + frontend with current .env database config
+	@$(MAKE) dev
+
+run-mock: ## Run full mock stack using DB_DRIVER in .env (optional: RESET=0)
+	cd backend/scripts && RESET=$(RESET) ./run-mock.sh
+
+mock-start: ## Backward-compatible alias for run-mock (defaults to RESET=1)
+	cd backend/scripts && RESET=1 ./run-mock.sh
+
+run-mock-sqllite: ## Deprecated alias, force SQLite and run mock stack
+	cd backend/scripts && ./run-mock-sqllite.sh
+
+run-mock-postgre: ## Deprecated alias, force PostgreSQL and run mock stack
+	cd backend/scripts && ./run-mock-postgre.sh
 
 build: ## Build both backend and frontend
 	@echo "Building backend..."

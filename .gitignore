@@ -18,6 +18,8 @@ backend/data/*
 !backend/data/.gitkeep
 bin/
 backend/bin/*
+.cache/
+backend/.cache/
 
 # Node.js
 node_modules/

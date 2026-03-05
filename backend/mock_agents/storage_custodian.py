@@ -163,6 +163,12 @@ User Instruction: {payload}"""
                 }))
 
 if __name__ == "__main__":
+    token_from_env = os.getenv("STORAGE_CUSTODIAN_TOKEN") or os.getenv("AGENT_API_TOKEN")
+    if token_from_env:
+        print("[Storage-Custodian] Using token from environment variable.")
+        asyncio.run(agent_loop(token_from_env))
+        exit(0)
+
     # We need to get the token for Storage-Custodian from the DB
     import sqlite3
     

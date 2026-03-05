@@ -50,6 +50,7 @@ type Repository interface {
 	// Admin
 	InitializeAdmin(ctx context.Context, username, password string, bcryptCost int) error
 	InitializeButler(ctx context.Context) (*models.User, error)
+	ResetMockData(ctx context.Context) error
 
 	// Close
 	Close() error
@@ -836,6 +837,43 @@ func (r *sqlRepository) InitializeButler(ctx context.Context) (*models.User, err
 	user.APIToken = token
 
 	return &user, nil
+}
+
+// ResetMockData removes runtime data for local mock bootstrap.
+func (r *sqlRepository) ResetMockData(ctx context.Context) error {
+	if r.driver == driverPostgres {
+		query := `TRUNCATE TABLE butler_authorizations, chat_messages, messages, users RESTART IDENTITY CASCADE`
+		if _, err := r.execContext(ctx, query); err != nil {
+			return apperrors.Wrap(apperrors.ErrDatabase, "failed to reset postgres mock data", err)
+		}
+		return nil
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return apperrors.Wrap(apperrors.ErrDatabase, "failed to begin sqlite reset transaction", err)
+	}
+
+	statements := []string{
+		"DELETE FROM butler_authorizations",
+		"DELETE FROM chat_messages",
+		"DELETE FROM messages",
+		"DELETE FROM users",
+		"DELETE FROM sqlite_sequence WHERE name IN ('users','messages','chat_messages')",
+	}
+
+	for _, stmt := range statements {
+		if _, err := tx.Exec(stmt); err != nil {
+			_ = tx.Rollback()
+			return apperrors.Wrap(apperrors.ErrDatabase, "failed to reset sqlite mock data", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return apperrors.Wrap(apperrors.ErrDatabase, "failed to commit sqlite reset transaction", err)
+	}
+
+	return nil
 }
 
 // Close closes the database connection

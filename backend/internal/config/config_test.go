@@ -43,6 +43,7 @@ func TestGetEnvHelpers(t *testing.T) {
 func TestLoadWithExplicitEnv(t *testing.T) {
 	t.Setenv("JWT_SECRET", "12345678901234567890123456789012")
 	t.Setenv("SERVER_PORT", "9090")
+	t.Setenv("APP_ENV", "development")
 	t.Setenv("DB_DRIVER", "postgres")
 	t.Setenv("DB_DSN", "postgres://test:test@localhost:5432/testdb?sslmode=disable")
 	t.Setenv("DB_PATH", "./tmp/test.db")
@@ -51,10 +52,27 @@ func TestLoadWithExplicitEnv(t *testing.T) {
 	cfg, err := Load()
 	assert.NoError(t, err)
 	assert.Equal(t, 9090, cfg.Server.Port)
+	assert.Equal(t, "development", cfg.Server.Env)
 	assert.Equal(t, "postgres", cfg.Database.Driver)
 	assert.Equal(t, "postgres://test:test@localhost:5432/testdb?sslmode=disable", cfg.Database.DSN)
 	assert.Equal(t, "./tmp/test.db", cfg.Database.Path)
 	assert.Equal(t, []string{"http://a.local", "http://b.local"}, cfg.CORS.AllowedOrigins)
+}
+
+func TestLoadBuildsPostgresDSNFromPGEnv(t *testing.T) {
+	t.Setenv("JWT_SECRET", "12345678901234567890123456789012")
+	t.Setenv("DB_DRIVER", "postgres")
+	t.Setenv("PG_HOST", "127.0.0.1")
+	t.Setenv("PG_PORT", "5433")
+	t.Setenv("PG_USER", "demo")
+	t.Setenv("PG_PASSWORD", "secret")
+	t.Setenv("PG_DATABASE", "echocenter_dev")
+	t.Setenv("PG_SSLMODE", "disable")
+	t.Setenv("DB_DSN", "")
+
+	cfg, err := Load()
+	assert.NoError(t, err)
+	assert.Equal(t, "postgres://demo:secret@127.0.0.1:5433/echocenter_dev?sslmode=disable", cfg.Database.DSN)
 }
 
 func TestLoadFailsWhenJWTSecretTooShort(t *testing.T) {
