@@ -9,9 +9,12 @@ import (
 	"strings"
 	"time"
 
+	lark "github.com/larksuite/oapi-sdk-go/v3"
 	larkdispatcher "github.com/larksuite/oapi-sdk-go/v3/event/dispatcher"
+	larkcallback "github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 	larkws "github.com/larksuite/oapi-sdk-go/v3/ws"
+	"github.com/lea/echocenter/backend/internal/models"
 )
 
 type feishuWSRuntime struct {
@@ -118,6 +121,8 @@ func (h *Handler) runFeishuWSClient(
 	)
 	dispatcher.OnP2MessageReceiveV1(func(eventCtx context.Context, event *larkim.P2MessageReceiveV1) error {
 		return h.processFeishuWSMessageEvent(eventCtx, event)
+	}).OnP2CardActionTrigger(func(eventCtx context.Context, event *larkcallback.CardActionTriggerEvent) (*larkcallback.CardActionTriggerResponse, error) {
+		return h.processFeishuWSCardAction(eventCtx, event)
 	})
 
 	client := larkws.NewClient(
@@ -214,6 +219,15 @@ func (h *Handler) processFeishuWSInbound(ctx context.Context, payload map[string
 		return nil
 	}
 
+	if isFeishuVerificationFormTrigger(text) {
+		if err := h.sendFeishuVerificationFormCard(ctx, connector, inbound.ChatID, ""); err != nil {
+			_ = h.repo.AppendFeishuIntegrationLog(ctx, connector.ID, "error", "ws_card_form", "Failed to send verification card: "+err.Error())
+			return err
+		}
+		_ = h.repo.AppendFeishuIntegrationLog(ctx, connector.ID, "success", "ws_card_form", "Sent verification card to chat "+inbound.ChatID)
+		return nil
+	}
+
 	bridgeUserID, err := h.ensureFeishuBridgeUser(ctx, inbound.FeishuUserID)
 	if err != nil {
 		return err
@@ -278,5 +292,238 @@ func isClosed(ch <-chan struct{}) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func isFeishuVerificationFormTrigger(text string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(text))
+	if normalized == "" {
+		return false
+	}
+	if strings.Contains(normalized, "/feishu-verify") || strings.Contains(normalized, "验证表单") {
+		return true
+	}
+	return false
+}
+
+func (h *Handler) sendFeishuVerificationFormCard(ctx context.Context, connector *models.FeishuConnector, chatID string, statusText string) error {
+	if connector == nil {
+		return fmt.Errorf("connector not found")
+	}
+
+	appID := strings.TrimSpace(connector.AppID)
+	appSecret := strings.TrimSpace(connector.AppSecret)
+	if appID == "" || appSecret == "" {
+		return fmt.Errorf("app_id/app_secret missing")
+	}
+	chatID = strings.TrimSpace(chatID)
+	if chatID == "" {
+		return fmt.Errorf("chat_id missing")
+	}
+
+	client := lark.NewClient(appID, appSecret)
+	card := buildFeishuVerificationCard(statusText, connector.ID)
+	content, _ := json.Marshal(card)
+
+	req := larkim.NewCreateMessageReqBuilder().
+		ReceiveIdType(larkim.ReceiveIdTypeChatId).
+		Body(larkim.NewCreateMessageReqBodyBuilder().
+			ReceiveId(chatID).
+			MsgType("interactive").
+			Content(string(content)).
+			Build()).
+		Build()
+
+	resp, err := client.Im.Message.Create(ctx, req)
+	if err != nil {
+		return err
+	}
+	if resp == nil || !resp.Success() {
+		code := -1
+		msg := "unknown"
+		if resp != nil {
+			code = resp.Code
+			msg = strings.TrimSpace(resp.Msg)
+			if msg == "" {
+				msg = "unknown"
+			}
+		}
+		return fmt.Errorf("send card failed: code=%d msg=%s", code, msg)
+	}
+	return nil
+}
+
+func buildFeishuVerificationCard(statusText string, connectorID int) map[string]any {
+	elements := []any{
+		map[string]any{
+			"tag":     "markdown",
+			"content": "请填写飞书应用凭据并提交验证。提交后后端会向飞书鉴权接口发起真实校验。",
+		},
+	}
+	statusText = strings.TrimSpace(statusText)
+	if statusText != "" {
+		elements = append(elements, map[string]any{
+			"tag":     "markdown",
+			"content": "**最近结果**: " + statusText,
+		})
+	}
+	elements = append(elements,
+		map[string]any{
+			"tag":   "input",
+			"name":  "app_id",
+			"label": map[string]any{"tag": "plain_text", "content": "App ID"},
+			"placeholder": map[string]any{
+				"tag":     "plain_text",
+				"content": "cli_xxx",
+			},
+		},
+		map[string]any{
+			"tag":   "input",
+			"name":  "app_secret",
+			"label": map[string]any{"tag": "plain_text", "content": "App Secret"},
+			"placeholder": map[string]any{
+				"tag":     "plain_text",
+				"content": "请粘贴 app secret",
+			},
+		},
+		map[string]any{
+			"tag": "action",
+			"actions": []any{
+				map[string]any{
+					"tag":  "button",
+					"type": "primary",
+					"text": map[string]any{
+						"tag":     "plain_text",
+						"content": "提交验证",
+					},
+					"value": map[string]any{
+						"action":       "feishu_verify_submit",
+						"connector_id": fmt.Sprintf("%d", connectorID),
+					},
+				},
+			},
+		},
+	)
+
+	return map[string]any{
+		"config": map[string]any{
+			"wide_screen_mode": true,
+			"update_multi":     true,
+		},
+		"header": map[string]any{
+			"template": "blue",
+			"title": map[string]any{
+				"tag":     "plain_text",
+				"content": "EchoCenter 飞书连接验证",
+			},
+		},
+		"elements": elements,
+	}
+}
+
+func (h *Handler) processFeishuWSCardAction(ctx context.Context, event *larkcallback.CardActionTriggerEvent) (*larkcallback.CardActionTriggerResponse, error) {
+	if event == nil || event.Event == nil || event.Event.Action == nil {
+		return &larkcallback.CardActionTriggerResponse{
+			Toast: &larkcallback.Toast{Type: "error", Content: "无效的卡片提交"},
+		}, nil
+	}
+
+	action := strings.TrimSpace(stringFromAny(event.Event.Action.Value["action"]))
+	if action != "feishu_verify_submit" {
+		return &larkcallback.CardActionTriggerResponse{
+			Toast: &larkcallback.Toast{Type: "info", Content: "未识别的卡片动作"},
+		}, nil
+	}
+
+	connector, err := h.repo.GetFeishuConnector(ctx)
+	if err != nil || connector == nil {
+		return &larkcallback.CardActionTriggerResponse{
+			Toast: &larkcallback.Toast{Type: "error", Content: "连接器不存在"},
+		}, nil
+	}
+
+	form := event.Event.Action.FormValue
+	appID := strings.TrimSpace(stringFromAny(form["app_id"]))
+	appSecret := strings.TrimSpace(stringFromAny(form["app_secret"]))
+	if appID == "" || appSecret == "" {
+		msg := "app_id 和 app_secret 不能为空"
+		return &larkcallback.CardActionTriggerResponse{
+			Toast: &larkcallback.Toast{Type: "error", Content: msg},
+			Card:  &larkcallback.Card{Type: "raw", Data: buildFeishuVerificationCard(msg, connector.ID)},
+		}, nil
+	}
+
+	updated := *connector
+	updated.AppID = appID
+	updated.AppSecret = appSecret
+	if err := h.repo.UpdateFeishuConnector(ctx, &updated); err != nil {
+		msg := "保存凭据失败"
+		return &larkcallback.CardActionTriggerResponse{
+			Toast: &larkcallback.Toast{Type: "error", Content: msg},
+			Card:  &larkcallback.Card{Type: "raw", Data: buildFeishuVerificationCard(msg, connector.ID)},
+		}, nil
+	}
+
+	ok, detail, verifyErr := verifyFeishuAppCredentials(ctx, appID, appSecret)
+	if verifyErr != nil {
+		msg := "飞书鉴权请求失败: " + verifyErr.Error()
+		_ = h.repo.AppendFeishuIntegrationLog(ctx, connector.ID, "error", "ws_card_verify", msg)
+		return &larkcallback.CardActionTriggerResponse{
+			Toast: &larkcallback.Toast{Type: "error", Content: "验证失败，请稍后重试"},
+			Card:  &larkcallback.Card{Type: "raw", Data: buildFeishuVerificationCard(msg, connector.ID)},
+		}, nil
+	}
+	if !ok {
+		msg := "飞书拒绝凭据: " + detail
+		_ = h.repo.AppendFeishuIntegrationLog(ctx, connector.ID, "error", "ws_card_verify", msg)
+		return &larkcallback.CardActionTriggerResponse{
+			Toast: &larkcallback.Toast{Type: "error", Content: "验证未通过"},
+			Card:  &larkcallback.Card{Type: "raw", Data: buildFeishuVerificationCard(msg, connector.ID)},
+		}, nil
+	}
+
+	verifiedAt := time.Now().UTC()
+	if _, err := h.repo.MarkFeishuConnectorVerified(ctx, connector.ID, verifiedAt); err != nil {
+		msg := "标记验证状态失败"
+		return &larkcallback.CardActionTriggerResponse{
+			Toast: &larkcallback.Toast{Type: "error", Content: msg},
+			Card:  &larkcallback.Card{Type: "raw", Data: buildFeishuVerificationCard(msg, connector.ID)},
+		}, nil
+	}
+	_ = h.repo.AppendFeishuIntegrationLog(ctx, connector.ID, "success", "ws_card_verify", "Feishu card verification succeeded")
+
+	successCard := map[string]any{
+		"config": map[string]any{
+			"wide_screen_mode": true,
+		},
+		"header": map[string]any{
+			"template": "green",
+			"title": map[string]any{
+				"tag":     "plain_text",
+				"content": "验证成功",
+			},
+		},
+		"elements": []any{
+			map[string]any{
+				"tag":     "markdown",
+				"content": "飞书连接验证成功，Butler 现在可以正常接入消息。",
+			},
+		},
+	}
+
+	return &larkcallback.CardActionTriggerResponse{
+		Toast: &larkcallback.Toast{Type: "success", Content: "飞书验证成功"},
+		Card:  &larkcallback.Card{Type: "raw", Data: successCard},
+	}, nil
+}
+
+func stringFromAny(v any) string {
+	switch x := v.(type) {
+	case string:
+		return x
+	case fmt.Stringer:
+		return x.String()
+	default:
+		return ""
 	}
 }
