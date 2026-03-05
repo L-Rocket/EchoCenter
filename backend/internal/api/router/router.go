@@ -15,6 +15,7 @@ func Setup(r *gin.Engine, h *handler.Handler, authSvc auth.Service) {
 		api.GET("/ping", h.Ping)
 		api.POST("/auth/login", h.Login)
 		api.GET("/ws", h.HandleWS)
+		api.POST("/integrations/feishu/card-callback", h.HandleFeishuCardCallback)
 	}
 
 	// Protected routes

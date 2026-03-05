@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	larkcallback "github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 	"github.com/lea/echocenter/backend/internal/butler"
 	"github.com/lea/echocenter/backend/internal/models"
 	apperrors "github.com/lea/echocenter/backend/pkg/errors"
@@ -290,6 +291,87 @@ func (h *Handler) ListFeishuIntegrationLogs(c *gin.Context) {
 		"items":  logs,
 		"cursor": cursor,
 	})
+}
+
+// HandleFeishuCardCallback handles Feishu interactive card action callbacks over HTTP.
+// Messages can still use WS; this endpoint is a compatibility path for card callbacks.
+func (h *Handler) HandleFeishuCardCallback(c *gin.Context) {
+	rawBody, err := c.GetRawData()
+	if err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "failed to read callback body", err))
+		return
+	}
+
+	var envelope struct {
+		Type      string `json:"type"`
+		Challenge string `json:"challenge"`
+		Token     string `json:"token"`
+		Header    struct {
+			EventType string `json:"event_type"`
+			Token     string `json:"token"`
+		} `json:"header"`
+	}
+	if err := json.Unmarshal(rawBody, &envelope); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid callback payload", err))
+		return
+	}
+
+	if strings.EqualFold(strings.TrimSpace(envelope.Type), "url_verification") && strings.TrimSpace(envelope.Challenge) != "" {
+		c.JSON(http.StatusOK, gin.H{"challenge": envelope.Challenge})
+		return
+	}
+	if strings.TrimSpace(envelope.Header.EventType) != "card.action.trigger" {
+		c.JSON(http.StatusOK, gin.H{"code": 0, "msg": "ignored"})
+		return
+	}
+
+	connector, err := h.repo.GetFeishuConnector(c.Request.Context())
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	if connector == nil {
+		h.respondWithError(c, http.StatusNotFound, apperrors.New(apperrors.ErrNotFound, "feishu connector not found"))
+		return
+	}
+
+	var event larkcallback.CardActionTriggerEvent
+	if err := json.Unmarshal(rawBody, &event); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid card callback payload", err))
+		return
+	}
+
+	gotToken := strings.TrimSpace(envelope.Token)
+	if gotToken == "" {
+		gotToken = strings.TrimSpace(envelope.Header.Token)
+	}
+	if gotToken == "" && event.Event != nil {
+		gotToken = strings.TrimSpace(event.Event.Token)
+	}
+	expectedToken := strings.TrimSpace(connector.VerificationToken)
+	if expectedToken != "" && gotToken != expectedToken {
+		_ = h.repo.AppendFeishuIntegrationLog(c.Request.Context(), connector.ID, "error", "card_callback_auth", "Rejected card callback due to invalid token")
+		h.respondWithError(c, http.StatusUnauthorized, apperrors.New(apperrors.ErrUnauthorized, "invalid feishu token"))
+		return
+	}
+
+	_ = h.repo.AppendFeishuIntegrationLog(c.Request.Context(), connector.ID, "info", "card_callback_received", "Received card.action.trigger callback")
+	resp, handlerErr := h.processFeishuWSCardAction(c.Request.Context(), &event)
+	if handlerErr != nil {
+		_ = h.repo.AppendFeishuIntegrationLog(c.Request.Context(), connector.ID, "error", "card_callback_handle", handlerErr.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"toast": gin.H{
+				"type":    "error",
+				"content": "callback handler failed",
+			},
+		})
+		return
+	}
+	if resp == nil {
+		c.JSON(http.StatusOK, gin.H{"code": 0, "msg": "ok"})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 func (h *Handler) HandleFeishuCallback(c *gin.Context) {
