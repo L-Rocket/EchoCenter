@@ -28,6 +28,8 @@ type ServerConfig struct {
 
 // DatabaseConfig holds database configuration
 type DatabaseConfig struct {
+	Driver          string
+	DSN             string
 	Path            string
 	MaxOpenConns    int
 	MaxIdleConns    int
@@ -64,6 +66,8 @@ func Load() (*Config, error) {
 			WriteTimeout: getEnvAsDuration("SERVER_WRITE_TIMEOUT", 15*time.Second),
 		},
 		Database: DatabaseConfig{
+			Driver:          getEnv("DB_DRIVER", "sqlite"),
+			DSN:             getEnv("DB_DSN", "postgres://postgres:postgres@localhost:5432/echocenter?sslmode=disable"),
 			Path:            getEnv("DB_PATH", "./data/echo_center.db"),
 			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 25),
 			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 5),

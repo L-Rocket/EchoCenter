@@ -43,12 +43,16 @@ func TestGetEnvHelpers(t *testing.T) {
 func TestLoadWithExplicitEnv(t *testing.T) {
 	t.Setenv("JWT_SECRET", "12345678901234567890123456789012")
 	t.Setenv("SERVER_PORT", "9090")
+	t.Setenv("DB_DRIVER", "postgres")
+	t.Setenv("DB_DSN", "postgres://test:test@localhost:5432/testdb?sslmode=disable")
 	t.Setenv("DB_PATH", "./tmp/test.db")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "http://a.local,http://b.local")
 
 	cfg, err := Load()
 	assert.NoError(t, err)
 	assert.Equal(t, 9090, cfg.Server.Port)
+	assert.Equal(t, "postgres", cfg.Database.Driver)
+	assert.Equal(t, "postgres://test:test@localhost:5432/testdb?sslmode=disable", cfg.Database.DSN)
 	assert.Equal(t, "./tmp/test.db", cfg.Database.Path)
 	assert.Equal(t, []string{"http://a.local", "http://b.local"}, cfg.CORS.AllowedOrigins)
 }

@@ -29,7 +29,7 @@
 - **🧠 Butler 核心**：AI 驱动的协调者，能够理解用户意图并执行复杂的跨代理工作流。
 - **📊 交互式大盘**：基于 React 的现代化 UI，实时监控代理状态和全系统日志。
 - **🔒 安全架构**：强制性的 JWT 认证机制和针对每个代理的独立 API Token。
-- **📂 持久化历史**：完整的聊天和命令历史存储在经过 WAL 优化的 SQLite 数据库中。
+- **📂 持久化历史**：完整的聊天和命令历史默认存储在 SQLite 中，也可通过配置切换到 PostgreSQL。
 
 ## 🛠 技术栈
 
@@ -38,7 +38,7 @@
 | **Go 1.22+** | **React 19** | **Python 3.9+** |
 | Gin Gonic | TypeScript | OpenAI SDK |
 | Gorilla WebSocket | Tailwind CSS (v4) | websockets |
-| SQLite (WAL) | Zustand | psutil |
+| SQLite (WAL) / PostgreSQL | Zustand | psutil |
 | Eino (AI 引擎) | Shadcn/ui | python-dotenv |
 
 ## 🚀 快速开始

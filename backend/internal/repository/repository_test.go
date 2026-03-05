@@ -19,6 +19,7 @@ func newTestRepo(t *testing.T) Repository {
 
 	dbPath := filepath.Join(t.TempDir(), "echo_test.db")
 	repo, err := New(&config.DatabaseConfig{
+		Driver:          "sqlite",
 		Path:            dbPath,
 		MaxOpenConns:    1,
 		MaxIdleConns:    1,

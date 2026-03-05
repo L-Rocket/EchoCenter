@@ -15,4 +15,5 @@ Retrieves latest 50 messages.
 - Returns: Array of messages in reverse chronological order.
 
 ## Database
-Uses SQLite stored in `./data/echo_center.db`.
+Default database is SQLite via `DB_PATH`.
+Set `DB_DRIVER=postgres` to use PostgreSQL via `DB_DSN`.
