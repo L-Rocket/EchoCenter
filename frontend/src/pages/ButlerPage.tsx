@@ -42,7 +42,7 @@ const ButlerPage = () => {
 
   if (loading) {
     return (
-      <Card className="h-[calc(100vh-160px)] flex items-center justify-center">
+      <Card className="h-[calc(100dvh-220px)] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-center">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
           <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Linking Butler Channel...</span>
@@ -53,7 +53,7 @@ const ButlerPage = () => {
 
   if (!butler || error) {
     return (
-      <Card className="h-[calc(100vh-160px)] flex items-center justify-center p-8">
+      <Card className="h-[calc(100dvh-220px)] flex items-center justify-center p-8">
         <div className="max-w-sm text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border bg-muted text-muted-foreground">
             <ShieldAlert className="h-7 w-7" />
@@ -71,7 +71,7 @@ const ButlerPage = () => {
   }
 
   return (
-    <Card className="h-[calc(100vh-160px)] overflow-hidden flex flex-col md:flex-row">
+    <Card className="h-[calc(100dvh-220px)] overflow-hidden flex flex-col md:flex-row">
       <div className="w-full md:w-80 shrink-0 border-b md:border-b-0 md:border-r bg-muted/30 p-5">
         <div className="space-y-4">
           <div className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-primary">
