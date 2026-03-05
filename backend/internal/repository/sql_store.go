@@ -137,6 +137,23 @@ func (r *sqlRepository) txExec(tx *sql.Tx, query string, args ...any) (sql.Resul
 	return tx.Exec(r.rebind(query), args...)
 }
 
+func (r *sqlRepository) txInsertAndReturnID(tx *sql.Tx, baseQuery string, args ...any) (int64, error) {
+	if r.driver == driverPostgres {
+		var id int64
+		err := tx.QueryRow(r.rebind(baseQuery+" RETURNING id"), args...).Scan(&id)
+		if err != nil {
+			return 0, err
+		}
+		return id, nil
+	}
+
+	result, err := tx.Exec(r.rebind(baseQuery), args...)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
+}
+
 func (r *sqlRepository) insertAndReturnID(ctx context.Context, baseQuery string, args ...any) (int64, error) {
 	if r.driver == driverPostgres {
 		var id int64

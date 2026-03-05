@@ -195,15 +195,6 @@ func (h *Handler) AuthResponse(c *gin.Context) {
 
 	log.Printf("[AuthResponse] Using streamID: %s, executing command for user: %v", streamID, userID)
 
-	// Update the original AUTH_REQUEST message status in DB
-	status := "REJECTED"
-	if req.Approved {
-		status = "APPROVED"
-	}
-	if err := h.repo.UpdateAuthRequestStatus(c.Request.Context(), streamID, status); err != nil {
-		log.Printf("[AuthResponse] Failed to update AUTH_REQUEST status: %v", err)
-	}
-
 	butlerService := butler.GetButler()
 	if butlerService != nil {
 		butlerService.ExecutePendingCommand(c.Request.Context(), streamID, userID.(int), req.Approved)

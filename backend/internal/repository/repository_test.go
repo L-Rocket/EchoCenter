@@ -121,3 +121,51 @@ func TestIsUniqueConstraintErrorSafeForShortMessages(t *testing.T) {
 	assert.True(t, isUniqueConstraintError(errors.New("unique constraint failed: users.username")))
 	assert.False(t, isUniqueConstraintError(fmt.Errorf("wrapped: %w", shortErr)))
 }
+
+func TestCreateUserStoresHumanCredential(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	err := repo.CreateUser(ctx, &models.User{
+		Username:     "member1",
+		PasswordHash: "hash-1",
+		Role:         "MEMBER",
+	})
+	require.NoError(t, err)
+
+	user, err := repo.GetUserByUsername(ctx, "member1")
+	require.NoError(t, err)
+	require.NotNil(t, user)
+	assert.Equal(t, "hash-1", user.PasswordHash)
+	assert.Equal(t, actorTypeHuman, user.ActorType)
+
+	sqlRepo := repo.(*sqlRepository)
+	var humanCount, machineCount int
+	require.NoError(t, sqlRepo.queryRowContext(ctx, "SELECT COUNT(*) FROM human_credentials").Scan(&humanCount))
+	require.NoError(t, sqlRepo.queryRowContext(ctx, "SELECT COUNT(*) FROM machine_credentials").Scan(&machineCount))
+	assert.Equal(t, 1, humanCount)
+	assert.Equal(t, 0, machineCount)
+}
+
+func TestCreateAgentStoresMachineCredentialAndLookupByToken(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	err := repo.CreateAgent(ctx, "agentA", "tok-agent-A")
+	require.NoError(t, err)
+
+	agent, err := repo.GetAgentByToken(ctx, "tok-agent-A")
+	require.NoError(t, err)
+	require.NotNil(t, agent)
+	assert.Equal(t, "agentA", agent.Username)
+	assert.Equal(t, "AGENT", agent.Role)
+	assert.Equal(t, actorTypeSystem, agent.ActorType)
+	assert.Equal(t, "tok-agent-A", agent.APIToken)
+
+	sqlRepo := repo.(*sqlRepository)
+	var humanCount, machineCount int
+	require.NoError(t, sqlRepo.queryRowContext(ctx, "SELECT COUNT(*) FROM human_credentials").Scan(&humanCount))
+	require.NoError(t, sqlRepo.queryRowContext(ctx, "SELECT COUNT(*) FROM machine_credentials").Scan(&machineCount))
+	assert.Equal(t, 0, humanCount)
+	assert.Equal(t, 1, machineCount)
+}

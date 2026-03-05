@@ -34,12 +34,12 @@ const (
 type MessageType string
 
 const (
-	MessageTypeSystemLog     MessageType = "SYSTEM_LOG"
-	MessageTypeChat          MessageType = "CHAT"
-	MessageTypeChatStream    MessageType = "CHAT_STREAM"
-	MessageTypeChatStreamEnd MessageType = "CHAT_STREAM_END"
-	MessageTypeAuthRequest   MessageType = "AUTH_REQUEST"
-	MessageTypeAuthResponse  MessageType = "AUTH_RESPONSE"
+	MessageTypeSystemLog        MessageType = "SYSTEM_LOG"
+	MessageTypeChat             MessageType = "CHAT"
+	MessageTypeChatStream       MessageType = "CHAT_STREAM"
+	MessageTypeChatStreamEnd    MessageType = "CHAT_STREAM_END"
+	MessageTypeAuthRequest      MessageType = "AUTH_REQUEST"
+	MessageTypeAuthResponse     MessageType = "AUTH_RESPONSE"
 	MessageTypeAuthStatusUpdate MessageType = "AUTH_STATUS_UPDATE"
 )
 
@@ -52,7 +52,7 @@ type Message struct {
 	SenderName string      `json:"sender_name"`
 	SenderRole string      `json:"sender_role"`
 	TargetID   int         `json:"target_id,omitempty"`
-	Payload    any `json:"payload"`
+	Payload    any         `json:"payload"`
 	Timestamp  string      `json:"timestamp"`
 	StreamID   string      `json:"stream_id,omitempty"`
 }
@@ -125,7 +125,7 @@ func (h *hub) unregisterClient(client *Client) {
 }
 
 func (h *hub) handleBroadcast(ctx context.Context, message *Message) {
-	// Notify handlers synchronously first. 
+	// Notify handlers synchronously first.
 	// This ensures PersistingMessageHandler can fill in the message ID.
 	for _, handler := range h.handlers {
 		handler.HandleMessage(ctx, message)
@@ -194,7 +194,15 @@ func (h *hub) Broadcast(msg *Message) {
 	select {
 	case h.broadcast <- msg:
 	default:
-		// Channel full, drop message
+		// Avoid silent drops when broadcast queue is full.
+		if msg != nil {
+			log.Printf(
+				"[WebSocket Hub] Dropped message: broadcast queue full (len=%d cap=%d type=%s from=%d to=%d stream=%s)",
+				len(h.broadcast), cap(h.broadcast), msg.Type, msg.SenderID, msg.TargetID, msg.StreamID,
+			)
+		} else {
+			log.Printf("[WebSocket Hub] Dropped nil message: broadcast queue full (len=%d cap=%d)", len(h.broadcast), cap(h.broadcast))
+		}
 	}
 }
 
@@ -241,13 +249,13 @@ func (h *hub) BroadcastGeneric(msg any) {
 		} else if sid, ok := data["sender_id"].(float64); ok {
 			m.SenderID = int(sid)
 		}
-		
+
 		if tid, ok := data["target_id"].(int); ok {
 			m.TargetID = tid
 		} else if tid, ok := data["target_id"].(float64); ok {
 			m.TargetID = int(tid)
 		}
-		
+
 		if sname, ok := data["sender_name"].(string); ok {
 			m.SenderName = sname
 		}

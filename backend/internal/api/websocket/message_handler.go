@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/lea/echocenter/backend/internal/butler"
@@ -108,7 +109,7 @@ func (h *ButlerMessageHandler) HandleMessage(ctx context.Context, msg *Message) 
 		return
 	}
 
-	// Only handle messages sent to Butler, and IGNORE messages from AGENTs 
+	// Only handle messages sent to Butler, and IGNORE messages from AGENTs
 	// to prevent infinite loops (Agents replying to Butler, Butler thinking it's a user prompt).
 	if msg.TargetID != h.butlerID || msg.SenderRole == "AGENT" {
 		return
@@ -163,13 +164,8 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 		return
 	}
 
-	// Only persist messages involving User (ID 1)
-	// This includes User <-> Butler and User <-> Agent conversations
-	// Skip messages between Butler and other Agents (Butler <-> Agent)
-	const userID = 1
-	const butlerID = 2
-	if msg.SenderID != userID && msg.TargetID != userID {
-		log.Printf("[PersistingMessageHandler] Skipping message from %d to %d (not involving User)", msg.SenderID, msg.TargetID)
+	if !h.involvesHumanUser(ctx, msg) {
+		log.Printf("[PersistingMessageHandler] Skipping message from %d to %d (no human user involved)", msg.SenderID, msg.TargetID)
 		return
 	}
 
@@ -233,6 +229,45 @@ func (h *CompositeHandler) HandleMessage(ctx context.Context, msg *Message) {
 			go handler.HandleMessage(ctx, msg)
 		}
 	}
+}
+
+func (h *PersistingMessageHandler) involvesHumanUser(ctx context.Context, msg *Message) bool {
+	sender, err := h.repo.GetUserByID(ctx, msg.SenderID)
+	if err != nil {
+		log.Printf("[PersistingMessageHandler] failed to load sender %d: %v (fallback to persist)", msg.SenderID, err)
+		return true
+	}
+
+	receiver, err := h.repo.GetUserByID(ctx, msg.TargetID)
+	if err != nil {
+		log.Printf("[PersistingMessageHandler] failed to load receiver %d: %v (fallback to persist)", msg.TargetID, err)
+		return true
+	}
+
+	if isHumanActor(sender) || isHumanActor(receiver) {
+		return true
+	}
+
+	// Fallback compatibility for old rows before actor_type backfill.
+	return !isSystemRole(msg.SenderRole)
+}
+
+func isHumanActor(user *models.User) bool {
+	if user == nil {
+		return false
+	}
+	if strings.EqualFold(strings.TrimSpace(user.ActorType), "HUMAN") {
+		return true
+	}
+	if strings.EqualFold(strings.TrimSpace(user.ActorType), "SYSTEM") {
+		return false
+	}
+	return !isSystemRole(user.Role)
+}
+
+func isSystemRole(role string) bool {
+	normalized := strings.ToUpper(strings.TrimSpace(role))
+	return normalized == "AGENT" || normalized == "BUTLER"
 }
 
 // TimeoutContext wraps a context with a timeout for handler execution

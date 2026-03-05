@@ -121,6 +121,40 @@ func (r *sqlRepository) getMigrations() []schemaMigration {
 					`CREATE INDEX IF NOT EXISTS idx_butler_status ON butler_authorizations (status)`,
 				},
 			},
+			{
+				name: "006_backfill_users_actor_type",
+				statements: []string{
+					`ALTER TABLE users ADD COLUMN IF NOT EXISTS actor_type TEXT NOT NULL DEFAULT 'HUMAN'`,
+					`UPDATE users SET actor_type = 'SYSTEM' WHERE role IN ('AGENT', 'BUTLER')`,
+				},
+			},
+			{
+				name: "007_split_credentials_tables",
+				statements: []string{
+					`CREATE TABLE IF NOT EXISTS human_credentials (
+						user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+						password_hash TEXT NOT NULL,
+						created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+						updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+					)`,
+					`CREATE TABLE IF NOT EXISTS machine_credentials (
+						user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+						api_token TEXT NOT NULL UNIQUE,
+						created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+						updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+					)`,
+					`INSERT INTO human_credentials (user_id, password_hash)
+					 SELECT id, password_hash FROM users
+					 WHERE COALESCE(password_hash, '') <> ''
+					   AND role NOT IN ('AGENT', 'BUTLER')
+					 ON CONFLICT (user_id) DO NOTHING`,
+					`INSERT INTO machine_credentials (user_id, api_token)
+					 SELECT id, api_token FROM users
+					 WHERE COALESCE(api_token, '') <> ''
+					   AND role IN ('AGENT', 'BUTLER')
+					 ON CONFLICT (user_id) DO NOTHING`,
+				},
+			},
 		}
 	}
 
@@ -187,6 +221,40 @@ func (r *sqlRepository) getMigrations() []schemaMigration {
 				`CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages (timestamp DESC, id DESC)`,
 				`CREATE INDEX IF NOT EXISTS idx_chat_pair_time ON chat_messages (sender_id, receiver_id, timestamp DESC)`,
 				`CREATE INDEX IF NOT EXISTS idx_butler_status ON butler_authorizations (status)`,
+			},
+		},
+		{
+			name: "006_backfill_users_actor_type",
+			statements: []string{
+				`ALTER TABLE users ADD COLUMN actor_type TEXT NOT NULL DEFAULT 'HUMAN'`,
+				`UPDATE users SET actor_type = 'SYSTEM' WHERE role IN ('AGENT', 'BUTLER')`,
+			},
+		},
+		{
+			name: "007_split_credentials_tables",
+			statements: []string{
+				`CREATE TABLE IF NOT EXISTS human_credentials (
+					user_id INTEGER PRIMARY KEY,
+					password_hash TEXT NOT NULL,
+					created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+					updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+					FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+				)`,
+				`CREATE TABLE IF NOT EXISTS machine_credentials (
+					user_id INTEGER PRIMARY KEY,
+					api_token TEXT NOT NULL UNIQUE,
+					created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+					updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+					FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+				)`,
+				`INSERT OR IGNORE INTO human_credentials (user_id, password_hash)
+				 SELECT id, password_hash FROM users
+				 WHERE IFNULL(password_hash, '') <> ''
+				   AND role NOT IN ('AGENT', 'BUTLER')`,
+				`INSERT OR IGNORE INTO machine_credentials (user_id, api_token)
+				 SELECT id, api_token FROM users
+				 WHERE IFNULL(api_token, '') <> ''
+				   AND role IN ('AGENT', 'BUTLER')`,
 			},
 		},
 	}

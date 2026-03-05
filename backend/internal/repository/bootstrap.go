@@ -30,11 +30,13 @@ func (r *sqlRepository) InitializeAdmin(ctx context.Context, username, password 
 		return apperrors.Wrap(apperrors.ErrInternal, "failed to hash password", err)
 	}
 
-	_, err = r.execContext(ctx,
-		"INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
-		username, string(hashedPassword), "ADMIN",
-	)
-	if err != nil {
+	admin := &models.User{
+		Username:     username,
+		PasswordHash: string(hashedPassword),
+		Role:         "ADMIN",
+		ActorType:    actorTypeHuman,
+	}
+	if err := r.CreateUser(ctx, admin); err != nil {
 		return apperrors.Wrap(apperrors.ErrDatabase, "failed to create admin user", err)
 	}
 
@@ -44,9 +46,19 @@ func (r *sqlRepository) InitializeAdmin(ctx context.Context, username, password 
 // InitializeButler ensures the Butler agent exists in the database.
 func (r *sqlRepository) InitializeButler(ctx context.Context) (*models.User, error) {
 	var user models.User
-	query := `SELECT id, username, role, api_token FROM users WHERE username = 'Butler' AND role = 'BUTLER' LIMIT 1`
-	err := r.queryRowContext(ctx, query).Scan(&user.ID, &user.Username, &user.Role, &user.APIToken)
-
+	query := `
+		SELECT
+			u.id,
+			u.username,
+			u.role,
+			u.actor_type,
+			COALESCE(mc.api_token, u.api_token) AS api_token
+		FROM users u
+		LEFT JOIN machine_credentials mc ON mc.user_id = u.id
+		WHERE u.username = 'Butler' AND u.role = 'BUTLER'
+		LIMIT 1
+	`
+	err := r.queryRowContext(ctx, query).Scan(&user.ID, &user.Username, &user.Role, &user.ActorType, &user.APIToken)
 	if err == nil {
 		return &user, nil
 	}
@@ -55,27 +67,31 @@ func (r *sqlRepository) InitializeButler(ctx context.Context) (*models.User, err
 	}
 
 	log.Println("[Init] Creating default Butler agent...")
-	token := "butler-core-token-automatically-generated"
-	dummyHash := "$2a$12$ve.vOPXLOXQ.XOnIDovYnu.id.X6Z.id.X6Z.id.X6Z.id.X6Z"
-
-	query = `INSERT INTO users (username, password_hash, api_token, role) VALUES (?, ?, ?, ?)`
-	id, err := r.insertAndReturnID(ctx, query, "Butler", dummyHash, token, "BUTLER")
-	if err != nil {
+	butler := &models.User{
+		Username:     "Butler",
+		PasswordHash: "$2a$12$ve.vOPXLOXQ.XOnIDovYnu.id.X6Z.id.X6Z.id.X6Z.id.X6Z",
+		APIToken:     "butler-core-token-automatically-generated",
+		Role:         "BUTLER",
+		ActorType:    actorTypeSystem,
+	}
+	if err := r.CreateUser(ctx, butler); err != nil {
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to create Butler", err)
 	}
 
-	user.ID = int(id)
-	user.Username = "Butler"
-	user.Role = "BUTLER"
-	user.APIToken = token
-
-	return &user, nil
+	created, err := r.GetUserByUsername(ctx, butler.Username)
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to load Butler", err)
+	}
+	if created == nil {
+		return nil, apperrors.New(apperrors.ErrDatabase, "created Butler not found")
+	}
+	return created, nil
 }
 
 // ResetMockData removes runtime data for local mock bootstrap.
 func (r *sqlRepository) ResetMockData(ctx context.Context) error {
 	if r.driver == driverPostgres {
-		query := `TRUNCATE TABLE butler_authorizations, chat_messages, messages, users RESTART IDENTITY CASCADE`
+		query := `TRUNCATE TABLE butler_authorizations, chat_messages, machine_credentials, human_credentials, messages, users RESTART IDENTITY CASCADE`
 		if _, err := r.execContext(ctx, query); err != nil {
 			return apperrors.Wrap(apperrors.ErrDatabase, "failed to reset postgres mock data", err)
 		}
@@ -90,6 +106,8 @@ func (r *sqlRepository) ResetMockData(ctx context.Context) error {
 	statements := []string{
 		"DELETE FROM butler_authorizations",
 		"DELETE FROM chat_messages",
+		"DELETE FROM machine_credentials",
+		"DELETE FROM human_credentials",
 		"DELETE FROM messages",
 		"DELETE FROM users",
 		"DELETE FROM sqlite_sequence WHERE name IN ('users','messages','chat_messages')",
