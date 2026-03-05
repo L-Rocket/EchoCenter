@@ -42,7 +42,7 @@ func (h *Handler) StartFeishuWebSocketBridge(ctx context.Context, wsURL string, 
 			sleepWithContext(ctx, reconnectInterval)
 			continue
 		}
-		if connector == nil || !connector.Enabled {
+		if connector == nil {
 			sleepWithContext(ctx, reconnectInterval)
 			continue
 		}
@@ -119,13 +119,18 @@ func (h *Handler) consumeFeishuWS(ctx context.Context, conn *websocket.Conn) err
 
 func (h *Handler) processFeishuWSInbound(ctx context.Context, payload map[string]any, rawBody []byte) error {
 	connector, err := h.repo.GetFeishuConnector(ctx)
-	if err != nil || connector == nil || !connector.Enabled {
+	if err != nil || connector == nil {
 		return err
 	}
 
-	token := extractFeishuToken(payload)
-	if !h.verifyFeishuToken(token, connector.VerificationToken) {
+	if !verifyFeishuWSToken(payload, connector.VerificationToken) {
 		_ = h.repo.AppendFeishuIntegrationLog(ctx, connector.ID, "error", "ws_auth", "Rejected WS event due to invalid token")
+		return nil
+	}
+
+	// Keep long connection alive even when connector is disabled,
+	// but do not route any inbound events into Butler in this state.
+	if !connector.Enabled {
 		return nil
 	}
 
@@ -246,4 +251,18 @@ func sleepWithContext(ctx context.Context, d time.Duration) {
 
 func isWSNormalClose(err error) bool {
 	return websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway)
+}
+
+func verifyFeishuWSToken(payload map[string]any, expected string) bool {
+	expected = strings.TrimSpace(expected)
+	if expected == "" {
+		// Token verification is optional in long-connection mode.
+		return true
+	}
+
+	token := strings.TrimSpace(extractFeishuToken(payload))
+	if token == "" {
+		return false
+	}
+	return token == expected
 }

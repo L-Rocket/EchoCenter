@@ -46,6 +46,23 @@ func TestUnwrapFeishuWSMessage(t *testing.T) {
 	}
 }
 
+func TestVerifyFeishuWSToken(t *testing.T) {
+	if !verifyFeishuWSToken(map[string]any{}, "") {
+		t.Fatalf("expected empty expected token to pass in ws mode")
+	}
+
+	payload := map[string]any{"token": "tok_1"}
+	if !verifyFeishuWSToken(payload, "tok_1") {
+		t.Fatalf("expected matching token to pass")
+	}
+	if verifyFeishuWSToken(payload, "tok_2") {
+		t.Fatalf("expected mismatched token to fail")
+	}
+	if verifyFeishuWSToken(map[string]any{}, "tok_1") {
+		t.Fatalf("expected missing token to fail when expected token is configured")
+	}
+}
+
 func containsAll(s string, subs ...string) bool {
 	for _, sub := range subs {
 		if sub == "" {
