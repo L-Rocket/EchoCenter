@@ -24,8 +24,6 @@ interface ConnectorForm {
   enabled: boolean;
   appId: string;
   appSecret: string;
-  verificationToken: string;
-  encryptKey: string;
   allowDm: boolean;
   allowGroupMention: boolean;
   mentionRequired: boolean;
@@ -49,8 +47,6 @@ const INITIAL_FORM: ConnectorForm = {
   enabled: false,
   appId: '',
   appSecret: '',
-  verificationToken: '',
-  encryptKey: '',
   allowDm: true,
   allowGroupMention: true,
   mentionRequired: true,
@@ -72,7 +68,7 @@ const FeishuIntegrationSettings = () => {
   const { tx } = useI18n();
   const [form, setForm] = useState<ConnectorForm>(INITIAL_FORM);
   const [status, setStatus] = useState<ConnectorStatus>('not_connected');
-  const [callbackVerified, setCallbackVerified] = useState(false);
+  const [wsVerified, setWsVerified] = useState(false);
   const [lastVerifyAt, setLastVerifyAt] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -110,9 +106,9 @@ const FeishuIntegrationSettings = () => {
   };
 
   const handleSaveAndEnable = async () => {
-    if (!callbackVerified) {
-      setError(tx('Verify callback first before enabling connector.', '启用前请先验证回调地址。'));
-      pushLog('error', tx('Save & Enable', '保存并启用'), tx('Rejected because callback has not been verified.', '由于回调未验证，操作被拒绝。'));
+    if (!wsVerified) {
+      setError(tx('Verify WebSocket first before enabling connector.', '启用前请先验证 WebSocket 连接。'));
+      pushLog('error', tx('Save & Enable', '保存并启用'), tx('Rejected because WebSocket has not been verified.', '由于 WebSocket 未验证，操作被拒绝。'));
       return;
     }
 
@@ -126,7 +122,7 @@ const FeishuIntegrationSettings = () => {
     setForm((prev) => ({ ...prev, enabled: true }));
     setStatus('connected');
     setNotice(tx('Connector is enabled. Feishu messages can now be routed to Butler after backend wiring.', '连接器已启用，后端接入后飞书消息可路由到 Butler。'));
-    pushLog('success', tx('Enable Connector', '启用连接器'), tx('Connector enabled with verified callback.', '连接器已基于验证回调启用。'));
+    pushLog('success', tx('Enable Connector', '启用连接器'), tx('Connector enabled with verified WebSocket.', '连接器已基于验证 WebSocket 启用。'));
     setIsSaving(false);
   };
 
@@ -138,7 +134,7 @@ const FeishuIntegrationSettings = () => {
 
     await new Promise((resolve) => setTimeout(resolve, 700));
 
-    setCallbackVerified(true);
+    setWsVerified(true);
     const verifiedAt = new Date().toISOString();
     setLastVerifyAt(verifiedAt);
     setStatus(form.enabled ? 'connected' : 'not_connected');
@@ -154,8 +150,8 @@ const FeishuIntegrationSettings = () => {
 
     await new Promise((resolve) => setTimeout(resolve, 650));
 
-    if (!form.appId || !form.appSecret || !form.verificationToken) {
-      setError(tx('Fill in App ID, App Secret and Verification Token before sending test message.', '发送测试消息前请填写 App ID、App Secret 和 Verification Token。'));
+    if (!form.appId || !form.appSecret) {
+      setError(tx('Fill in App ID and App Secret before sending test message.', '发送测试消息前请填写 App ID 和 App Secret。'));
       pushLog('error', tx('Test Message', '测试消息'), tx('Test failed due to missing required credentials.', '因缺少必填凭据，测试失败。'));
       setStatus('error');
       setIsTesting(false);
@@ -245,18 +241,6 @@ const FeishuIntegrationSettings = () => {
                   {isSecretVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <Input
-                value={form.verificationToken}
-                onChange={(e) => setForm((prev) => ({ ...prev, verificationToken: e.target.value }))}
-                placeholder={tx('Verification Token', '验证 Token')}
-                className="h-10"
-              />
-              <Input
-                value={form.encryptKey}
-                onChange={(e) => setForm((prev) => ({ ...prev, encryptKey: e.target.value }))}
-                placeholder={tx('Encrypt Key (optional)', '加密 Key（可选）')}
-                className="h-10"
-              />
             </div>
           </section>
 
