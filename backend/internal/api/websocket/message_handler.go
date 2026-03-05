@@ -210,6 +210,7 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 
 type userLookupRepository interface {
 	GetUserByID(ctx context.Context, id int) (*models.User, error)
+	GetUsers(ctx context.Context) ([]models.User, error)
 }
 
 // ButlerAgentMonitorHandler emits monitor events for Butler<->Agent CHAT traffic.
@@ -280,14 +281,18 @@ func (h *ButlerAgentMonitorHandler) HandleMessage(ctx context.Context, msg *Mess
 		payload["id"] = msg.ID
 	}
 
-	h.emit(map[string]any{
-		"type":        string(MessageTypeButlerAgent),
-		"sender_id":   msg.SenderID,
-		"sender_name": senderName,
-		"sender_role": senderRole,
-		"payload":     payload,
-		"timestamp":   timestamp,
-	})
+	recipients := h.monitorRecipientIDs(ctx)
+	for _, recipientID := range recipients {
+		h.emit(map[string]any{
+			"type":        string(MessageTypeButlerAgent),
+			"sender_id":   msg.SenderID,
+			"sender_name": senderName,
+			"sender_role": senderRole,
+			"target_id":   recipientID,
+			"payload":     payload,
+			"timestamp":   timestamp,
+		})
+	}
 }
 
 // CompositeHandler combines multiple handlers
@@ -364,6 +369,22 @@ func isButlerAgentPair(sender, receiver *models.User) bool {
 	}
 	return (strings.EqualFold(sender.Role, "BUTLER") && strings.EqualFold(receiver.Role, "AGENT")) ||
 		(strings.EqualFold(sender.Role, "AGENT") && strings.EqualFold(receiver.Role, "BUTLER"))
+}
+
+func (h *ButlerAgentMonitorHandler) monitorRecipientIDs(ctx context.Context) []int {
+	users, err := h.repo.GetUsers(ctx)
+	if err != nil {
+		log.Printf("[ButlerAgentMonitorHandler] failed to load recipients: %v", err)
+		return nil
+	}
+
+	recipientIDs := make([]int, 0, len(users))
+	for _, user := range users {
+		if strings.EqualFold(user.Role, "ADMIN") {
+			recipientIDs = append(recipientIDs, user.ID)
+		}
+	}
+	return recipientIDs
 }
 
 // TimeoutContext wraps a context with a timeout for handler execution

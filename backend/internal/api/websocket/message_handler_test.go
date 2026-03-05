@@ -94,18 +94,32 @@ func (r *testUserLookupRepo) GetUserByID(_ context.Context, id int) (*models.Use
 	return r.users[id], nil
 }
 
+func (r *testUserLookupRepo) GetUsers(_ context.Context) ([]models.User, error) {
+	items := make([]models.User, 0, len(r.users))
+	for _, u := range r.users {
+		if u != nil {
+			items = append(items, *u)
+		}
+	}
+	return items, nil
+}
+
 func TestButlerAgentMonitorHandlerEmitsEvent(t *testing.T) {
 	repo := &testUserLookupRepo{
 		users: map[int]*models.User{
+			1: {ID: 1, Username: "admin", Role: "ADMIN"},
 			2: {ID: 2, Username: "Butler", Role: "BUTLER"},
 			7: {ID: 7, Username: "Agent-7", Role: "AGENT"},
 		},
 	}
 
 	handler := NewButlerAgentMonitorHandler(repo)
-	var emitted any
+	var emitted []map[string]any
 	handler.SetEmitter(func(v any) {
-		emitted = v
+		event, ok := v.(map[string]any)
+		if ok {
+			emitted = append(emitted, event)
+		}
 	})
 
 	handler.HandleMessage(context.Background(), &Message{
@@ -119,12 +133,15 @@ func TestButlerAgentMonitorHandlerEmitsEvent(t *testing.T) {
 		Timestamp:  "2026-03-05T11:22:33Z",
 	})
 
-	event, ok := emitted.(map[string]any)
-	if !ok {
-		t.Fatalf("expected emitted event map, got %T", emitted)
+	if len(emitted) != 1 {
+		t.Fatalf("expected 1 emitted event, got %d", len(emitted))
 	}
+	event := emitted[0]
 	if event["type"] != string(MessageTypeButlerAgent) {
 		t.Fatalf("unexpected event type: %v", event["type"])
+	}
+	if event["target_id"] != 1 {
+		t.Fatalf("expected target_id=1(admin), got %v", event["target_id"])
 	}
 
 	payload, ok := event["payload"].(map[string]any)
@@ -163,5 +180,32 @@ func TestButlerAgentMonitorHandlerSkipsNonButlerAgent(t *testing.T) {
 
 	if called {
 		t.Fatalf("expected no monitor event for admin-agent traffic")
+	}
+}
+
+func TestButlerAgentMonitorHandlerSkipsWhenNoAdminRecipients(t *testing.T) {
+	repo := &testUserLookupRepo{
+		users: map[int]*models.User{
+			2: {ID: 2, Username: "Butler", Role: "BUTLER"},
+			7: {ID: 7, Username: "Agent-7", Role: "AGENT"},
+		},
+	}
+
+	handler := NewButlerAgentMonitorHandler(repo)
+	called := false
+	handler.SetEmitter(func(any) {
+		called = true
+	})
+
+	handler.HandleMessage(context.Background(), &Message{
+		Type:      MessageTypeChat,
+		SenderID:  2,
+		TargetID:  7,
+		Payload:   "run health check",
+		Timestamp: "2026-03-05T11:22:33Z",
+	})
+
+	if called {
+		t.Fatalf("expected no emitted event when no admin recipients")
 	}
 }
