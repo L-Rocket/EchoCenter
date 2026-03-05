@@ -76,7 +76,7 @@ make install
 make build
 
 # Run with mock data and agents (recommended for first run)
-make mock-start
+make run-mock
 
 # Or run backend + frontend only (for development)
 make dev
@@ -123,7 +123,6 @@ PG_DATABASE=echocenter
 PG_SSLMODE=disable
 # SQLite path (when DB_DRIVER=sqlite)
 DB_PATH=./data/echo_center.db
-```
 
 # Butler Configuration
 BUTLER_BASE_URL=https://api.siliconflow.cn/v1
@@ -144,6 +143,10 @@ CORS_ALLOWED_METHODS=GET,POST,PUT,DELETE,OPTIONS
 CORS_ALLOWED_HEADERS=Origin,Content-Type,Authorization
 CORS_MAX_AGE=86400
 ```
+
+PostgreSQL mock bootstrap behavior:
+- `DB_DRIVER=postgres` + `make run-mock` will auto-ensure target DB.
+- `DB_DRIVER=postgres` + `make run-mock RESET=1` will recreate target DB before seeding.
 
 ### 4. Run Backend
 
@@ -206,8 +209,8 @@ python3 mock_agents/storage_custodian.py
 ### Using Makefile (Recommended)
 
 ```bash
-# Run with mock data and agents (backend + seed + agents + frontend)
-make mock-start
+# Run with mock data and agents (backend + seed + agent + frontend)
+make run-mock
 ```
 
 This command will:
@@ -224,7 +227,14 @@ You can optionally keep existing database data:
 make run-mock RESET=0
 ```
 
-You can also use compatibility aliases:
+Quick one-off driver switch:
+
+```bash
+DB_DRIVER=sqlite make run-mock RESET=1
+DB_DRIVER=postgres make run-mock RESET=1
+```
+
+Deprecated compatibility aliases:
 
 ```bash
 make run-mock-sqllite

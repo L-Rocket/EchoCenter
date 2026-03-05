@@ -31,7 +31,7 @@
 - **🌍 内置中英双语**：核心管理与聊天流程支持 English / 简体中文切换。
 - **⚙️ Settings 管理台**：统一入口管理 Agent（创建/移除/Token）与外部集成（如飞书）。
 - **📊 交互式大盘**：基于 React 的现代化 UI，实时监控代理状态和全系统日志。
-- **🔒 安全架构**：强制性的 JWT 认证机制和针对每个代理的独立 API Token。
+- **🔒 安全架构**：强制 JWT 认证与独立 Agent API Token，且 Agent 列表仅返回 `token_hint`（不返回明文 Token）。
 - **📂 灵活持久化**：完整的聊天和命令历史默认存储在 SQLite 中，可通过 `DB_DRIVER` + DSN/PG_* 配置切换 PostgreSQL。
 
 ## 🛠 技术栈
@@ -71,12 +71,24 @@ make install
 # DB_DRIVER=sqlite (默认) 或 DB_DRIVER=postgres
 
 # 5. 使用 mock 数据和代理启动 (首次运行推荐)
-make mock-start
+make run-mock
 ```
 
 输入 `make help` 可以查看所有可用命令。
 
 系统启动后可访问 `http://localhost:5173`。默认管理员凭据：`admin` / `admin123`。
+
+### 快速切换数据库
+
+```bash
+# 默认 SQLite
+DB_DRIVER=sqlite make run-mock RESET=1
+
+# PostgreSQL（会通过 backend/cmd/mockdb 自动 ensure/recreate 数据库）
+DB_DRIVER=postgres make run-mock RESET=1
+```
+
+`run-mock-sqllite` 与 `run-mock-postgre` 仍保留为兼容别名（已标记废弃）。
 
 ## 📖 详细文档
 

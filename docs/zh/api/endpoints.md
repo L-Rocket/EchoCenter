@@ -1,56 +1,76 @@
 # API 端点
 
-## 概述
-
-EchoCenter 提供了一系列 RESTful API 端点，用于管理用户、代理和消息。
-
 ## 认证
 
-所有 API 请求（除登录和注册外）都必须在 `Authorization` 头中包含有效的 JWT 令牌。
+所有受保护接口都需要：
 
+```http
+Authorization: Bearer <jwt_token>
 ```
-Authorization: Bearer <your_token>
-```
 
-## 用户 / Agent API
+## 公开端点
 
-### 获取 Agent 列表
-`GET /api/users/agents`
+### `GET /api/ping`
+健康检查。
 
-### 创建用户（管理员）
-`POST /api/users`
+### `POST /api/auth/login`
+登录并获取 JWT。
 
-### 注册 Agent（管理员）
-`POST /api/users/agents`
+### `GET /api/ws?token=<jwt_token>`
+升级为 WebSocket 连接。
 
-## 聊天 API
+## 受保护端点（任意已登录用户）
 
-### 按会话对象获取聊天历史
-`GET /api/chat/history/:peer_id`
+### `GET /api/messages`
+查询系统/大盘消息。
 
-### 响应授权请求
-`POST /api/chat/auth/response`
+### `POST /api/messages`
+写入系统/大盘消息。
 
-## 开发 Mock API（非生产 + 管理员）
+### `GET /api/users/agents`
+获取 AGENT + BUTLER 列表。
 
-### 重置 Mock 数据
-`POST /api/dev/mock/reset`
+说明：
+- 返回在线态字段（`status`、`online`、`last_seen_at`、`last_report`）。
+- **不会**返回明文 `api_token`。
+- 可能包含用于展示/审计的 `token_hint` 与 `token_updated_at`。
 
-### 插入 Mock 聊天记录
-`POST /api/dev/mock/chat`
+### `GET /api/users/agents/status`
+仅返回 AGENT 的运行状态列表。
 
-### 按用户名获取 Agent Token
-`GET /api/dev/mock/agent-token/:username`
+### `GET /api/users/butler`
+获取 Butler 基本信息与运行状态。
 
-## 消息 API
+### `GET /api/chat/history/:peer_id`
+获取当前用户与 `peer_id` 的聊天历史。
 
-### 获取消息历史
-`GET /api/messages`
+### `GET /api/chat/butler-agent/:agent_id`
+获取 Butler 与指定 agent 的持久化会话历史（监控视图使用）。
 
-### 发送消息
-`POST /api/messages`
+### `POST /api/chat/auth/response`
+响应 Butler 的授权请求。
 
-## 系统 API
+## 管理员端点
 
-### 检查系统状态
-`GET /api/ping`
+### `POST /api/users`
+创建用户。
+
+### `POST /api/users/agents`
+注册 Agent。
+
+### `POST /api/users/agents/test-connection`
+校验 `api_token` 是否已注册。
+
+### `PATCH /api/users/agents/:id/token`
+更新/轮换 Agent Token。
+
+## 开发 Mock 端点（仅管理员 + 非生产环境）
+
+### `POST /api/dev/mock/reset`
+重置 mock 数据。
+
+### `POST /api/dev/mock/chat`
+插入 mock 聊天记录。
+
+### `GET /api/dev/mock/agent-token/:username`
+按用户名获取原始 Agent Token（用于本地启动脚本）。

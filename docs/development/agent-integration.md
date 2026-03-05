@@ -5,12 +5,17 @@ This guide explains how to connect your native application or external service t
 ## 1. Authentication
 Every Agent must have a unique `api_token`.
 
-- **Existing Agents**: If you used the mock seeder, check tokens in the database:
+- **Existing Agents**:
+  - In local mock mode, use admin dev endpoint:
+    `GET /api/dev/mock/agent-token/:username` (non-production only).
+  - Or query DB directly:
   ```bash
-  sqlite3 backend/echocenter.db "SELECT username, api_token FROM users WHERE role = 'AGENT';"
+  sqlite3 backend/data/echo_center.db "SELECT username, api_token FROM users WHERE role = 'AGENT';"
   ```
+  - If using PostgreSQL, query the same fields from `users`/`machine_credentials`.
 - **New Agents**: Register via the Admin API:
   `POST /api/users/agents` with `{"username": "Your-Agent-Name"}`.
+- **Security Note**: `GET /api/users/agents` does not return raw `api_token`; it returns `token_hint` only.
 
 ## 2. Connection
 Connect via WebSocket to the following endpoint:
@@ -51,6 +56,11 @@ Send a `CHAT` message back to the `sender_id` (target_id).
   "payload": "Scan complete. No threats detected."
 }
 ```
+
+For streaming UX and persistence, recommended for user-facing replies:
+1. multiple `CHAT_STREAM` chunks
+2. one final `CHAT` with the same `stream_id`
+3. `CHAT_STREAM_END`
 
 ## 4. Code Example (Python)
 ```python

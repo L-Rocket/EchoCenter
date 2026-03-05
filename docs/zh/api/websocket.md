@@ -4,352 +4,100 @@ outline: deep
 
 # WebSocket 通信
 
-## 概述
+## 连接方式
 
-EchoCenter 使用 WebSocket 进行实时双向通信。所有代理和前端都通过 WebSocket 连接到后端。
-
-## 连接
-
-### 连接地址
-
-```
-ws://localhost:8080/api/ws?token=your_jwt_token
+```text
+ws://localhost:8080/api/ws?token=<jwt_token>
 ```
 
-### 连接参数
+- `token` 必填。
+- 后端会先校验 JWT，再注册连接。
 
-- `token` - JWT 令牌（必需）
-
-### 连接流程
-
-```
-1. 客户端连接到 WebSocket 服务器
-2. 服务器验证 JWT 令牌
-3. 服务器注册客户端
-4. 客户端开始发送/接收消息
-```
-
-## 消息类型
-
-### 1. SYSTEM_LOG
-
-系统日志消息：
+## 消息包结构
 
 ```json
 {
-  "type": "SYSTEM_LOG",
-  "sender_id": 1,
-  "sender_name": "admin",
-  "sender_role": "ADMIN",
-  "payload": {
-    "level": "SUCCESS",
-    "content": "System initialized"
-  }
-}
-```
-
-### 2. CHAT
-
-聊天消息：
-
-```json
-{
+  "id": 123,
+  "local_id": "uuid",
   "type": "CHAT",
   "sender_id": 1,
   "sender_name": "admin",
   "sender_role": "ADMIN",
-  "target_id": 2,
-  "payload": "Hello, Butler!",
-  "timestamp": "2024-01-01T00:00:00Z"
+  "target_id": 7,
+  "payload": "hello",
+  "timestamp": "2026-03-05T21:42:08Z",
+  "stream_id": "stream_abc"
 }
 ```
 
-### 3. AUTH_REQUEST
+## 后端支持的消息类型
 
-授权请求：
+- `SYSTEM_LOG`
+- `CHAT`
+- `CHAT_STREAM`
+- `CHAT_STREAM_END`
+- `AUTH_REQUEST`
+- `AUTH_RESPONSE`
+- `AUTH_STATUS_UPDATE`
+- `BUTLER_AGENT_MESSAGE`（监控事件）
 
-```json
-{
-  "type": "AUTH_REQUEST",
-  "sender_id": 2,
-  "sender_name": "Butler",
-  "sender_role": "BUTLER",
-  "target_id": 1,
-  "payload": {
-    "action_id": "cmd_123",
-    "command": "ls -la",
-    "description": "List files in current directory"
-  }
-}
-```
+## 路由规则
 
-### 4. AUTH_RESPONSE
+### 定向投递
 
-授权响应：
+当 `target_id` 存在时，Hub 只路由给该目标连接。
 
-```json
-{
-  "type": "AUTH_RESPONSE",
-  "sender_id": 1,
-  "sender_name": "admin",
-  "sender_role": "ADMIN",
-  "target_id": 2,
-  "payload": {
-    "action_id": "cmd_123",
-    "approved": true,
-    "message": "Approved by admin"
-  }
-}
-```
+### `CHAT*` 发送者回声规则
 
-### 5. AGENT_RESPONSE
+`CHAT` / `CHAT_STREAM` / `CHAT_STREAM_END` 仅对“人类发送者”回声。
 
-代理响应：
+- 会回声：`ADMIN`、`MEMBER` 等人类角色
+- 不回声：`AGENT`、`BUTLER`
 
-```json
-{
-  "type": "AGENT_RESPONSE",
-  "sender_id": 7,
-  "sender_name": "Storage-Custodian",
-  "sender_role": "AGENT",
-  "target_id": 2,
-  "payload": {
-    "action_id": "cmd_123",
-    "stream_id": "stream_456",
-    "response": "file1.txt\nfile2.txt",
-    "is_complete": true
-  }
-}
-```
+这样可避免 agent 收到自己回声后产生递归循环。
 
-## 消息格式
+### 广播
 
-### 通用格式
+若 `target_id` 为空或 0，则广播给所有已连接客户端。
 
-```json
-{
-  "type": "MESSAGE_TYPE",
-  "sender_id": 1,
-  "sender_name": "sender_name",
-  "sender_role": "ADMIN|BUTLER|AGENT",
-  "target_id": 2,
-  "payload": {},
-  "timestamp": "2024-01-01T00:00:00Z"
-}
-```
+## Butler-Agent 监控事件
 
-### 字段说明
+当 Butler 与 Agent 发生 `CHAT` 往来时，后端会发出 `BUTLER_AGENT_MESSAGE`。
 
-| 字段 | 类型 | 必需 | 说明 |
-|------|------|------|------|
-| type | string | 是 | 消息类型 |
-| sender_id | integer | 是 | 发送者 ID |
-| sender_name | string | 是 | 发送者名称 |
-| sender_role | string | 是 | 发送者角色 |
-| target_id | integer | 否 | 目标 ID |
-| payload | object | 是 | 消息负载 |
-| timestamp | string | 是 | 时间戳 |
+- 事件 payload 含 `agent_id`、`sender_role`、`payload`、`timestamp`。
+- 事件会定向给有权限的接收者（管理员），不会全量广播。
 
-## Hub 管理
+## Agent 端实现建议
 
-### 连接管理
+### 推荐回复模式
 
-```go
-type Hub struct {
-    connections map[*Connection]bool
-    register    chan *Connection
-    unregister  chan *Connection
-    messages    chan *Message
-}
-```
+处理“用户直连”请求时：
+1. 发送 `CHAT_STREAM` 分片
+2. 发送同 `stream_id` 的最终 `CHAT`（用于持久化）
+3. 发送 `CHAT_STREAM_END`
 
-### 消息分发
+处理 Butler 请求时，可只发送一次最终 `CHAT`。
 
-```go
-func (h *Hub) run() {
-    for {
-        select {
-        case conn := <-h.register:
-            h.connections[conn] = true
-        case conn := <-h.unregister:
-            if _, ok := h.connections[conn]; ok {
-                delete(h.connections, conn)
-                close(conn.send)
-            }
-        case msg := <-h.messages:
-            for conn := range h.connections {
-                select {
-                case conn.send <- msg:
-                default:
-                    delete(h.connections, conn)
-                    close(conn.send)
-                }
-            }
-        }
-    }
-}
-```
-
-## 代理连接
-
-### 连接示例
+### Python 最小示例
 
 ```python
 import asyncio
-import websockets
 import json
+import websockets
 
-async def agent_loop(api_token):
-    uri = f"ws://localhost:8080/api/ws?token={api_token}"
+async def agent_loop(token: str):
+    uri = f"ws://localhost:8080/api/ws?token={token}"
     async with websockets.connect(uri) as ws:
-        # 发送消息
-        await ws.send(json.dumps({
-            "type": "SYSTEM_LOG",
-            "sender_id": 7,
-            "sender_name": "Storage-Custodian",
-            "sender_role": "AGENT",
-            "payload": {
-                "level": "SUCCESS",
-                "content": "Agent connected"
-            }
-        }))
-        
-        # 接收消息
-        async for message in ws:
-            msg = json.loads(message)
-            await handle_message(msg)
+        async for raw in ws:
+            msg = json.loads(raw)
+            if msg.get("type") != "CHAT":
+                continue
+            sender_id = msg["sender_id"]
+            stream_id = msg.get("stream_id", "stream_fallback")
+            await ws.send(json.dumps({
+                "type": "CHAT",
+                "target_id": sender_id,
+                "stream_id": stream_id,
+                "payload": "done"
+            }))
 ```
-
-### 连接参数
-
-| 参数 | 类型 | 必需 | 说明 |
-|------|------|------|------|
-| token | string | 是 | JWT 令牌 |
-
-## 前端连接
-
-### 连接示例
-
-```javascript
-const token = localStorage.getItem('token')
-const ws = new WebSocket(`ws://localhost:8080/api/ws?token=${token}`)
-
-ws.onopen = () => {
-  console.log('Connected to WebSocket')
-}
-
-ws.onmessage = (event) => {
-  const msg = JSON.parse(event.data)
-  handleMessage(msg)
-}
-
-ws.onclose = () => {
-  console.log('Disconnected from WebSocket')
-}
-
-ws.onerror = (error) => {
-  console.error('WebSocket error:', error)
-}
-```
-
-### 连接状态
-
-- `CONNECTING` - 连接中
-- `OPEN` - 已连接
-- `CLOSING` - 关闭中
-- `CLOSED` - 已关闭
-
-## 消息处理
-
-### 代理消息处理
-
-```python
-async def handle_message(msg):
-    if msg["type"] == "CHAT":
-        response = await process_command(msg["payload"])
-        await ws.send(json.dumps({
-            "type": "CHAT",
-            "sender_id": 7,
-            "sender_name": "Storage-Custodian",
-            "sender_role": "AGENT",
-            "target_id": msg["sender_id"],
-            "payload": response,
-            "timestamp": datetime.utcnow().isoformat()
-        }))
-```
-
-### 前端消息处理
-
-```javascript
-function handleMessage(msg) {
-  switch (msg.type) {
-    case 'SYSTEM_LOG':
-      console.log('System log:', msg.payload)
-      break
-    case 'CHAT':
-      console.log('Chat message:', msg.payload)
-      break
-    case 'AUTH_REQUEST':
-      console.log('Authorization request:', msg.payload)
-      break
-    case 'AUTH_RESPONSE':
-      console.log('Authorization response:', msg.payload)
-      break
-    case 'AGENT_RESPONSE':
-      console.log('Agent response:', msg.payload)
-      break
-  }
-}
-```
-
-## 错误处理
-
-### 连接错误
-
-```json
-{
-  "type": "ERROR",
-  "payload": {
-    "code": "INVALID_TOKEN",
-    "message": "Invalid JWT token"
-  }
-}
-```
-
-### 消息错误
-
-```json
-{
-  "type": "ERROR",
-  "payload": {
-    "code": "INVALID_MESSAGE",
-    "message": "Invalid message format"
-  }
-}
-```
-
-## 最佳实践
-
-### 1. 连接管理
-
-- 保持连接
-- 重连机制
-- 心跳检测
-
-### 2. 消息处理
-
-- 异步处理
-- 错误处理
-- 日志记录
-
-### 3. 安全性
-
-- 使用 HTTPS
-- 令牌验证
-- 输入验证
-
-### 4. 性能
-
-- 连接池
-- 消息队列
-- 并发处理

@@ -48,7 +48,9 @@ await ws.send(json.dumps({
 
 ### 3. Respond to Instructions
 
-Storage-Custodian can respond to Butler's instructions:
+Storage-Custodian supports two response paths:
+- Butler-originated request: send one final `CHAT`.
+- User-originated request: send `CHAT_STREAM` chunks, then final `CHAT` (same `stream_id`) for persistence, then `CHAT_STREAM_END`.
 
 ```python
 async def handle_command(command):
@@ -147,7 +149,7 @@ async def agent_loop(api_token):
 }
 ```
 
-### Respond to Instruction
+### Respond to Instruction (Butler path)
 
 ```json
 {
@@ -158,6 +160,43 @@ async def agent_loop(api_token):
   "target_id": 2,
   "payload": "Storage Status: 10 files, 102400 bytes",
   "timestamp": "2024-01-01T00:00:00Z"
+}
+```
+
+### Respond to Instruction (User path with persistence)
+
+```json
+{
+  "type": "CHAT_STREAM",
+  "sender_id": 7,
+  "sender_name": "Storage-Custodian",
+  "sender_role": "AGENT",
+  "target_id": 1,
+  "stream_id": "stream_123",
+  "payload": "partial chunk..."
+}
+```
+
+```json
+{
+  "type": "CHAT",
+  "sender_id": 7,
+  "sender_name": "Storage-Custodian",
+  "sender_role": "AGENT",
+  "target_id": 1,
+  "stream_id": "stream_123",
+  "payload": "final full response for history persistence"
+}
+```
+
+```json
+{
+  "type": "CHAT_STREAM_END",
+  "sender_id": 7,
+  "sender_name": "Storage-Custodian",
+  "sender_role": "AGENT",
+  "target_id": 1,
+  "stream_id": "stream_123"
 }
 ```
 

@@ -45,7 +45,7 @@ backend/
 - **Hub** - Connection management. Ensures messages are completely persisted (assigned DB sequence IDs) before broadcasting.
 - **Message Handler** - Message distribution. Runs persistence synchronously while delegating LLM processing asynchronously.
 - **Agent Registration** - Agent connection management
-- **Message Broadcast** - Multicast messaging
+- **Routing Rules** - `target_id` routing, controlled sender-echo for `CHAT*`, and admin-scoped Butler-Agent monitor events.
 
 ### 3. Authentication Service
 
@@ -65,7 +65,7 @@ backend/
 - **SQLite / PostgreSQL** - SQLite is default for local development, PostgreSQL can be enabled with `DB_DRIVER=postgres`.
 - **Migrations** - Built-in migration system with a `migrations` tracking table to ensure atomic and reliable schema updates.
 - **Repository** - Data access layer has been split into focused modules (users/messages/chat/butler auth/bootstrapping) to keep SQL boundaries clear.
-- **Credential Stores** - Butler authorization credentials and chat/message storage are separated into dedicated stores for easier evolution and testing.
+- **Credential Stores** - Human and machine credentials are split into dedicated tables (`human_credentials`, `machine_credentials`) for clearer security boundaries.
 
 ## Architecture Diagram
 
@@ -217,6 +217,12 @@ func LoggerMiddleware() gin.HandlerFunc {
 
 - HTML escaping
 - Input validation
+
+### Credential and Stream Safety
+
+- `/api/users/agents` never returns raw `api_token` (only `token_hint` metadata).
+- Butler-Agent monitor WebSocket events are targeted to authorized recipients (admins), not globally broadcast.
+- Sender echo for `CHAT` / `CHAT_STREAM` / `CHAT_STREAM_END` is disabled for system actors (`AGENT`, `BUTLER`) to avoid self-loop recursion.
 
 ## Deployment
 

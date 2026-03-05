@@ -42,10 +42,10 @@ backend/
 
 ### 2. WebSocket 服务
 
-- **Hub** - 连接管理
-- **消息处理器** - 消息分发
+- **Hub** - 连接管理，消息持久化后再投递
+- **消息处理器** - 持久化同步执行，LLM 处理异步执行
 - **代理注册** - 代理连接管理
-- **消息广播** - 多播消息
+- **路由规则** - `target_id` 定向投递、`CHAT*` 回声控制、Butler-Agent 监控按权限定向发送
 
 ### 3. 认证服务
 
@@ -65,7 +65,7 @@ backend/
 - **SQLite / PostgreSQL** - 默认使用 SQLite，本地开发零配置；可通过 `DB_DRIVER=postgres` 切换 PostgreSQL。
 - **数据库迁移** - 内置迁移系统，使用 `migrations` 表追踪已执行的变更，确保 Schema 更新的原子性和可靠性。
 - **Repository** - 数据访问层拆分为 users/messages/chat/butler auth/bootstrap 等模块，边界更清晰。
-- **凭据存储拆分** - Butler 授权凭据与聊天/消息存储独立，实现更好的可维护性与可测试性。
+- **凭据存储拆分** - 人类凭据与机器凭据拆分至 `human_credentials` / `machine_credentials`，安全边界更清晰。
 
 ## 架构图
 
@@ -216,6 +216,12 @@ func LoggerMiddleware() gin.HandlerFunc {
 
 - HTML 转义
 - 输入验证
+
+### 凭据与流式安全
+
+- `/api/users/agents` 不返回明文 `api_token`（仅返回 `token_hint` 元数据）。
+- Butler-Agent 监控事件通过 WebSocket 定向给有权限接收者（管理员），不做全量广播。
+- `CHAT` / `CHAT_STREAM` / `CHAT_STREAM_END` 对系统角色（`AGENT`、`BUTLER`）禁用发送者回声，避免自循环。
 
 ## 部署
 

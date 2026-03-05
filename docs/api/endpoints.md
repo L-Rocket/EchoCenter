@@ -1,56 +1,76 @@
 # API Endpoints
 
-## Overview
-
-EchoCenter provides a set of RESTful API endpoints for managing users, agents, and messages.
-
 ## Authentication
 
-All API requests (except for login and registration) must include a valid JWT token in the `Authorization` header.
+All protected endpoints require:
 
+```http
+Authorization: Bearer <jwt_token>
 ```
-Authorization: Bearer <your_token>
-```
 
-## User / Agent API
+## Public Endpoints
 
-### Get Agent List
-`GET /api/users/agents`
+### `GET /api/ping`
+Health check.
 
-### Create User (Admin)
-`POST /api/users`
+### `POST /api/auth/login`
+Login and obtain JWT.
 
-### Register Agent (Admin)
-`POST /api/users/agents`
+### `GET /api/ws?token=<jwt_token>`
+Upgrade to WebSocket.
 
-## Chat API
+## Protected Endpoints (Any Authenticated User)
 
-### Get Chat History by Peer
-`GET /api/chat/history/:peer_id`
+### `GET /api/messages`
+Query dashboard/system messages.
 
-### Reply Authorization Request
-`POST /api/chat/auth/response`
+### `POST /api/messages`
+Ingest dashboard/system message.
 
-## Dev Mock API (non-production + Admin)
+### `GET /api/users/agents`
+Get AGENT + BUTLER list.
 
-### Reset Mock Data
-`POST /api/dev/mock/reset`
+Notes:
+- Returns presence fields (`status`, `online`, `last_seen_at`, `last_report`).
+- Does **not** expose raw `api_token`.
+- May include `token_hint` and `token_updated_at` for display/audit.
 
-### Insert Mock Chat Record
-`POST /api/dev/mock/chat`
+### `GET /api/users/agents/status`
+Get runtime status list for AGENT users only.
 
-### Get Agent Token by Username
-`GET /api/dev/mock/agent-token/:username`
+### `GET /api/users/butler`
+Get Butler profile and runtime status.
 
-## Message API
+### `GET /api/chat/history/:peer_id`
+Get chat history between current user and `peer_id`.
 
-### Get Message History
-`GET /api/messages`
+### `GET /api/chat/butler-agent/:agent_id`
+Get persisted Butler-agent conversation history for monitor view.
 
-### Send Message
-`POST /api/messages`
+### `POST /api/chat/auth/response`
+Reply to Butler authorization request.
 
-## System API
+## Admin Endpoints
 
-### Check System Status
-`GET /api/ping`
+### `POST /api/users`
+Create user.
+
+### `POST /api/users/agents`
+Register agent.
+
+### `POST /api/users/agents/test-connection`
+Validate whether an `api_token` is registered.
+
+### `PATCH /api/users/agents/:id/token`
+Rotate/update agent token.
+
+## Dev Mock Endpoints (Admin + Non-production Only)
+
+### `POST /api/dev/mock/reset`
+Reset mock data.
+
+### `POST /api/dev/mock/chat`
+Insert mock chat record.
+
+### `GET /api/dev/mock/agent-token/:username`
+Get raw agent token for local bootstrap scripts.

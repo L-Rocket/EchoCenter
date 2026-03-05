@@ -48,7 +48,9 @@ await ws.send(json.dumps({
 
 ### 3. 响应指令
 
-Storage-Custodian 可以响应 Butler 的指令：
+Storage-Custodian 支持两种回复路径：
+- Butler 发起：发送一条最终 `CHAT` 即可。
+- 用户直连发起：发送 `CHAT_STREAM` 分片，再发送同 `stream_id` 的最终 `CHAT`（用于持久化），最后发送 `CHAT_STREAM_END`。
 
 ```python
 async def handle_command(command):
@@ -147,7 +149,7 @@ async def agent_loop(api_token):
 }
 ```
 
-### 响应指令
+### 响应指令（Butler 路径）
 
 ```json
 {
@@ -158,6 +160,43 @@ async def agent_loop(api_token):
   "target_id": 2,
   "payload": "Storage Status: 10 files, 102400 bytes",
   "timestamp": "2024-01-01T00:00:00Z"
+}
+```
+
+### 响应指令（用户路径，含持久化）
+
+```json
+{
+  "type": "CHAT_STREAM",
+  "sender_id": 7,
+  "sender_name": "Storage-Custodian",
+  "sender_role": "AGENT",
+  "target_id": 1,
+  "stream_id": "stream_123",
+  "payload": "partial chunk..."
+}
+```
+
+```json
+{
+  "type": "CHAT",
+  "sender_id": 7,
+  "sender_name": "Storage-Custodian",
+  "sender_role": "AGENT",
+  "target_id": 1,
+  "stream_id": "stream_123",
+  "payload": "用于历史持久化的完整最终回复"
+}
+```
+
+```json
+{
+  "type": "CHAT_STREAM_END",
+  "sender_id": 7,
+  "sender_name": "Storage-Custodian",
+  "sender_role": "AGENT",
+  "target_id": 1,
+  "stream_id": "stream_123"
 }
 ```
 

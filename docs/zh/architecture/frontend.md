@@ -43,20 +43,26 @@ frontend/
 ### 3. UI 组件
 基于 `shadcn/ui` 构建，遵循一致的设计规范，支持响应式布局和深色模式。
 
-### 4. 国际化（i18n）
+### 4. 数据同步与乐观更新
+- **本地乐观写入**：发送消息时立即写入本地会话，并带 `local_id`。
+- **去重与替换**：收到后端回声（人类发送者）后按 `local_id`/`stream_id` 对齐并替换为权威记录（含数据库 `id`）。
+- **会话级等待态**：等待状态按 `peer_id` 维护（`pendingByPeer`），避免不同聊天窗口互相干扰。
+
+### 5. 国际化（i18n）
 - 全局语言状态由 `I18nContext` 提供。
 - 用户可在顶部导航切换英文 / 简体中文。
 - 语言偏好持久化在 `localStorage`（`echocenter-locale`），并同步到 `document.documentElement.lang`。
 
-### 5. 管理工作台
+### 6. 管理工作台
 - 侧边栏管理员入口统一为 **Settings**。
 - Settings 下包含两个操作面板：
   - **Agent Operations**：创建 agent、刷新/删除 token、检查连通性。
   - **Integrations**：配置飞书等外部渠道并路由消息到 Butler。
 
-### 6. Butler 工作台
+### 7. Butler 工作台
 - **Me ↔ Butler**：与 Butler 的一对一直连通道。
 - **Butler ↔ Agents**：监控 Butler 分发时间线与跨 agent 协作过程。
+- 当监控历史为空时，显示静态空态 `No Monitor Messages`（不显示转圈）。
 
 ## 开发与构建
 
