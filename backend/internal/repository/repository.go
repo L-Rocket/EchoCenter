@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/lea/echocenter/backend/internal/models"
 )
@@ -38,6 +39,18 @@ type ButlerRepository interface {
 	GetAuthorization(ctx context.Context, id string) (*models.ButlerAuthorization, error)
 }
 
+// IntegrationRepository manages external channel connector configurations.
+type IntegrationRepository interface {
+	GetFeishuConnector(ctx context.Context) (*models.FeishuConnector, error)
+	CreateFeishuConnector(ctx context.Context, connector *models.FeishuConnector) error
+	UpdateFeishuConnector(ctx context.Context, connector *models.FeishuConnector) error
+	SetFeishuConnectorEnabled(ctx context.Context, id int, enabled bool) (*models.FeishuConnector, error)
+	MarkFeishuConnectorVerified(ctx context.Context, id int, verifiedAt time.Time) (*models.FeishuConnector, error)
+	AppendFeishuIntegrationLog(ctx context.Context, connectorID int, level, action, detail string) error
+	ListFeishuIntegrationLogs(ctx context.Context, connectorID int, cursor string, limit int) ([]models.IntegrationLog, string, error)
+	RegisterFeishuInboundMessage(ctx context.Context, connectorID int, messageID, chatID, feishuUserID, rawPayload string) (bool, error)
+}
+
 // BootstrapRepository manages startup/bootstrap data preparation.
 type BootstrapRepository interface {
 	InitializeAdmin(ctx context.Context, username, password string, bcryptCost int) error
@@ -56,6 +69,7 @@ type Repository interface {
 	UserRepository
 	ChatRepository
 	ButlerRepository
+	IntegrationRepository
 	BootstrapRepository
 	MaintenanceRepository
 }

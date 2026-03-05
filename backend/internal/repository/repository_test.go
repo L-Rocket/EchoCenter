@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/lea/echocenter/backend/internal/config"
 	"github.com/lea/echocenter/backend/internal/models"
@@ -201,4 +202,98 @@ func TestTokenHintHandlesSingleCharacterToken(t *testing.T) {
 	assert.NotPanics(t, func() {
 		assert.Equal(t, "a****", tokenHint("a"))
 	})
+}
+
+func TestFeishuConnectorCRUD(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	connector := &models.FeishuConnector{
+		ConnectorName:      "Feishu Butler Connector",
+		Enabled:            false,
+		Status:             "not_connected",
+		AppID:              "cli_xxx",
+		AppSecret:          "secret-123456",
+		VerificationToken:  "verify-abc",
+		EncryptKey:         "enc-xyz",
+		AllowDM:            true,
+		AllowGroupMention:  true,
+		MentionRequired:    true,
+		PrefixCommand:      "/butler",
+		IgnoreBotMessages:  true,
+		RateLimitPerMinute: 45,
+		AllowedChatIDs:     []string{"chat_a", "chat_b", "chat_a"},
+		UserWhitelist:      []string{"ou_1", "ou_2", "ou_1"},
+		CallbackURL:        "http://localhost:8080/api/integrations/feishu/callback",
+	}
+
+	require.NoError(t, repo.CreateFeishuConnector(ctx, connector))
+	require.NotZero(t, connector.ID)
+
+	loaded, err := repo.GetFeishuConnector(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, loaded)
+	assert.Equal(t, connector.ID, loaded.ID)
+	assert.Equal(t, []string{"chat_a", "chat_b"}, loaded.AllowedChatIDs)
+	assert.Equal(t, []string{"ou_1", "ou_2"}, loaded.UserWhitelist)
+
+	loaded.PrefixCommand = "/ec"
+	loaded.AllowDM = false
+	loaded.AllowedChatIDs = []string{"chat_c"}
+	require.NoError(t, repo.UpdateFeishuConnector(ctx, loaded))
+
+	reloaded, err := repo.GetFeishuConnector(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, reloaded)
+	assert.Equal(t, "/ec", reloaded.PrefixCommand)
+	assert.False(t, reloaded.AllowDM)
+	assert.Equal(t, []string{"chat_c"}, reloaded.AllowedChatIDs)
+}
+
+func TestFeishuConnectorLogsAndInboundDedupe(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	connector := &models.FeishuConnector{
+		ConnectorName:      "Feishu Butler Connector",
+		AppID:              "cli_xxx",
+		VerificationToken:  "verify-abc",
+		RateLimitPerMinute: 30,
+		PrefixCommand:      "/butler",
+	}
+	require.NoError(t, repo.CreateFeishuConnector(ctx, connector))
+	require.NotZero(t, connector.ID)
+
+	verifiedAt := time.Now().UTC()
+	verified, err := repo.MarkFeishuConnectorVerified(ctx, connector.ID, verifiedAt)
+	require.NoError(t, err)
+	require.NotNil(t, verified)
+	assert.True(t, verified.CallbackVerified)
+	require.NotNil(t, verified.LastVerifiedAt)
+
+	enabled, err := repo.SetFeishuConnectorEnabled(ctx, connector.ID, true)
+	require.NoError(t, err)
+	require.NotNil(t, enabled)
+	assert.True(t, enabled.Enabled)
+
+	require.NoError(t, repo.AppendFeishuIntegrationLog(ctx, connector.ID, "INFO", "action_1", "detail_1"))
+	require.NoError(t, repo.AppendFeishuIntegrationLog(ctx, connector.ID, "ERROR", "action_2", "detail_2"))
+	require.NoError(t, repo.AppendFeishuIntegrationLog(ctx, connector.ID, "SUCCESS", "action_3", "detail_3"))
+
+	firstPage, cursor, err := repo.ListFeishuIntegrationLogs(ctx, connector.ID, "", 2)
+	require.NoError(t, err)
+	require.Len(t, firstPage, 2)
+	assert.NotEmpty(t, cursor)
+
+	secondPage, _, err := repo.ListFeishuIntegrationLogs(ctx, connector.ID, cursor, 2)
+	require.NoError(t, err)
+	require.Len(t, secondPage, 1)
+
+	added, err := repo.RegisterFeishuInboundMessage(ctx, connector.ID, "om_1", "chat_1", "ou_1", `{"text":"hello"}`)
+	require.NoError(t, err)
+	assert.True(t, added)
+
+	added, err = repo.RegisterFeishuInboundMessage(ctx, connector.ID, "om_1", "chat_1", "ou_1", `{"text":"hello"}`)
+	require.NoError(t, err)
+	assert.False(t, added)
 }

@@ -15,6 +15,7 @@ func Setup(r *gin.Engine, h *handler.Handler, authSvc auth.Service) {
 		api.GET("/ping", h.Ping)
 		api.POST("/auth/login", h.Login)
 		api.GET("/ws", h.HandleWS)
+		api.POST("/integrations/feishu/callback", h.HandleFeishuCallback)
 	}
 
 	// Protected routes
@@ -43,6 +44,18 @@ func Setup(r *gin.Engine, h *handler.Handler, authSvc auth.Service) {
 			admin.POST("/agents", h.RegisterAgent)
 			admin.POST("/agents/test-connection", h.TestAgentConnection)
 			admin.PATCH("/agents/:id/token", h.UpdateAgentToken)
+		}
+
+		integrations := protected.Group("/integrations")
+		integrations.Use(middleware.AdminOnly(authSvc))
+		{
+			integrations.GET("/feishu", h.GetFeishuConnector)
+			integrations.POST("/feishu", h.CreateFeishuConnector)
+			integrations.PATCH("/feishu/:id", h.UpdateFeishuConnector)
+			integrations.POST("/feishu/:id/verify-callback", h.VerifyFeishuCallback)
+			integrations.POST("/feishu/:id/test-message", h.SendFeishuTestMessage)
+			integrations.PATCH("/feishu/:id/enable", h.SetFeishuConnectorEnabled)
+			integrations.GET("/feishu/:id/logs", h.ListFeishuIntegrationLogs)
 		}
 
 		// Dev mock routes (admin + non-production only)

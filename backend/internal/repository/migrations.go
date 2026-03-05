@@ -155,6 +155,54 @@ func (r *sqlRepository) getMigrations() []schemaMigration {
 					 ON CONFLICT (user_id) DO NOTHING`,
 				},
 			},
+			{
+				name: "008_create_feishu_integration_tables",
+				statements: []string{
+					`CREATE TABLE IF NOT EXISTS feishu_connectors (
+						id BIGSERIAL PRIMARY KEY,
+						connector_name TEXT NOT NULL,
+						enabled BOOLEAN NOT NULL DEFAULT FALSE,
+						status TEXT NOT NULL DEFAULT 'not_connected',
+						app_id TEXT NOT NULL DEFAULT '',
+						app_secret TEXT NOT NULL DEFAULT '',
+						verification_token TEXT NOT NULL DEFAULT '',
+						encrypt_key TEXT NOT NULL DEFAULT '',
+						allow_dm BOOLEAN NOT NULL DEFAULT TRUE,
+						allow_group_mention BOOLEAN NOT NULL DEFAULT TRUE,
+						mention_required BOOLEAN NOT NULL DEFAULT TRUE,
+						prefix_command TEXT NOT NULL DEFAULT '/butler',
+						ignore_bot_messages BOOLEAN NOT NULL DEFAULT TRUE,
+						rate_limit_per_minute INTEGER NOT NULL DEFAULT 30,
+						allowed_chat_ids TEXT NOT NULL DEFAULT '[]',
+						user_whitelist TEXT NOT NULL DEFAULT '[]',
+						callback_url TEXT NOT NULL DEFAULT '',
+						callback_verified BOOLEAN NOT NULL DEFAULT FALSE,
+						last_verified_at TIMESTAMPTZ,
+						created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+						updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+					)`,
+					`CREATE TABLE IF NOT EXISTS feishu_integration_logs (
+						id BIGSERIAL PRIMARY KEY,
+						connector_id BIGINT NOT NULL REFERENCES feishu_connectors(id) ON DELETE CASCADE,
+						level TEXT NOT NULL,
+						action TEXT NOT NULL,
+						detail TEXT NOT NULL,
+						created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+					)`,
+					`CREATE TABLE IF NOT EXISTS feishu_inbound_events (
+						id BIGSERIAL PRIMARY KEY,
+						connector_id BIGINT NOT NULL REFERENCES feishu_connectors(id) ON DELETE CASCADE,
+						message_id TEXT NOT NULL,
+						chat_id TEXT NOT NULL DEFAULT '',
+						feishu_user_id TEXT NOT NULL DEFAULT '',
+						raw_payload TEXT NOT NULL,
+						created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+						UNIQUE (connector_id, message_id)
+					)`,
+					`CREATE INDEX IF NOT EXISTS idx_feishu_logs_connector_time ON feishu_integration_logs (connector_id, id DESC)`,
+					`CREATE INDEX IF NOT EXISTS idx_feishu_events_connector_time ON feishu_inbound_events (connector_id, id DESC)`,
+				},
+			},
 		}
 	}
 
@@ -255,6 +303,56 @@ func (r *sqlRepository) getMigrations() []schemaMigration {
 				 SELECT id, api_token FROM users
 				 WHERE IFNULL(api_token, '') <> ''
 				   AND role IN ('AGENT', 'BUTLER')`,
+			},
+		},
+		{
+			name: "008_create_feishu_integration_tables",
+			statements: []string{
+				`CREATE TABLE IF NOT EXISTS feishu_connectors (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					connector_name TEXT NOT NULL,
+					enabled INTEGER NOT NULL DEFAULT 0,
+					status TEXT NOT NULL DEFAULT 'not_connected',
+					app_id TEXT NOT NULL DEFAULT '',
+					app_secret TEXT NOT NULL DEFAULT '',
+					verification_token TEXT NOT NULL DEFAULT '',
+					encrypt_key TEXT NOT NULL DEFAULT '',
+					allow_dm INTEGER NOT NULL DEFAULT 1,
+					allow_group_mention INTEGER NOT NULL DEFAULT 1,
+					mention_required INTEGER NOT NULL DEFAULT 1,
+					prefix_command TEXT NOT NULL DEFAULT '/butler',
+					ignore_bot_messages INTEGER NOT NULL DEFAULT 1,
+					rate_limit_per_minute INTEGER NOT NULL DEFAULT 30,
+					allowed_chat_ids TEXT NOT NULL DEFAULT '[]',
+					user_whitelist TEXT NOT NULL DEFAULT '[]',
+					callback_url TEXT NOT NULL DEFAULT '',
+					callback_verified INTEGER NOT NULL DEFAULT 0,
+					last_verified_at DATETIME,
+					created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+					updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+				)`,
+				`CREATE TABLE IF NOT EXISTS feishu_integration_logs (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					connector_id INTEGER NOT NULL,
+					level TEXT NOT NULL,
+					action TEXT NOT NULL,
+					detail TEXT NOT NULL,
+					created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+					FOREIGN KEY(connector_id) REFERENCES feishu_connectors(id) ON DELETE CASCADE
+				)`,
+				`CREATE TABLE IF NOT EXISTS feishu_inbound_events (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					connector_id INTEGER NOT NULL,
+					message_id TEXT NOT NULL,
+					chat_id TEXT NOT NULL DEFAULT '',
+					feishu_user_id TEXT NOT NULL DEFAULT '',
+					raw_payload TEXT NOT NULL,
+					created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+					FOREIGN KEY(connector_id) REFERENCES feishu_connectors(id) ON DELETE CASCADE,
+					UNIQUE(connector_id, message_id)
+				)`,
+				`CREATE INDEX IF NOT EXISTS idx_feishu_logs_connector_time ON feishu_integration_logs (connector_id, id DESC)`,
+				`CREATE INDEX IF NOT EXISTS idx_feishu_events_connector_time ON feishu_inbound_events (connector_id, id DESC)`,
 			},
 		},
 	}
