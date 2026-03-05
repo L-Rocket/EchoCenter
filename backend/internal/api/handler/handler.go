@@ -174,6 +174,7 @@ func (h *Handler) GetAgents(c *gin.Context) {
 		h.respondWithError(c, http.StatusInternalServerError, err)
 		return
 	}
+	exposeToken := requesterIsAdmin(c)
 
 	excludedRoles := make(map[string]struct{})
 	for _, raw := range strings.Split(c.Query("exclude_role"), ",") {
@@ -224,7 +225,9 @@ func (h *Handler) GetAgents(c *gin.Context) {
 			}
 		}
 		secured := h.withPresence(agent)
-		secured = secureUserToken(secured)
+		if !exposeToken {
+			secured = secureUserToken(secured)
+		}
 		filtered = append(filtered, secured)
 	}
 
@@ -254,11 +257,14 @@ func (h *Handler) GetButler(c *gin.Context) {
 		h.respondWithError(c, http.StatusInternalServerError, err)
 		return
 	}
+	exposeToken := requesterIsAdmin(c)
 
 	for _, user := range agents {
 		if strings.EqualFold(user.Role, "BUTLER") {
 			secured := h.withPresence(user)
-			secured = secureUserToken(secured)
+			if !exposeToken {
+				secured = secureUserToken(secured)
+			}
 			c.JSON(http.StatusOK, secured)
 			return
 		}
@@ -520,4 +526,16 @@ func maskTokenHint(token string) string {
 		return "configured"
 	}
 	return token[:4] + strings.Repeat("*", len(token)-8) + token[len(token)-4:]
+}
+
+func requesterIsAdmin(c *gin.Context) bool {
+	role, ok := c.Get("user_role")
+	if !ok {
+		return false
+	}
+	roleStr, ok := role.(string)
+	if !ok {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(roleStr), "ADMIN")
 }
