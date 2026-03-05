@@ -6,7 +6,7 @@ This guide describes how to set up the development environment for EchoCenter.
 
 ## Prerequisites
 
-### Go 1.21+
+### Go 1.22+
 
 ```bash
 # macOS
@@ -42,7 +42,7 @@ Verify installation:
 python3 --version
 ```
 
-### Node.js 18+
+### Node.js 20+
 
 ```bash
 # macOS
@@ -112,14 +112,23 @@ SERVER_HOST=0.0.0.0
 SERVER_PORT=8080
 
 # Database Configuration
+DB_DRIVER=sqlite
+# Use DB_DSN directly, or PG_* split config when DB_DRIVER=postgres
+DB_DSN=
+PG_HOST=localhost
+PG_PORT=5432
+PG_USER=postgres
+PG_PASSWORD=postgres
+PG_DATABASE=echocenter
+PG_SSLMODE=disable
+# SQLite path (when DB_DRIVER=sqlite)
 DB_PATH=./data/echo_center.db
-...
 ```
 
 # Butler Configuration
 BUTLER_BASE_URL=https://api.siliconflow.cn/v1
 BUTLER_API_TOKEN=your_api_token_here
-BUTLER_MODEL=gpt-3.5-turbo
+BUTLER_MODEL=Qwen/Qwen3-8B
 
 # JWT Configuration
 JWT_SECRET=your_jwt_secret_here_at_least_32_characters_long
@@ -203,10 +212,24 @@ make mock-start
 
 This command will:
 1. Start the backend service
-2. Initialize the database with mock data
-3. Register all mock agents
-4. Start the Storage-Custodian agent
-5. Start the frontend
+2. Use current `.env` `DB_DRIVER` to prepare database
+3. Initialize the database with mock data
+4. Register all mock agents
+5. Start the Storage-Custodian agent
+6. Start the frontend
+
+You can optionally keep existing database data:
+
+```bash
+make run-mock RESET=0
+```
+
+You can also use compatibility aliases:
+
+```bash
+make run-mock-sqllite
+make run-mock-postgre
+```
 
 ### Manual Startup
 

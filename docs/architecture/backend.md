@@ -62,9 +62,10 @@ backend/
 
 ### 5. Data Storage
 
-- **SQLite** - Local database with WAL (Write-Ahead Logging) mode enabled for concurrent read/write performance.
+- **SQLite / PostgreSQL** - SQLite is default for local development, PostgreSQL can be enabled with `DB_DRIVER=postgres`.
 - **Migrations** - Built-in migration system with a `migrations` tracking table to ensure atomic and reliable schema updates.
-- **Repository** - Data access layer separating business logic from SQL queries.
+- **Repository** - Data access layer has been split into focused modules (users/messages/chat/butler auth/bootstrapping) to keep SQL boundaries clear.
+- **Credential Stores** - Butler authorization credentials and chat/message storage are separated into dedicated stores for easier evolution and testing.
 
 ## Architecture Diagram
 

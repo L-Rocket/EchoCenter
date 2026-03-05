@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { StatusIndicator } from '@/components/ui/status-indicator';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useI18n } from '@/hooks/useI18n';
 import { getWsUrl } from '@/lib/config';
 import { userService } from '@/services/userService';
 import type { Agent } from '@/types';
@@ -94,6 +95,7 @@ const getRuntimeStatusBadge = (agent?: Agent | null): RuntimeStatusBadge => {
 };
 
 const UserManagement = () => {
+  const { tx, isZh } = useI18n();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -396,10 +398,10 @@ const UserManagement = () => {
   };
 
   const getStateBadge = (state: ConnectionState) => {
-    if (state === 'success') return { variant: 'success' as const, label: 'Connected' };
-    if (state === 'failed') return { variant: 'error' as const, label: 'Failed' };
-    if (state === 'testing') return { variant: 'warning' as const, label: 'Testing' };
-    return { variant: 'muted' as const, label: 'Idle' };
+    if (state === 'success') return { variant: 'success' as const, label: tx('Connected', '已连接') };
+    if (state === 'failed') return { variant: 'error' as const, label: tx('Failed', '失败') };
+    if (state === 'testing') return { variant: 'warning' as const, label: tx('Testing', '测试中') };
+    return { variant: 'muted' as const, label: tx('Idle', '空闲') };
   };
 
   const maskToken = (token: string) => {
@@ -449,15 +451,40 @@ const UserManagement = () => {
     setIsManageSheetOpen(true);
   };
 
+  const localizeMessage = (message: string) => {
+    if (!isZh) return message;
+    const map: Record<string, string> = {
+      'You can run a connection test before creation if needed.': '如有需要，可在创建前先测试连接。',
+      'Connection timed out (5s).': '连接超时（5 秒）。',
+      'Gateway accepted this token.': '网关已接受该密钥。',
+      'Gateway rejected this token.': '网关拒绝了该密钥。',
+      'Connection closed before handshake completed.': '握手完成前连接已关闭。',
+      'Failed to load agent list from backend.': '从后端加载 agent 列表失败。',
+      'Token is required for connection test.': '测试连接需要提供密钥。',
+      'Connection succeeded.': '连接成功。',
+      'Connection failed.': '连接失败。',
+      'Connection check completed.': '连接检测已完成。',
+      'Testing connection...': '正在测试连接...',
+      'Failed to create agent.': '创建 agent 失败。',
+      'Token cannot be empty.': '密钥不能为空。',
+      'Token saved to backend.': '密钥已保存到后端。',
+      'Token update API is not ready; value is kept for this session only.': '后端更新密钥 API 暂未就绪，当前值仅保留在本次会话中。',
+      'Not tested yet.': '尚未进行连接测试。',
+      'No agents matched your search.': '未匹配到任何 agent。',
+      'No agent selected.': '未选择 agent。',
+    };
+    return map[message] ?? message;
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-black tracking-tighter italic">
-            Agent <span className="text-primary">Token Console</span>
+            {tx('Agent', 'Agent')} <span className="text-primary">{tx('Token Console', '密钥控制台')}</span>
           </h2>
           <p className="text-sm text-muted-foreground font-medium">
-            Search, create, and maintain agent tokens in one place.
+            {tx('Search, create, and maintain agent tokens in one place.', '在一个页面完成搜索、创建与维护 agent 密钥。')}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -467,7 +494,7 @@ const UserManagement = () => {
             className="h-9 gap-2 border-2 uppercase font-black tracking-widest text-[10px]"
           >
             <UserPlus className="h-3.5 w-3.5" />
-            New Agent
+            {tx('New Agent', '新建 agent')}
           </Button>
           <Button
             variant="outline"
@@ -477,7 +504,7 @@ const UserManagement = () => {
             className="h-9 gap-2 border-2 uppercase font-black tracking-widest text-[10px]"
           >
             <RefreshCw className={isLoading ? 'h-3 w-3 animate-spin' : 'h-3 w-3'} />
-            Refresh
+            {tx('Refresh', '刷新')}
           </Button>
         </div>
       </div>
@@ -487,10 +514,10 @@ const UserManagement = () => {
           <div className="flex items-center justify-between gap-3">
             <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
               <Search className="h-4 w-4 text-primary" />
-              Agent Tokens
+              {tx('Agent Tokens', 'Agent 密钥列表')}
             </CardTitle>
             <Badge variant="outline" className="h-6 text-[10px] uppercase tracking-wider">
-              Total {filteredAgents.length}
+              {tx(`Total ${filteredAgents.length}`, `共 ${filteredAgents.length} 条`)}
             </Badge>
           </div>
           <div className="relative">
@@ -498,7 +525,7 @@ const UserManagement = () => {
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by agent name"
+              placeholder={tx('Search by agent name', '按 agent 名称搜索')}
               className="h-9 pl-9 text-xs"
             />
           </div>
@@ -506,21 +533,21 @@ const UserManagement = () => {
         <CardContent className="space-y-3">
           {error && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive font-semibold">
-              {error}
+              {localizeMessage(error)}
             </div>
           )}
 
           {filteredAgents.length === 0 ? (
             <div className="rounded-lg border bg-muted/20 p-8 text-center text-xs text-muted-foreground">
-              No agents matched your search.
+              {localizeMessage('No agents matched your search.')}
             </div>
           ) : (
             <div className="rounded-lg border overflow-hidden">
               <div className="hidden md:grid md:grid-cols-[160px_minmax(260px,2fr)_200px_220px] gap-3 px-4 py-2.5 border-b bg-muted/20 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                <span>Agent Name</span>
-                <span>Token</span>
-                <span>Created At</span>
-                <span className="text-right">Actions</span>
+                <span>{tx('Agent Name', 'Agent 名称')}</span>
+                <span>{tx('Token', '密钥')}</span>
+                <span>{tx('Created At', '创建时间')}</span>
+                <span className="text-right">{tx('Actions', '操作')}</span>
               </div>
 
               {paginatedAgents.map((agent) => {
@@ -546,7 +573,7 @@ const UserManagement = () => {
                           disabled={!tokenValue}
                         >
                           {isAgentTokenCopied[agent.id] ? <Check className="h-3.5 w-3.5 mr-1" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
-                          {isAgentTokenCopied[agent.id] ? 'Copied' : 'Copy'}
+                          {isAgentTokenCopied[agent.id] ? tx('Copied', '已复制') : tx('Copy', '复制')}
                         </Button>
                       </div>
                       <p className="text-[10px] text-muted-foreground">ID #{agent.id}</p>
@@ -570,7 +597,7 @@ const UserManagement = () => {
                         className="h-8 text-[10px] uppercase tracking-wider"
                         onClick={() => openManageSheet(agent.id)}
                       >
-                        Edit
+                        {tx('Edit', '编辑')}
                         <ChevronRight className="h-3.5 w-3.5 ml-1" />
                       </Button>
                     </div>
@@ -583,7 +610,7 @@ const UserManagement = () => {
           {filteredAgents.length > 0 && (
             <div className="pt-1 flex items-center justify-between">
               <p className="text-[11px] text-muted-foreground">
-                Page {currentPage} / {totalPages}
+                {tx(`Page ${currentPage} / ${totalPages}`, `第 ${currentPage} / ${totalPages} 页`)}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -630,17 +657,17 @@ const UserManagement = () => {
           <SheetHeader className="border-b">
             <SheetTitle className="text-base flex items-center gap-2">
               <UserPlus className="h-4 w-4 text-primary" />
-              Create Agent
+              {tx('Create Agent', '新建 agent')}
             </SheetTitle>
             <SheetDescription>
-              Generate token, test connection, and create an agent.
+              {tx('Generate token, test connection, and create an agent.', '生成密钥、测试连接并创建 agent。')}
             </SheetDescription>
           </SheetHeader>
 
           <form onSubmit={handleCreateAgent} className="flex h-full flex-col">
             <div className="space-y-4 p-4">
               <Input
-                placeholder="Agent name"
+                placeholder={tx('Agent name', 'agent 名称')}
                 value={newAgentName}
                 onChange={(e) => setNewAgentName(e.target.value)}
                 className="h-10 bg-muted/50 border-2 focus:border-primary text-xs"
@@ -649,7 +676,7 @@ const UserManagement = () => {
 
               <div className="space-y-2">
                 <Input
-                  placeholder="Agent token"
+                  placeholder={tx('Agent token', 'agent 密钥')}
                   value={newAgentToken}
                   onChange={(e) => setNewAgentToken(e.target.value)}
                   className="h-10 bg-muted/50 border-2 focus:border-primary font-mono text-xs"
@@ -664,7 +691,7 @@ const UserManagement = () => {
                     disabled={isCreating}
                   >
                     <KeyRound className="h-3.5 w-3.5 mr-1" />
-                    Generate
+                    {tx('Generate', '生成')}
                   </Button>
                   <Button
                     type="button"
@@ -674,7 +701,7 @@ const UserManagement = () => {
                     disabled={isCreating || isCreateTesting || !newAgentToken.trim()}
                   >
                     {isCreateTesting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <PlugZap className="h-3.5 w-3.5 mr-1" />}
-                    Test
+                    {tx('Test', '测试连接')}
                   </Button>
                   <Button
                     type="button"
@@ -684,7 +711,7 @@ const UserManagement = () => {
                     disabled={!newAgentToken.trim()}
                   >
                     {isCreateTokenCopied ? <Check className="h-3.5 w-3.5 mr-1" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
-                    {isCreateTokenCopied ? 'Copied' : 'Copy'}
+                    {isCreateTokenCopied ? tx('Copied', '已复制') : tx('Copy', '复制')}
                   </Button>
                 </div>
               </div>
@@ -697,24 +724,24 @@ const UserManagement = () => {
                   />
                   <span className="text-xs font-semibold">{getStateBadge(createConnection.state).label}</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground">{createConnection.message}</p>
+                <p className="text-[11px] text-muted-foreground">{localizeMessage(createConnection.message)}</p>
               </div>
 
               {createError && (
-                <p className="text-[11px] font-semibold text-destructive">{createError}</p>
+                <p className="text-[11px] font-semibold text-destructive">{localizeMessage(createError)}</p>
               )}
             </div>
 
             <SheetFooter className="border-t">
               <Button type="button" variant="outline" onClick={() => setIsCreateSheetOpen(false)} disabled={isCreating}>
-                Cancel
+                {tx('Cancel', '取消')}
               </Button>
               <Button
                 type="submit"
                 className="uppercase font-black tracking-widest text-[10px]"
                 disabled={isCreating || !newAgentName.trim() || !newAgentToken.trim()}
               >
-                {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Agent'}
+                {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : tx('Create Agent', '创建 agent')}
               </Button>
             </SheetFooter>
           </form>
@@ -737,15 +764,15 @@ const UserManagement = () => {
           {selectedAgent ? (
             <>
               <SheetHeader className="border-b">
-                <SheetTitle className="text-base">Manage {selectedAgent.username}</SheetTitle>
+                <SheetTitle className="text-base">{tx('Manage', '管理')} {selectedAgent.username}</SheetTitle>
                 <SheetDescription>
-                  Edit token, test connection, and save current configuration.
+                  {tx('Edit token, test connection, and save current configuration.', '编辑密钥、测试连接并保存当前配置。')}
                 </SheetDescription>
               </SheetHeader>
 
               <div className="p-4 space-y-4">
                 <div className="rounded-md border bg-muted/20 p-3 text-[11px] text-muted-foreground">
-                  Agent ID: <span className="font-semibold text-foreground">#{selectedAgent.id}</span>
+                  {tx('Agent ID:', 'Agent ID：')} <span className="font-semibold text-foreground">#{selectedAgent.id}</span>
                 </div>
                 <div className="rounded-md border bg-muted/20 p-3">
                   {(() => {
@@ -769,7 +796,7 @@ const UserManagement = () => {
                         [selectedAgent.id]: e.target.value,
                       }))
                     }
-                    placeholder="Set agent token"
+                    placeholder={tx('Set agent token', '设置 agent 密钥')}
                     className="h-10 font-mono text-xs"
                   />
 
@@ -838,7 +865,7 @@ const UserManagement = () => {
                         <StatusIndicator variant={badge.variant} pulse={connection.state === 'testing'} />
                         <span className="text-xs font-semibold">{badge.label}</span>
                       </div>
-                      <p className="text-[11px] text-muted-foreground">{connection.message}</p>
+                      <p className="text-[11px] text-muted-foreground">{localizeMessage(connection.message)}</p>
                     </div>
                   );
                 })()}
@@ -846,7 +873,7 @@ const UserManagement = () => {
 
               <SheetFooter className="border-t">
                 <Button type="button" variant="outline" onClick={() => setIsManageSheetOpen(false)}>
-                  Close
+                  {tx('Close', '关闭')}
                 </Button>
                 <Button
                   type="button"
@@ -858,12 +885,12 @@ const UserManagement = () => {
                   ) : (
                     <Save className="h-4 w-4 mr-1" />
                   )}
-                  Save Token
+                  {tx('Save Token', '保存密钥')}
                 </Button>
               </SheetFooter>
             </>
           ) : (
-            <div className="p-4 text-sm text-muted-foreground">No agent selected.</div>
+            <div className="p-4 text-sm text-muted-foreground">{localizeMessage('No agent selected.')}</div>
           )}
         </SheetContent>
       </Sheet>

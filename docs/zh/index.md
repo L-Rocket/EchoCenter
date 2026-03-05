@@ -16,10 +16,12 @@ hero:
 features:
   - title: 核心代理 Butler
     details: 负责协调各个子代理，提供智能化的中心管理。
+  - title: 双语工作台
+    details: 内置英文 / 简体中文切换，覆盖总览、聊天与设置管理。
   - title: 实时通信
     details: 基于 WebSocket 的低延迟双向消息传输。
   - title: 灵活扩展
-    details: 轻松接入自定义代理，支持多种开发语言。
+    details: 轻松接入自定义代理，并支持飞书等外部渠道集成。
 ---
 
 ## 快速开始
@@ -53,7 +55,7 @@ features:
 
 ## 技术栈
 
-- **后端** - Go + Gin + WebSocket + SQLite
+- **后端** - Go + Gin + WebSocket + SQLite / PostgreSQL
 - **前端** - React + TypeScript + Tailwind CSS
 - **代理** - Python + OpenAI SDK
 

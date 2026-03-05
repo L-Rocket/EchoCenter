@@ -12,19 +12,35 @@ All API requests (except for login and registration) must include a valid JWT to
 Authorization: Bearer <your_token>
 ```
 
-## User API
+## User / Agent API
 
-### Get User List
-`GET /api/users`
+### Get Agent List
+`GET /api/users/agents`
 
-### Get User Details
-`GET /api/users/:id`
+### Create User (Admin)
+`POST /api/users`
 
-### Register Agent
+### Register Agent (Admin)
 `POST /api/users/agents`
 
-### Delete Agent
-`DELETE /api/users/agents/:id`
+## Chat API
+
+### Get Chat History by Peer
+`GET /api/chat/history/:peer_id`
+
+### Reply Authorization Request
+`POST /api/chat/auth/response`
+
+## Dev Mock API (non-production + Admin)
+
+### Reset Mock Data
+`POST /api/dev/mock/reset`
+
+### Insert Mock Chat Record
+`POST /api/dev/mock/chat`
+
+### Get Agent Token by Username
+`GET /api/dev/mock/agent-token/:username`
 
 ## Message API
 

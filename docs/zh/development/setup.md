@@ -6,7 +6,7 @@
 
 ## 前置要求
 
-### Go 1.21+
+### Go 1.22+
 
 ```bash
 # macOS
@@ -42,7 +42,7 @@ sudo yum install python3
 python3 --version
 ```
 
-### Node.js 18+
+### Node.js 20+
 
 ```bash
 # macOS
@@ -112,12 +112,22 @@ SERVER_HOST=0.0.0.0
 SERVER_PORT=8080
 
 # 数据库配置
-DB_PATH=./echocenter.db
+DB_DRIVER=sqlite
+# DB_DRIVER=postgres 时可直接配置 DB_DSN，或使用 PG_* 拆分配置
+DB_DSN=
+PG_HOST=localhost
+PG_PORT=5432
+PG_USER=postgres
+PG_PASSWORD=postgres
+PG_DATABASE=echocenter
+PG_SSLMODE=disable
+# DB_DRIVER=sqlite 时使用
+DB_PATH=./data/echo_center.db
 
 # Butler 配置
 BUTLER_BASE_URL=https://api.siliconflow.cn/v1
 BUTLER_API_TOKEN=your_api_token_here
-BUTLER_MODEL=gpt-3.5-turbo
+BUTLER_MODEL=Qwen/Qwen3-8B
 
 # JWT 配置
 JWT_SECRET=your_jwt_secret_here_at_least_32_characters_long
@@ -201,10 +211,24 @@ make mock-start
 
 这个命令会：
 1. 启动后端服务
-2. 使用 mock 数据初始化数据库
-3. 注册所有 mock 代理
-4. 启动 Storage-Custodian 代理
-5. 启动前端
+2. 按 `.env` 中 `DB_DRIVER` 准备数据库
+3. 使用 mock 数据初始化数据库
+4. 注册所有 mock 代理
+5. 启动 Storage-Custodian 代理
+6. 启动前端
+
+如需保留现有数据库数据：
+
+```bash
+make run-mock RESET=0
+```
+
+兼容别名命令：
+
+```bash
+make run-mock-sqllite
+make run-mock-postgre
+```
 
 ### 手动启动
 
