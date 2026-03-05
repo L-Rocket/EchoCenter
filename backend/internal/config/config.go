@@ -18,6 +18,7 @@ type Config struct {
 	Database DatabaseConfig
 	Auth     AuthConfig
 	CORS     CORSConfig
+	FeishuWS FeishuWSConfig
 }
 
 // ServerConfig holds HTTP server configuration
@@ -56,6 +57,13 @@ type CORSConfig struct {
 	MaxAge         int
 }
 
+// FeishuWSConfig holds Feishu long-connection (WebSocket) configuration.
+type FeishuWSConfig struct {
+	Enabled           bool
+	URL               string
+	ReconnectInterval time.Duration
+}
+
 // Load loads configuration from environment variables
 func Load() (*Config, error) {
 	// Load .env file if exists
@@ -89,6 +97,11 @@ func Load() (*Config, error) {
 			AllowedMethods: getEnvAsSlice("CORS_ALLOWED_METHODS", []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}),
 			AllowedHeaders: getEnvAsSlice("CORS_ALLOWED_HEADERS", []string{"Origin", "Content-Type", "Authorization"}),
 			MaxAge:         getEnvAsInt("CORS_MAX_AGE", 86400),
+		},
+		FeishuWS: FeishuWSConfig{
+			Enabled:           getEnvAsBool("FEISHU_WS_ENABLED", false),
+			URL:               getEnv("FEISHU_WS_URL", "wss://open.feishu.cn/open-apis/ws/v2"),
+			ReconnectInterval: getEnvAsDuration("FEISHU_WS_RECONNECT_INTERVAL", 5*time.Second),
 		},
 	}
 
@@ -130,6 +143,18 @@ func getEnvAsDuration(key string, defaultValue time.Duration) time.Duration {
 	if value := os.Getenv(key); value != "" {
 		if duration, err := time.ParseDuration(value); err == nil {
 			return duration
+		}
+	}
+	return defaultValue
+}
+
+func getEnvAsBool(key string, defaultValue bool) bool {
+	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+		switch strings.ToLower(value) {
+		case "1", "true", "yes", "on":
+			return true
+		case "0", "false", "no", "off":
+			return false
 		}
 	}
 	return defaultValue

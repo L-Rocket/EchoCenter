@@ -107,6 +107,11 @@ func main() {
 	// Setup routes
 	router.Setup(r, h, authSvc)
 
+	// Optional Feishu long connection (WebSocket) bridge
+	if cfg.FeishuWS.Enabled {
+		go h.StartFeishuWebSocketBridge(rootCtx, cfg.FeishuWS.URL, cfg.FeishuWS.ReconnectInterval)
+	}
+
 	// Create HTTP server
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
