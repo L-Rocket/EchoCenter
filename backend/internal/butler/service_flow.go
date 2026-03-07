@@ -2,10 +2,8 @@ package butler
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
@@ -33,102 +31,9 @@ func (s *ButlerService) handleUserMessageFlow(ctx context.Context, senderID int,
 
 	s.persistAndBroadcastChat(ctx, senderID, streamID, strings.TrimSpace(result.Content))
 
-	if result.HasCommand {
-		s.handlePendingCommandRequest(ctx, senderID, streamID, result)
-		s.broadcastStreamEnd(senderID, streamID)
-		return
-	}
-
+	// Command execution is now handled automatically by ReAct Agent + CommandAgentTool
+	// HasCommand and Command fields are deprecated and no longer used
 	s.broadcastStreamEnd(senderID, streamID)
-}
-
-func (s *ButlerService) executePendingCommandFlow(ctx context.Context, streamID string, senderID int, approved bool) {
-	result, exists := popPendingCommand(streamID)
-	if !exists {
-		log.Printf("[Butler] No pending command found for streamID: %s", streamID)
-		return
-	}
-
-	status := "REJECTED"
-	if approved {
-		status = "APPROVED"
-	}
-	if err := s.repo.UpdateAuthRequestStatus(ctx, streamID, status); err != nil {
-		log.Printf("[Butler] Failed to update AUTH_REQUEST status: %v", err)
-	}
-	s.broadcastAuthStatusUpdate(streamID, status)
-
-	if !approved {
-		s.broadcastChat(senderID, streamID, "Command cancelled by user.")
-		s.broadcastStreamEnd(senderID, streamID)
-		return
-	}
-
-	if s.brain == nil {
-		log.Printf("[Butler] Brain not initialized while executing approved command")
-		s.broadcastStreamEnd(senderID, streamID)
-		return
-	}
-
-	execResult, err := s.brain.ExecuteCommand(ctx, result, func(chunk string) error {
-		s.broadcastStreamChunk(senderID, streamID, chunk)
-		return nil
-	})
-	if err != nil {
-		log.Printf("[Butler] Error executing command: %v", err)
-	} else {
-		s.persistAndBroadcastChat(ctx, senderID, streamID, strings.TrimSpace(execResult))
-	}
-
-	s.broadcastStreamEnd(senderID, streamID)
-}
-
-func (s *ButlerService) handlePendingCommandRequest(ctx context.Context, senderID int, streamID string, result *ChatStreamResult) {
-	storePendingCommand(streamID, result)
-
-	agentID := parseTargetAgentID(result.Command["target_agent_id"])
-	authPayload := map[string]any{
-		"action_id":         streamID,
-		"target_agent_name": fmt.Sprintf("Agent %d", agentID),
-		"command":           result.Command["command"],
-		"reason":            result.Command["reasoning"],
-		"status":            "PENDING",
-	}
-
-	payloadBytes, _ := json.Marshal(authPayload)
-	authChatMsg := &models.ChatMessage{
-		LocalID:    uuid.New().String(),
-		SenderID:   s.butlerID,
-		ReceiverID: senderID,
-		Type:       "AUTH_REQUEST",
-		Payload:    string(payloadBytes),
-	}
-
-	if err := s.repo.SaveChatMessage(ctx, authChatMsg); err != nil {
-		log.Printf("[Butler] Failed to persist AUTH_REQUEST: %v", err)
-	}
-
-	s.broadcast(map[string]any{
-		"id":          authChatMsg.ID,
-		"local_id":    authChatMsg.LocalID,
-		"type":        "AUTH_REQUEST",
-		"sender_id":   s.butlerID,
-		"sender_name": s.butlerName,
-		"sender_role": "BUTLER",
-		"target_id":   senderID,
-		"payload":     authPayload,
-		"timestamp":   authChatMsg.Timestamp.Format(time.RFC3339Nano),
-	})
-
-	// Best-effort outbound relay: mirror authorization request to Feishu as an interactive card.
-	go s.forwardAuthRequestToFeishu(
-		context.Background(),
-		senderID,
-		streamID,
-		authPayload["target_agent_name"].(string),
-		fmt.Sprint(authPayload["command"]),
-		fmt.Sprint(authPayload["reason"]),
-	)
 }
 
 func (s *ButlerService) buildSystemState(ctx context.Context) string {
@@ -235,42 +140,11 @@ func (s *ButlerService) broadcast(msg map[string]any) {
 	s.hub.BroadcastGeneric(msg)
 }
 
-func storePendingCommand(streamID string, result *ChatStreamResult) {
-	pendingCommandsMu.Lock()
-	defer pendingCommandsMu.Unlock()
-	pendingCommands[streamID] = result
-}
-
-func popPendingCommand(streamID string) (*ChatStreamResult, bool) {
-	pendingCommandsMu.Lock()
-	defer pendingCommandsMu.Unlock()
-
-	result, exists := pendingCommands[streamID]
-	if exists {
-		delete(pendingCommands, streamID)
-	}
-	return result, exists
-}
-
-// HasPendingCommand checks whether a command is still awaiting authorization.
+// HasPendingCommand checks whether an action is still awaiting authorization.
+// Kept for compatibility with handlers that still use the old function name.
 func HasPendingCommand(streamID string) bool {
-	pendingCommandsMu.RLock()
-	defer pendingCommandsMu.RUnlock()
-	_, ok := pendingCommands[streamID]
+	actionsMu.Lock()
+	defer actionsMu.Unlock()
+	_, ok := pendingActions[streamID]
 	return ok
-}
-
-func parseTargetAgentID(value any) int {
-	switch v := value.(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		id, err := strconv.Atoi(v)
-		if err == nil {
-			return id
-		}
-	}
-	return 0
 }

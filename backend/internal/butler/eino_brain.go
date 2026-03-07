@@ -14,8 +14,8 @@ import (
 
 // EinoBrain represents the Butler's reasoning engine.
 type EinoBrain struct {
-	logChain  compose.Runnable[models.Message, string]
-	chatModel *openai.ChatModel
+	logChain compose.Runnable[models.Message, string]
+	orch     assistantOrchestrator
 
 	// Simple in-memory history management.
 	historyMu sync.RWMutex
@@ -37,6 +37,18 @@ func NewEinoBrain(baseURL, apiToken, model string) *EinoBrain {
 		return newMockBrain()
 	}
 
+	// Use ReAct Agent for tool-enabled reasoning
+	orchestratorImpl := newReActAgentOrchestrator(chatModel)
+	if orchestratorImpl == nil {
+		log.Printf("ERROR: ReAct Agent initialization failed, brain will run in safe mode")
+		// Return a butler with nil orchestrator (will use safeModeReply)
+		return &EinoBrain{
+			logChain: nil,
+			orch:     nil,
+			history:  make(map[string][]*schema.Message),
+		}
+	}
+
 	logBuilder := compose.NewChain[models.Message, string]()
 	logBuilder.AppendLambda(compose.InvokableLambda(func(ctx context.Context, msg models.Message) ([]*schema.Message, error) {
 		prompt := fmt.Sprintf(`You are the EchoCenter Butler.
@@ -52,9 +64,9 @@ Provide a very brief thought.`, msg.AgentID, msg.Level, msg.Content)
 	lChain, _ := logBuilder.Compile(context.Background())
 
 	return &EinoBrain{
-		logChain:  lChain,
-		chatModel: chatModel,
-		history:   make(map[string][]*schema.Message),
+		logChain: lChain,
+		orch:     orchestratorImpl,
+		history:  make(map[string][]*schema.Message),
 	}
 }
 

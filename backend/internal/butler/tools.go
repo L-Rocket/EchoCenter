@@ -58,6 +58,13 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 	actionID := uuid.New().String()
 	log.Printf("[Butler Tool] Requesting approval for action %s: %s to agent %d", actionID, input.Command, input.TargetAgentID)
 
+	// Early check: if target agent is offline, return immediately without waiting
+	b := GetButler()
+	if b != nil && b.hub != nil && !b.hub.HasClient(input.TargetAgentID) {
+		log.Printf("[Butler Tool] Target Agent %d is OFFLINE, skipping approval request and returning immediately", input.TargetAgentID)
+		return fmt.Sprintf("Target agent %d is offline (not connected). Command not sent.", input.TargetAgentID), nil
+	}
+
 	// 1. Persist PENDING request to DB
 	if repoInstance != nil {
 		auth := &models.ButlerAuthorization{
@@ -79,7 +86,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 	actionsMu.Unlock()
 
 	// 3. Notify user via WebSocket
-	if b := GetButler(); b != nil {
+	if b != nil {
 		b.RequestAuthorization(actionID, input.TargetAgentID, input.Command, input.Reasoning)
 	}
 
@@ -96,8 +103,14 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 		return "Action REJECTED by user.", nil
 	}
 
+	// Re-check agent is still online after approval
+	if b != nil && b.hub != nil && !b.hub.HasClient(input.TargetAgentID) {
+		log.Printf("[Butler Tool] Target Agent %d went OFFLINE after approval, returning immediately without waiting", input.TargetAgentID)
+		return fmt.Sprintf("Target agent %d is now offline. Command not executed.", input.TargetAgentID), nil
+	}
+
 	// 4.5 Immediate feedback to UI
-	if b := GetButler(); b != nil {
+	if b != nil {
 		b.hub.BroadcastGeneric(map[string]any{
 			"type":        "CHAT_STREAM",
 			"sender_id":   b.butlerID,
@@ -117,7 +130,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 	log.Printf("[Butler Tool] Registered listener for Agent %d response", input.TargetAgentID)
 
 	// Deliver message to target agent
-	if b := GetButler(); b != nil {
+	if b != nil {
 		commandMsg := fmt.Sprintf("[DIRECTIVE] %s", input.Command)
 		chatMsg := &models.ChatMessage{
 			SenderID:   b.butlerID,
@@ -142,7 +155,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 		b.hub.BroadcastGeneric(msg)
 	}
 
-	// 6. WAIT for the agent to report back.
+	// 6. WAIT for the agent to report back (only if agent is actually online)
 	log.Printf("[Butler Tool] Waiting for Agent %d to reply...", input.TargetAgentID)
 	select {
 	case realResult := <-respChan:
@@ -184,59 +197,6 @@ func RegisterAgentResponse(agentID int, payload string) bool {
 // NewCommandAgentTool creates a tool that requires human approval
 func NewCommandAgentTool() tool.InvokableTool {
 	return &CommandAgentTool{}
-}
-
-// ExecuteCommandDirect executes a command directly without waiting for user approval
-// This is used when the command has already been approved
-func ExecuteCommandDirect(ctx context.Context, targetAgentID int, command string, reasoning string) (string, error) {
-	log.Printf("[Butler Tool] Directly executing command to Agent %d: %s", targetAgentID, command)
-	if b := GetButler(); b != nil && b.hub != nil && !b.hub.HasClient(targetAgentID) {
-		log.Printf("[Butler Tool] Agent %d is offline, skipping command dispatch", targetAgentID)
-		return "Target agent is offline (WebSocket not connected).", nil
-	}
-
-	// Prepare to receive response
-	respChan := make(chan string, 1)
-	enqueuePendingResponse(targetAgentID, respChan)
-	log.Printf("[Butler Tool] Registered listener for Agent %d response", targetAgentID)
-
-	// Deliver message to target agent
-	if b := GetButler(); b != nil {
-		commandMsg := fmt.Sprintf("[DIRECTIVE] %s", command)
-		chatMsg := &models.ChatMessage{
-			SenderID:   b.butlerID,
-			ReceiverID: targetAgentID,
-			Payload:    commandMsg,
-		}
-		if repoInstance != nil {
-			_ = repoInstance.SaveChatMessage(ctx, chatMsg)
-		}
-		msg := map[string]any{
-			"type":        "CHAT",
-			"sender_id":   b.butlerID,
-			"sender_name": b.butlerName,
-			"sender_role": "BUTLER",
-			"target_id":   targetAgentID,
-			"payload":     commandMsg,
-		}
-		if chatMsg.ID > 0 {
-			msg["id"] = chatMsg.ID
-			msg["timestamp"] = chatMsg.Timestamp.Format(time.RFC3339Nano)
-		}
-		b.hub.BroadcastGeneric(msg)
-	}
-
-	// WAIT for the agent to report back.
-	log.Printf("[Butler Tool] Waiting for Agent %d to reply...", targetAgentID)
-	select {
-	case realResult := <-respChan:
-		log.Printf("[Butler Tool] Received REAL response from Agent %d: %s", targetAgentID, truncateString(realResult, 20))
-		return realResult, nil
-	case <-time.After(agentResponseTimeout):
-		removePendingResponse(targetAgentID, respChan)
-		log.Printf("[Butler Tool] TIMEOUT waiting for Agent %d", targetAgentID)
-		return "Timeout: Target agent did not respond within 30 seconds.", nil
-	}
 }
 
 func enqueuePendingResponse(agentID int, ch chan string) {
@@ -307,49 +267,6 @@ func ResolveAction(actionID string, approved bool) bool {
 		}
 	}
 
-	// Check pendingCommands (for service-level commands)
-	pendingCommandsMu.RLock()
-	_, ok = pendingCommands[actionID]
-	pendingCommandsMu.RUnlock()
-
-	if ok {
-		log.Printf("[Butler ResolveAction] Found action %s in pendingCommands", actionID)
-		// Execute the pending command
-		// We need to get the butler service instance to execute it
-		// This will be handled by the service's ExecutePendingCommand method
-		return true
-	}
-
-	log.Printf("[Butler ResolveAction] Action %s not found in pending actions or commands", actionID)
+	log.Printf("[Butler ResolveAction] Action %s not found in pending actions", actionID)
 	return false
-}
-
-// ExecutePendingCommandByID executes a pending command by its action ID
-// This is called by the handler after user approval
-func ExecutePendingCommandByID(ctx context.Context, actionID string, senderID int, approved bool) bool {
-	pendingCommandsMu.RLock()
-	_, exists := pendingCommands[actionID]
-	pendingCommandsMu.RUnlock()
-
-	if !exists {
-		return false
-	}
-
-	// Get the global butler service instance
-	if globalButlerService == nil {
-		log.Printf("[Butler] No global service instance available")
-		return false
-	}
-
-	// Let ExecutePendingCommand handle the deletion
-	globalButlerService.ExecutePendingCommand(ctx, actionID, senderID, approved)
-	return true
-}
-
-// globalButlerService holds the singleton butler service instance
-var globalButlerService *ButlerService
-
-// SetGlobalService sets the global butler service instance
-func SetGlobalService(svc *ButlerService) {
-	globalButlerService = svc
 }
