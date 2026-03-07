@@ -100,7 +100,7 @@ func (r *sqlRepository) ResetMockData(ctx context.Context) error {
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return apperrors.Wrap(apperrors.ErrDatabase, "failed to begin sqlite reset transaction", err)
+		return apperrors.Wrap(apperrors.ErrDatabase, "failed to begin reset transaction", err)
 	}
 
 	statements := []string{
@@ -118,12 +118,12 @@ func (r *sqlRepository) ResetMockData(ctx context.Context) error {
 	for _, stmt := range statements {
 		if _, err := tx.Exec(stmt); err != nil {
 			_ = tx.Rollback()
-			return apperrors.Wrap(apperrors.ErrDatabase, "failed to reset sqlite mock data", err)
+			return apperrors.Wrap(apperrors.ErrDatabase, "failed to reset mock data", err)
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		return apperrors.Wrap(apperrors.ErrDatabase, "failed to commit sqlite reset transaction", err)
+		return apperrors.Wrap(apperrors.ErrDatabase, "failed to commit reset transaction", err)
 	}
 
 	return nil

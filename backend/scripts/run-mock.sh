@@ -42,7 +42,7 @@ if [ "$DB_DRIVER" = "postgresql" ]; then
     DB_DRIVER="postgres"
 fi
 if [ "$DB_DRIVER" != "sqlite" ] && [ "$DB_DRIVER" != "postgres" ]; then
-    echo -e "${RED}Error: unsupported DB_DRIVER '$DB_DRIVER'. Use sqlite or postgres.${NC}"
+    echo -e "${RED}Error: unsupported DB_DRIVER '$DB_DRIVER'. Use a supported driver value.${NC}"
     exit 1
 fi
 

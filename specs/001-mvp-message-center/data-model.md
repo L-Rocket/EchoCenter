@@ -3,7 +3,7 @@
 ## Entity: AgentMessage
 Represents a single status report from an external AI Agent.
 
-### Attributes (SQLite Table `messages`)
+### Attributes (Table `messages`)
 | Field | Type | Description | Constraints |
 |-------|------|-------------|-------------|
 | `id` | INTEGER | Primary key | AUTOINCREMENT |
@@ -31,5 +31,5 @@ type Message struct {
 
 ### State Transitions
 - **Received**: Message enters the system via `POST /api/messages`.
-- **Persisted**: Message is successfully written to the SQLite `messages` table.
+- **Persisted**: Message is successfully written to the `messages` table.
 - **Broadcasted**: Message is available for retrieval via `GET /api/messages`.

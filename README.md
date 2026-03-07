@@ -34,7 +34,7 @@
 - **✅ Feishu Approval Cards**: Butler authorization requests can be approved/rejected directly in Feishu interactive cards.
 - **📊 Interactive Dashboard**: Modern React-based UI for monitoring agent status and system-wide logs.
 - **🔒 Secure Architecture**: Mandatory JWT authentication, per-agent API tokens, and token-safe agent listing (`token_hint` only, no raw token exposure).
-- **📂 Flexible Persistence**: Full chat and command history stored in SQLite by default, with PostgreSQL enabled through `DB_DRIVER` + DSN/PG_* configuration.
+- **📂 Flexible Persistence**: Full chat and command history backed by a configurable database layer, with PostgreSQL enabled through `DB_DRIVER` + DSN/PG_* configuration.
 
 ## 🛠 Tech Stack
 
@@ -43,7 +43,7 @@
 | **Go 1.22+** | **React 19** | **Python 3.9+** |
 | Gin Gonic | TypeScript | OpenAI SDK |
 | Gorilla WebSocket | Tailwind CSS (v4) | websockets |
-| SQLite (WAL) / PostgreSQL | Zustand | psutil |
+| Configurable SQL Storage / PostgreSQL | Zustand | psutil |
 | Eino (AI Brain) | Shadcn/ui | python-dotenv |
 
 ## 🚀 Quick Start
@@ -69,8 +69,8 @@ make install
 # Edit backend/.env and add your BUTLER_API_TOKEN (e.g., from SiliconFlow or OpenAI)
 # and ensure JWT_SECRET is set to a strong random string.
 
-# 4. (Optional) Choose database driver in backend/.env
-# DB_DRIVER=sqlite (default) or DB_DRIVER=postgres
+# 4. (Optional) Configure PostgreSQL in backend/.env when needed
+# Set DB_DRIVER=postgres
 
 # 5. Launch with mock data and agents (recommended for first run)
 make run-mock
@@ -80,11 +80,11 @@ Run `make help` to see all available commands.
 
 The system will be available at `http://localhost:5173`. Default admin credentials: `admin` / `admin123`.
 
-### Quick Database Switch
+### Quick Driver Switch
 
 ```bash
-# Default (SQLite)
-DB_DRIVER=sqlite make run-mock RESET=1
+# Default configuration
+make run-mock RESET=1
 
 # PostgreSQL (auto ensure/recreate database via backend/cmd/mockdb)
 DB_DRIVER=postgres make run-mock RESET=1

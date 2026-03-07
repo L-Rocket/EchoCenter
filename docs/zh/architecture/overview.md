@@ -29,7 +29,7 @@ EchoCenter 采用分层架构设计，主要包含以下组件：
    - Storage-Custodian
    - 其他模拟代理
 
-5. **数据库** (SQLite / PostgreSQL)
+5. **数据库**
    - 用户数据
    - 聊天记录
    - 系统配置
@@ -83,7 +83,7 @@ AI 大脑 (Eino)
 - **Go 1.22+** - 编程语言
 - **Gin** - HTTP 框架
 - **Gorilla WebSocket** - WebSocket 实现
-- **SQLite / PostgreSQL** - 数据库
+- **可配置数据库层** - 数据库
 - **Eino** - AI 推理引擎
 
 ### 前端

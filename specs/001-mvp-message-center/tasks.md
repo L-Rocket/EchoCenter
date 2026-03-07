@@ -10,7 +10,7 @@
 **Purpose**: Project initialization and basic structure
 
 - [X] T001 [P] Initialize backend Go module in backend/go.mod
-- [X] T002 [P] Install backend dependencies (gin, gin-contrib/cors, modernc.org/sqlite) in backend/
+- [X] T002 [P] Install backend dependencies (gin, gin-contrib/cors, database driver) in backend/
 - [X] T003 [P] Initialize frontend React project with Vite and TypeScript in frontend/
 - [X] T004 [P] Install frontend dependencies (tailwindcss, postcss, autoprefixer, axios) in frontend/
 - [X] T005 [P] Configure Tailwind CSS in frontend/tailwind.config.js and frontend/src/index.css
@@ -21,7 +21,7 @@
 
 **Purpose**: Core infrastructure required for all user stories
 
-- [X] T006 Initialize SQLite database and create `messages` table in backend/db.go
+- [X] T006 Initialize the database and create `messages` table in backend/db.go
 - [X] T007 Define Message struct and JSON tags in backend/models.go
 - [X] T008 Setup Gin router with basic CORS middleware and logging in backend/main.go
 - [X] T009 Create basic error response utility in backend/handlers.go
@@ -86,8 +86,8 @@
 
 ### Implementation for User Story 3
 
-- [X] T026 [US3] Verify SQLite database file persistence across restarts in backend/db.go
-- [X] T027 [US3] Add index on timestamp column in SQLite schema to optimize retrieval in backend/db.go
+- [X] T026 [US3] Verify database file persistence across restarts in backend/db.go
+- [X] T027 [US3] Add index on timestamp column in the schema to optimize retrieval in backend/db.go
 
 **Checkpoint**: User Story 3 functional - data is durable and optimized.
 

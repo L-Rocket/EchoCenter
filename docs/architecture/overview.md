@@ -29,7 +29,7 @@ EchoCenter adopts a layered architecture design, mainly consisting of the follow
    - Storage-Custodian
    - Other simulated agents
 
-5. **Database** (SQLite / PostgreSQL)
+5. **Database**
    - User data
    - Chat history
    - System configuration
@@ -83,7 +83,7 @@ Agents
 - **Go 1.22+** - Programming Language
 - **Gin** - HTTP Framework
 - **Gorilla WebSocket** - WebSocket implementation
-- **SQLite / PostgreSQL** - Database
+- **Configurable Database Layer** - Database
 - **Eino** - AI Inference Engine
 
 ### Frontend

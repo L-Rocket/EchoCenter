@@ -20,8 +20,8 @@
 ## Best Practices
 
 ### Pagination
-- Use `offset` and `limit`. While `keyset pagination` (cursor-based) is better for performance on massive datasets, `offset` is perfectly fine for EchoCenter's SQLite scale and much easier to implement for complex filtering.
+- Use `offset` and `limit`. While `keyset pagination` (cursor-based) is better for performance on massive datasets, `offset` is perfectly fine for EchoCenter's current scale and much easier to implement for complex filtering.
 
 ### Backend Search
-- Use `LOWER(content) LIKE LOWER(?)` for case-insensitive search in SQLite.
+- Use `LOWER(content) LIKE LOWER(?)` for case-insensitive search in the current storage layer.
 - Ensure `idx_messages_timestamp` is still utilized by keeping `ORDER BY timestamp DESC` consistent.

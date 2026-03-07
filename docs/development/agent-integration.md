@@ -8,10 +8,7 @@ Every Agent must have a unique `api_token`.
 - **Existing Agents**:
   - In local mock mode, use admin dev endpoint:
     `GET /api/dev/mock/agent-token/:username` (non-production only).
-  - Or query DB directly:
-  ```bash
-  sqlite3 backend/data/echo_center.db "SELECT username, api_token FROM users WHERE role = 'AGENT';"
-  ```
+  - Or query the backing store directly with your preferred database tool.
   - If using PostgreSQL, query the same fields from `users`/`machine_credentials`.
 - **New Agents**: Register via the Admin API:
   `POST /api/users/agents` with `{"username": "Your-Agent-Name"}`.

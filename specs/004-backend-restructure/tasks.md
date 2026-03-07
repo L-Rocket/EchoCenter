@@ -55,7 +55,7 @@
 
 - [X] T012 [US1] Move `/Users/lea/prj/EchoCenter/backend/main.go` to `/Users/lea/prj/EchoCenter/backend/cmd/server/main.go`
 - [X] T013 [US1] Update imports in `/Users/lea/prj/EchoCenter/backend/cmd/server/main.go` to use the new `internal/` package paths
-- [X] T014 [US1] Verify `.env` and SQLite database path resolution in `/Users/lea/prj/EchoCenter/backend/cmd/server/main.go`
+- [X] T014 [US1] Verify `.env` and database path resolution in `/Users/lea/prj/EchoCenter/backend/cmd/server/main.go`
 
 ---
 

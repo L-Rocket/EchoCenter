@@ -57,7 +57,7 @@ features:
 
 ## 技术栈
 
-- **后端** - Go + Gin + WebSocket + SQLite / PostgreSQL
+- **后端** - Go + Gin + WebSocket + 可配置数据库层
 - **前端** - React + TypeScript + Tailwind CSS
 - **代理** - Python + OpenAI SDK
 

@@ -10,7 +10,7 @@ Upgrade the EchoCenter Dashboard from a static "latest 50" view to a dynamic sea
 
 **Language/Version**: Go 1.22+, TypeScript (React)
 **Primary Dependencies**: Gin (Backend), Shadcn/ui (Select, Input, Button), Lucide React
-**Storage**: SQLite
+**Storage**: Relational database
 **Testing**: `go test` for query builders, Vitest for frontend debounce logic.
 **Target Platform**: Web
 **Project Type**: Full-stack Feature Expansion

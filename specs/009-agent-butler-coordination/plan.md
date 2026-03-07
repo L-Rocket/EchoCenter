@@ -10,7 +10,7 @@ Transform `Butler` into a system coordinator powered by the Eino framework. The 
 
 **Language/Version**: Go 1.22+, TypeScript
 **Primary Dependencies**: **ByteDance Eino**, Gorilla WebSocket, Shadcn/ui
-**Storage**: SQLite (`butler_authorizations` table)
+**Storage**: Relational database (`butler_authorizations` table)
 **Testing**: Unit tests for Eino tool interceptors, integration tests for WebSocket auth frames.
 **Target Platform**: Web/Server
 **Project Type**: Agent Orchestration

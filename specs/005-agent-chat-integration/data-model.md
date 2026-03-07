@@ -3,7 +3,7 @@
 ## Entity: Agent (Persistent)
 Specialized user account for automated systems.
 
-### Attributes (SQLite Table `users` extension)
+### Attributes (Table `users` extension)
 | Field | Type | Description |
 |-------|------|-------------|
 | `api_token` | TEXT | Unique long-lived token for Agent authentication. |
@@ -24,4 +24,4 @@ In-memory structure for real-time exchange.
 
 ### Logic Rules
 - **Attribution**: Messages from an agent MUST use the name associated with their `api_token`.
-- **Volatility**: These messages are broadcasted via the WebSocket Hub and stored in the Frontend's Zustand store only. They are NOT written to the SQLite database.
+- **Volatility**: These messages are broadcasted via the WebSocket Hub and stored in the Frontend's Zustand store only. They are NOT written to persistent storage.

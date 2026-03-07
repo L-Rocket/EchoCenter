@@ -28,7 +28,7 @@ As a system, I want all bi-directional messages sent via WebSockets to be automa
 
 **Why this priority**: Foundation for persistence. If the backend doesn't save the data, the frontend cannot recover it.
 
-**Independent Test**: Send a message via the UI, then inspect the SQLite database directly or via a backend API to confirm the message exists in the `chat_messages` table.
+**Independent Test**: Send a message via the UI, then inspect the database directly or via a backend API to confirm the message exists in the `chat_messages` table.
 
 **Acceptance Scenarios**:
 
@@ -57,7 +57,7 @@ As a user, I want the system to only load chat history when I actually select an
 
 ### Functional Requirements
 
-- **FR-001**: Backend MUST implement a `chat_messages` table in the SQLite database.
+- **FR-001**: Backend MUST implement a `chat_messages` table in the database.
 - **FR-002**: Backend MUST persist all messages of type `CHAT` exchanged via the WebSocket Hub.
 - **FR-003**: Backend MUST provide a REST API endpoint `GET /api/chat/history/:peer_id` that returns the most recent 50 messages between the current user and the specified peer.
 - **FR-004**: Frontend MUST call the history API immediately upon selecting an agent in the `AgentsPage`.

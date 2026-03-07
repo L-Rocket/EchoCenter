@@ -4,7 +4,7 @@
 **Input**: Add authentication and user management to EchoCenter.
 
 ## Summary
-Implement a JWT-based authentication system for EchoCenter. This includes backend user storage (SQLite), password hashing (bcrypt), login/user-creation APIs, and a frontend login page with protected routing using React Context.
+Implement a JWT-based authentication system for EchoCenter. This includes backend user storage, password hashing (bcrypt), login/user-creation APIs, and a frontend login page with protected routing using React Context.
 
 ## Technical Context
 
@@ -12,7 +12,7 @@ Implement a JWT-based authentication system for EchoCenter. This includes backen
 **Primary Dependencies**: 
 - Backend: `github.com/golang-jwt/jwt/v5`, `golang.org/x/crypto/bcrypt`, `github.com/joho/godotenv`
 - Frontend: `axios`, `react-router-dom` (if not already present), `jwt-decode`
-**Storage**: SQLite (`users` table)
+**Storage**: Relational database (`users` table)
 **Testing**: `go test` for auth logic, `curl` for API verification.
 **Target Platform**: Local environment
 **Project Type**: Web application
