@@ -62,7 +62,7 @@ backend/
 
 ### 5. 数据存储
 
-- **SQLite / PostgreSQL** - 默认使用 SQLite，本地开发零配置；可通过 `DB_DRIVER=postgres` 切换 PostgreSQL。
+- **数据库层** - 支持项目的可配置持久化，并可通过 `DB_DRIVER=postgres` 启用 PostgreSQL。
 - **数据库迁移** - 内置迁移系统，使用 `migrations` 表追踪已执行的变更，确保 Schema 更新的原子性和可靠性。
 - **Repository** - 数据访问层拆分为 users/messages/chat/butler auth/bootstrap 等模块，边界更清晰。
 - **凭据存储拆分** - 人类凭据与机器凭据拆分至 `human_credentials` / `machine_credentials`，安全边界更清晰。
@@ -77,7 +77,7 @@ graph TD
     C --> D[Handler]
     D --> E[Service]
     E --> F[Repository]
-    F --> G[SQLite]
+    F --> G[Database]
     
     H[WebSocket 客户端] --> I[WebSocket Hub]
     I --> J[Message Handler]

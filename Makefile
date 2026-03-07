@@ -40,7 +40,7 @@ run-mock: ## Run full mock stack using DB_DRIVER in .env (optional: RESET=0)
 mock-start: ## Backward-compatible alias for run-mock (defaults to RESET=1)
 	cd backend/scripts && RESET=1 ./run-mock.sh
 
-run-mock-sqllite: ## Deprecated alias, force SQLite and run mock stack
+run-mock-sqllite: ## Deprecated alias for the mock stack runner
 	cd backend/scripts && ./run-mock-sqllite.sh
 
 run-mock-postgre: ## Deprecated alias, force PostgreSQL and run mock stack

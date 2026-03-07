@@ -62,7 +62,7 @@ backend/
 
 ### 5. Data Storage
 
-- **SQLite / PostgreSQL** - SQLite is default for local development, PostgreSQL can be enabled with `DB_DRIVER=postgres`.
+- **Database Layer** - Supports the project's configurable persistence and `DB_DRIVER=postgres` for PostgreSQL deployments.
 - **Migrations** - Built-in migration system with a `migrations` tracking table to ensure atomic and reliable schema updates.
 - **Repository** - Data access layer has been split into focused modules (users/messages/chat/butler auth/bootstrapping) to keep SQL boundaries clear.
 - **Credential Stores** - Human and machine credentials are split into dedicated tables (`human_credentials`, `machine_credentials`) for clearer security boundaries.
@@ -77,7 +77,7 @@ graph TD
     C --> D[Handler]
     D --> E[Service]
     E --> F[Repository]
-    F --> G[SQLite]
+    F --> G[Database]
     
     H[WebSocket Client] --> I[WebSocket Hub]
     I --> J[Message Handler]

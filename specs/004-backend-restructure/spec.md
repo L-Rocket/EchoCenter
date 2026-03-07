@@ -39,14 +39,14 @@ As a developer, I want to follow the standard Go project layout (using `cmd/` an
 - **FR-004**: System MUST move HTTP handlers and route registration to `backend/internal/handlers/`.
 - **FR-005**: System MUST move authentication logic and middleware to `backend/internal/auth/`.
 - **FR-006**: System MUST update all internal package imports to reflect the new paths relative to the module name.
-- **FR-007**: System MUST ensure that the SQLite database path remains relative to the project root or is correctly handled in the new location.
+- **FR-007**: System MUST ensure that the database path remains relative to the project root or is correctly handled in the new location.
 
 ### Key Entities *(include if feature involves data)*
 
 - **Backend Directory Tree**:
     - `cmd/server/`: Entry point.
     - `internal/auth/`: JWT and Hashing logic.
-    - `internal/database/`: SQLite operations.
+    - `internal/database/`: database operations.
     - `internal/handlers/`: Gin route handlers.
     - `internal/models/`: Shared data structures.
 

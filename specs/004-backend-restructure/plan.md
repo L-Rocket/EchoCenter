@@ -9,8 +9,8 @@ The current flat structure of the `backend/` directory will be reorganized into 
 ## Technical Context
 
 **Language/Version**: Go 1.22+
-**Primary Dependencies**: Gin, JWT, Bcrypt, Godotenv, SQLite
-**Storage**: SQLite (Path management is critical during move)
+**Primary Dependencies**: Gin, JWT, Bcrypt, Godotenv, database driver
+**Storage**: Relational database (path management is critical during move)
 **Testing**: Existing unit tests must pass after package path updates.
 **Target Platform**: Local environment
 **Project Type**: Backend Restructuring

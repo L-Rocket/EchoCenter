@@ -10,7 +10,7 @@ Extend EchoCenter to support a new "Agent" entity and bi-directional real-time c
 
 **Language/Version**: Go 1.22+, TypeScript
 **Primary Dependencies**: `github.com/gorilla/websocket` (Backend), `shadcn/ui`, `lucide-react`, `zustand` (Frontend state)
-**Storage**: SQLite (Agent registration), In-memory (Volatile chat history)
+**Storage**: Relational database (Agent registration), In-memory (Volatile chat history)
 **Testing**: `go test` for WS hub logic, Vitest for chat components.
 **Target Platform**: Web
 **Project Type**: Feature Expansion (WebSockets + UI Refactor)

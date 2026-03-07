@@ -3,7 +3,7 @@
 ## Entity: User
 Represents an authorized system operator.
 
-### Attributes (SQLite Table `users`)
+### Attributes (Table `users`)
 | Field | Type | Description | Constraints |
 |-------|------|-------------|-------------|
 | `id` | INTEGER | Primary key | AUTOINCREMENT |

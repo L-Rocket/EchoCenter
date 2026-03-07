@@ -112,7 +112,7 @@ SERVER_HOST=0.0.0.0
 SERVER_PORT=8080
 
 # Database Configuration
-DB_DRIVER=sqlite
+# Set DB_DRIVER=postgres when using PostgreSQL
 # Use DB_DSN directly, or PG_* split config when DB_DRIVER=postgres
 DB_DSN=
 PG_HOST=localhost
@@ -121,7 +121,7 @@ PG_USER=postgres
 PG_PASSWORD=postgres
 PG_DATABASE=echocenter
 PG_SSLMODE=disable
-# SQLite path (when DB_DRIVER=sqlite)
+# Local database file path
 DB_PATH=./data/echo_center.db
 
 # Butler Configuration
@@ -230,7 +230,7 @@ make run-mock RESET=0
 Quick one-off driver switch:
 
 ```bash
-DB_DRIVER=sqlite make run-mock RESET=1
+make run-mock RESET=1
 DB_DRIVER=postgres make run-mock RESET=1
 ```
 

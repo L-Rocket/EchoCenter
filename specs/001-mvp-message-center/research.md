@@ -7,9 +7,9 @@
 - **Rationale**: Highly performance-oriented, idiomatic for Go, and provides excellent middleware support (CORS, logging, recovery) which is essential for rapid development without reinventing the wheel.
 - **Alternatives considered**: Standard `net/http` (too much boilerplate for routing/JSON), Echo (similar to Gin, but Gin has broader community support for simple MVPs).
 
-### Decision: Database - SQLite (Go Driver)
-- **Decision**: Use `modernc.org/sqlite` (pure Go) or `github.com/mattn/go-sqlite3` (CGO).
-- **Rationale**: Given the "Pragmatic Minimalism" principle, `modernc.org/sqlite` is preferred to avoid CGO-related cross-compilation issues and keep the build process as simple as possible.
+### Decision: Database Driver
+- **Decision**: Use a Go-native SQL driver strategy that keeps the backend simple to run and distribute.
+- **Rationale**: Given the "Pragmatic Minimalism" principle, prefer a setup that avoids unnecessary CGO-related cross-compilation complexity.
 - **Alternatives considered**: PostgreSQL/MySQL (overkill for an MVP with low write volume).
 
 ### Decision: Frontend - React + Vite + Tailwind CSS
@@ -27,7 +27,7 @@
 ### Gin CORS Configuration
 - MUST use `github.com/gin-contrib/cors` or a custom middleware to allow the frontend (likely running on a different port during development) to access the backend API.
 
-### SQLite Schema Optimization
+### Schema Optimization
 - The `messages` table should have an index on `timestamp` (DESC) to ensure retrieval of the latest 50 messages is instantaneous as the database grows.
 
 ### React State Management

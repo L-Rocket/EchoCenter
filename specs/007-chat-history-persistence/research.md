@@ -3,7 +3,7 @@
 ## Decisions
 
 ### Decision: Async Database Writes
-- **Decision**: Use a non-blocking goroutine to write WebSocket messages to SQLite.
+- **Decision**: Use a non-blocking goroutine to write WebSocket messages to the database.
 - **Rationale**: WebSocket message broadcasting should be as low-latency as possible (SC-002). Blocking the Hub's main loop for database I/O could cause delays in high-traffic scenarios.
 - **Implementation**: The Hub will trigger a `go database.SaveChatMessage(...)` for every 'CHAT' type message.
 
@@ -19,7 +19,7 @@
 ## Best Practices
 
 ### Data Integrity
-- Use database transactions where appropriate if multiple tables ever need updating, though for MVP, a single table insert is atomic in SQLite.
+- Use database transactions where appropriate if multiple tables ever need updating, though for MVP, a single table insert remains atomic at the storage layer.
 
 ### Frontend Hydration
 - Ensure the "Awaiting Transmission" state is only shown after the history API has returned an empty result, preventing a "flicker" of empty state during loading.

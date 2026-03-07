@@ -20,7 +20,7 @@ go build -o bin/server ./cmd/server
 
 ## Database
 
-- Default: SQLite (`DB_DRIVER=sqlite`, `DB_PATH=./data/echo_center.db`)
+- Uses the built-in default database configuration (`DB_PATH=./data/echo_center.db`)
 - Optional: PostgreSQL (`DB_DRIVER=postgres`)
   - Use `DB_DSN` directly, or split config with `PG_HOST`, `PG_PORT`, `PG_USER`, `PG_PASSWORD`, `PG_DATABASE`, `PG_SSLMODE`
 
@@ -46,7 +46,7 @@ Key behavior:
 Examples:
 
 ```bash
-DB_DRIVER=sqlite make run-mock RESET=1
+make run-mock RESET=1
 DB_DRIVER=postgres make run-mock RESET=1
 make run-mock RESET=0
 ```

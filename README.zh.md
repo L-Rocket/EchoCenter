@@ -34,7 +34,7 @@
 - **✅ 飞书授权卡片**：Butler 授权请求可在飞书交互卡片中直接批准/拒绝。
 - **📊 交互式大盘**：基于 React 的现代化 UI，实时监控代理状态和全系统日志。
 - **🔒 安全架构**：强制 JWT 认证与独立 Agent API Token，且 Agent 列表仅返回 `token_hint`（不返回明文 Token）。
-- **📂 灵活持久化**：完整的聊天和命令历史默认存储在 SQLite 中，可通过 `DB_DRIVER` + DSN/PG_* 配置切换 PostgreSQL。
+- **📂 灵活持久化**：完整的聊天和命令历史由可配置的数据库层持久化，可通过 `DB_DRIVER` + DSN/PG_* 配置启用 PostgreSQL。
 
 ## 🛠 技术栈
 
@@ -43,7 +43,7 @@
 | **Go 1.22+** | **React 19** | **Python 3.9+** |
 | Gin Gonic | TypeScript | OpenAI SDK |
 | Gorilla WebSocket | Tailwind CSS (v4) | websockets |
-| SQLite (WAL) / PostgreSQL | Zustand | psutil |
+| 可配置 SQL 存储 / PostgreSQL | Zustand | psutil |
 | Eino (AI 引擎) | Shadcn/ui | python-dotenv |
 
 ## 🚀 快速开始
@@ -69,8 +69,8 @@ make install
 # 编辑 backend/.env 文件，添加你的 BUTLER_API_TOKEN (来自 SiliconFlow 或 OpenAI)
 # 并确保 JWT_SECRET 设置为一个强随机字符串。
 
-# 4. (可选) 在 backend/.env 中选择数据库驱动
-# DB_DRIVER=sqlite (默认) 或 DB_DRIVER=postgres
+# 4. (可选) 需要 PostgreSQL 时在 backend/.env 中补充配置
+# 设置 DB_DRIVER=postgres
 
 # 5. 使用 mock 数据和代理启动 (首次运行推荐)
 make run-mock
@@ -80,11 +80,11 @@ make run-mock
 
 系统启动后可访问 `http://localhost:5173`。默认管理员凭据：`admin` / `admin123`。
 
-### 快速切换数据库
+### 快速切换驱动
 
 ```bash
-# 默认 SQLite
-DB_DRIVER=sqlite make run-mock RESET=1
+# 默认配置
+make run-mock RESET=1
 
 # PostgreSQL（会通过 backend/cmd/mockdb 自动 ensure/recreate 数据库）
 DB_DRIVER=postgres make run-mock RESET=1

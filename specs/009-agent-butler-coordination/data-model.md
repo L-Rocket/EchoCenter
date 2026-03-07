@@ -3,7 +3,7 @@
 ## Entity: ButlerAuthorization
 Tracks the lifecycle of commands proposed by the Butler that require human approval.
 
-### Attributes (SQLite Table `butler_authorizations`)
+### Attributes (Table `butler_authorizations`)
 | Field | Type | Description | Constraints |
 |-------|------|-------------|-------------|
 | `id` | TEXT | Unique Action ID (UUID) | PRIMARY KEY |

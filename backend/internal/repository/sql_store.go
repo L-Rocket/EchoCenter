@@ -70,11 +70,11 @@ func New(cfg *config.DatabaseConfig) (Repository, error) {
 			return nil, apperrors.Wrap(apperrors.ErrInternal, "failed to create database directory", err)
 		}
 
-		// Add busy timeout and journal mode parameters to avoid SQLITE_BUSY errors.
+		// Add busy timeout and journal mode parameters to avoid lock contention errors.
 		dsn := cfg.Path + "?_busy_timeout=5000&_journal_mode=WAL"
 		db, err = sql.Open("sqlite", dsn)
 		if err != nil {
-			return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to open sqlite database", err)
+			return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to open database", err)
 		}
 	default:
 		return nil, apperrors.New(apperrors.ErrInternal, fmt.Sprintf("unsupported DB_DRIVER: %s", cfg.Driver))
@@ -191,6 +191,6 @@ func isUniqueConstraintError(err error) bool {
 		return true
 	}
 
-	// SQLite unique constraint errors contain "unique constraint failed".
+	// Embedded SQL unique constraint errors contain "unique constraint failed".
 	return strings.Contains(strings.ToLower(err.Error()), "unique constraint failed")
 }

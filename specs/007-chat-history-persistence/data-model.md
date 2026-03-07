@@ -3,7 +3,7 @@
 ## Entity: ChatMessage (Persistent)
 Stores the bi-directional exchange between a User and an Agent.
 
-### Attributes (SQLite Table `chat_messages`)
+### Attributes (Table `chat_messages`)
 | Field | Type | Description | Constraints |
 |-------|------|-------------|-------------|
 | `id` | INTEGER | Primary Key | AUTOINCREMENT |

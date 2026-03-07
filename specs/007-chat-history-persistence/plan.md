@@ -4,13 +4,13 @@
 **Input**: Feature specification for persisting bi-directional WebSocket chat messages.
 
 ## Summary
-Implement a persistent storage layer for chat messages in EchoCenter. This involves creating a new SQLite table, modifying the WebSocket Hub to record messages, and providing a REST API for the frontend to retrieve history upon selecting an agent.
+Implement a persistent storage layer for chat messages in EchoCenter. This involves creating a new database table, modifying the WebSocket Hub to record messages, and providing a REST API for the frontend to retrieve history upon selecting an agent.
 
 ## Technical Context
 
 **Language/Version**: Go 1.22+, TypeScript
 **Primary Dependencies**: Gorilla WebSocket, Gin, Zustand
-**Storage**: SQLite (`chat_messages` table)
+**Storage**: Relational database (`chat_messages` table)
 **Testing**: `go test` for repository logic, Vitest for store merging logic.
 **Target Platform**: Web
 **Project Type**: Feature Expansion (Persistence)
@@ -21,7 +21,7 @@ Implement a persistent storage layer for chat messages in EchoCenter. This invol
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-1. **Pragmatic Minimalism**: Does this use existing DB structure? (✅ Yes, adds one focused table to SQLite).
+1. **Pragmatic Minimalism**: Does this use existing DB structure? (✅ Yes, adds one focused table to the existing database).
 2. **Idiomatic Implementation**: Follows standard repository patterns for persistence. (✅ Yes)
 3. **Transparency**: Clear error handling for failed DB writes during WS broadcast. (✅ Yes)
 4. **Disciplined Iteration**: Split into schema setup -> backend hook -> frontend load. (✅ Yes)

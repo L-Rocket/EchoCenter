@@ -8,10 +8,7 @@
 - **现有 Agent**：
   - 在本地 mock 模式下，可用管理员开发接口获取：
     `GET /api/dev/mock/agent-token/:username`（仅非生产环境）。
-  - 或直接查库：
-  ```bash
-  sqlite3 backend/data/echo_center.db "SELECT username, api_token FROM users WHERE role = 'AGENT';"
-  ```
+  - 或使用你熟悉的数据库工具直接查底层存储。
   - 若使用 PostgreSQL，请在 `users`/`machine_credentials` 中查询对应字段。
 - **新 Agent**: 通过管理员 API 注册：
   `POST /api/users/agents`，提交 `{"username": "你的应用名称"}`。

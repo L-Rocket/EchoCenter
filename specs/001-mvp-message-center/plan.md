@@ -4,13 +4,13 @@
 **Input**: Feature specification for a lightweight message center with ingestion, storage, and dashboard.
 
 ## Summary
-The EchoCenter MVP will be a monorepo containing a Go-based API service (`/backend`) and a React-based dashboard (`/frontend`). The backend uses the Gin framework for high-performance routing and SQLite for persistent storage. The frontend is built with Vite and Tailwind CSS, fetching data via polling.
+The EchoCenter MVP will be a monorepo containing a Go-based API service (`/backend`) and a React-based dashboard (`/frontend`). The backend uses the Gin framework for high-performance routing and persistent storage. The frontend is built with Vite and Tailwind CSS, fetching data via polling.
 
 ## Technical Context
 
 **Language/Version**: Go 1.22+, TypeScript (Frontend)
 **Primary Dependencies**: Gin (Backend), React, Vite, Tailwind CSS (Frontend)
-**Storage**: SQLite
+**Storage**: Relational database
 **Testing**: `go test`, `curl` for API verification, React Testing Library (optional/practical)
 **Target Platform**: Local environment
 **Project Type**: Web application (Backend API + Frontend Dashboard)
@@ -22,7 +22,7 @@ The EchoCenter MVP will be a monorepo containing a Go-based API service (`/backe
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-1. **Pragmatic Minimalism**: Does the plan avoid generic wrappers or complex abstractions? (✅ Yes, direct use of Gin and SQLite).
+1. **Pragmatic Minimalism**: Does the plan avoid generic wrappers or complex abstractions? (✅ Yes, direct use of Gin and SQL persistence).
 2. **Idiomatic Implementation**: Are we using Go and React idioms? (✅ Yes, Gin handlers and React functional components).
 3. **Transparency**: Is error handling explicit? (✅ Yes, all Gin handlers will return clear error responses and log issues).
 4. **Disciplined Iteration**: Is the implementation phased? (✅ Yes, 3 clear phases).
@@ -47,7 +47,7 @@ specs/001-mvp-message-center/
 ```text
 backend/
 ├── main.go             # Entry point, router setup, and CORS
-├── db.go               # SQLite initialization and message operations
+├── db.go               # Database initialization and message operations
 ├── handlers.go         # Gin request handlers (Ingestion, Retrieval)
 ├── models.go           # Go structs for messages and JSON mapping
 └── go.mod
