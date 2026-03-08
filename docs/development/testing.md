@@ -187,7 +187,8 @@ make stress-llm
 
 See comparison notes:
 
-- `docs/zh/development/db-stress-comparison-20260308.md`
+- `/development/db-stress-comparison-20260308`
+- `/zh/development/db-stress-comparison-20260308`
 
 ### Backend Performance Testing
 ```bash

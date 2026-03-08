@@ -206,7 +206,8 @@ make stress-llm
 
 对比结果与结论模板参考：
 
-- `docs/zh/development/db-stress-comparison-20260308.md`
+- `/zh/development/db-stress-comparison-20260308`
+- `/development/db-stress-comparison-20260308`
 
 ### 后端性能测试
 
