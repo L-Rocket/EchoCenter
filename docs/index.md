@@ -31,3 +31,11 @@ features:
 - [Agents](/agents/butler) - Agent documentation
 - [Development](/development/setup) - Development guide
 - [Feishu Integration](/development/feishu-integration) - Feishu connector onboarding and callback routing
+
+## WebSocket Capacity Snapshot
+
+- Latest validation (`2026-03-08`): `20,000 / 20,000` idle WebSocket long-connections passed (`100%`).
+- Observed backend steady hold: RSS around `401MB~415MB`, threads around `29`.
+- Analysis: current bottleneck for this scenario is not connection-carrying on backend, but usually load-generator ramp/source-port limits.
+- Full method and notes: [Testing Guide](/development/testing#websocket-long-connection-capacity-c20k)
+- Stress-tool code branch (kept separate): `feat/ws-c10k-stress-test`
