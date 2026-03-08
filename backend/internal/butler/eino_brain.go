@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 	"sync"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
@@ -16,6 +18,7 @@ import (
 type EinoBrain struct {
 	logChain compose.Runnable[models.Message, string]
 	orch     assistantOrchestrator
+	mockMode bool
 
 	// Simple in-memory history management.
 	historyMu sync.RWMutex
@@ -23,6 +26,14 @@ type EinoBrain struct {
 }
 
 func NewEinoBrain(baseURL, apiToken, model string) *EinoBrain {
+	if isMockModeEnabled() {
+		log.Printf("Butler brain mock mode enabled (MOCK_MODE=true): LLM calls will sleep 800ms and return a fixed reply")
+		return &EinoBrain{
+			mockMode: true,
+			history:  make(map[string][]*schema.Message),
+		}
+	}
+
 	if baseURL == "" {
 		return newMockBrain()
 	}
@@ -68,6 +79,11 @@ Provide a very brief thought.`, msg.AgentID, msg.Level, msg.Content)
 		orch:     orchestratorImpl,
 		history:  make(map[string][]*schema.Message),
 	}
+}
+
+func isMockModeEnabled() bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("MOCK_MODE")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
 func (b *EinoBrain) ObserveLog(ctx context.Context, msg models.Message) (string, error) {

@@ -1,4 +1,4 @@
-.PHONY: help install run run-mock dev dev-backend dev-frontend build lint test clean mock-start run-mock-sqllite run-mock-postgre
+.PHONY: help install run run-mock dev dev-backend dev-frontend build lint test clean mock-start run-mock-sqllite run-mock-postgre stress-llm
 
 # Default goal
 .DEFAULT_GOAL := help
@@ -45,6 +45,9 @@ run-mock-sqllite: ## Deprecated alias, force SQLite and run mock stack
 
 run-mock-postgre: ## Deprecated alias, force PostgreSQL and run mock stack
 	cd backend/scripts && ./run-mock-postgre.sh
+
+stress-llm: ## Start backend with MOCK_MODE and run concurrent Butler stress test
+	cd backend/scripts && ./stress_llm.sh
 
 build: ## Build both backend and frontend
 	@echo "Building backend..."

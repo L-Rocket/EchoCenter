@@ -63,6 +63,7 @@ func Setup(r *gin.Engine, h *handler.Handler, authSvc auth.Service) {
 		{
 			dev.POST("/reset", h.DevMockReset)
 			dev.POST("/chat", h.DevMockInsertChat)
+			dev.POST("/butler-chat", h.DevMockButlerChat)
 			dev.GET("/agent-token/:username", h.DevGetAgentToken)
 		}
 	}

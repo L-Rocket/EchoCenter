@@ -2,8 +2,10 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lea/echocenter/backend/internal/butler"
 	"github.com/lea/echocenter/backend/internal/models"
 	apperrors "github.com/lea/echocenter/backend/pkg/errors"
 )
@@ -120,5 +122,40 @@ func (h *Handler) DevGetAgentToken(c *gin.Context) {
 		"username":  user.Username,
 		"role":      user.Role,
 		"api_token": user.APIToken,
+	})
+}
+
+func (h *Handler) DevMockButlerChat(c *gin.Context) {
+	if !h.ensureDevMockAllowed(c) {
+		return
+	}
+
+	var req struct {
+		Content string `json:"content" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid request body", err))
+		return
+	}
+
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.respondWithError(c, http.StatusUnauthorized, apperrors.ErrUnauthorized)
+		return
+	}
+
+	svc := butler.GetButler()
+	if svc == nil {
+		h.respondWithError(c, http.StatusInternalServerError, apperrors.New(apperrors.ErrInternal, "butler service not initialized"))
+		return
+	}
+
+	start := time.Now()
+	svc.HandleUserMessage(c.Request.Context(), userID.(int), req.Content)
+	elapsed := time.Since(start)
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":     "ok",
+		"elapsed_ms": elapsed.Milliseconds(),
 	})
 }

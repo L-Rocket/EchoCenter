@@ -7,6 +7,8 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
+const mockLLMReply = "MOCK_REPLY: simulated LLM response."
+
 // ChatStreamResult represents the result of a chat stream.
 // Note: With ADK ReAct Agent, tool execution is automatic. HasCommand and Command
 // are deprecated and always return false/nil values.
@@ -20,6 +22,35 @@ type ChatStreamResult struct {
 
 // ChatStream streams the response using ReAct Agent (with automatic tool execution).
 func (b *EinoBrain) ChatStream(ctx context.Context, sessionID, input, systemState string, onChunk func(chunk string) error) (*ChatStreamResult, error) {
+	if b.mockMode {
+		b.prepareConversation(sessionID, input, systemState)
+		select {
+		case <-time.After(800 * time.Millisecond):
+		case <-ctx.Done():
+			return &ChatStreamResult{
+				Content:    "",
+				HasCommand: false,
+				SessionID:  sessionID,
+				CreatedAt:  time.Now(),
+			}, ctx.Err()
+		}
+		if err := onChunk(mockLLMReply); err != nil {
+			return &ChatStreamResult{
+				Content:    "",
+				HasCommand: false,
+				SessionID:  sessionID,
+				CreatedAt:  time.Now(),
+			}, err
+		}
+		b.appendHistory(sessionID, &schema.Message{Role: schema.Assistant, Content: mockLLMReply})
+		return &ChatStreamResult{
+			Content:    mockLLMReply,
+			HasCommand: false,
+			SessionID:  sessionID,
+			CreatedAt:  time.Now(),
+		}, nil
+	}
+
 	if b.orch == nil {
 		_ = onChunk(safeModeReply)
 		return &ChatStreamResult{
