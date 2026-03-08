@@ -110,6 +110,16 @@ Comparison notes and result template live in:
 
 - `docs/zh/development/db-stress-comparison-20260308.md`
 
+### WebSocket Capacity Validation
+
+- Date: `2026-03-08`
+- Scenario: idle long-lived WebSocket connections (keepalive Ping, no business-message traffic)
+- Result: `20,000 / 20,000` connections established and held (`100%`)
+- Observed backend snapshot during hold:
+  - RSS around `401MB~415MB`
+  - Threads around `29`
+- Practical interpretation: under this profile, EchoCenter can sustain at least `20,000` concurrently connected idle agents/clients.
+
 ## 📖 Documentation
 
 For detailed guides on architecture, API references, and agent integration, please visit our **[Official Documentation Site](https://l-rocket.github.io/EchoCenter/)**.
