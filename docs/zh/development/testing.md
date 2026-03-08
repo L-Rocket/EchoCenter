@@ -191,6 +191,23 @@ it('should send message', () => {
 
 ## 性能测试
 
+### LLM Mock 压测（专用分支）
+
+`main` 分支保留基础运行与测试说明，LLM 压测工具链维护在：
+
+- `chore/mock-llm-loadtest`
+
+如需使用 `MOCK_MODE` 与 `make stress-llm`，请切换到该分支执行：
+
+```bash
+git checkout chore/mock-llm-loadtest
+make stress-llm
+```
+
+对比结果与结论模板参考：
+
+- `docs/zh/development/db-stress-comparison-20260308.md`
+
 ### 后端性能测试
 
 ```bash

@@ -172,6 +172,23 @@ it('should send message', () => {
 
 ## Performance Testing
 
+### LLM Mock Stress Test (Dedicated Branch)
+
+The `main` branch keeps core runtime/testing docs, while LLM pressure tooling is maintained in:
+
+- `chore/mock-llm-loadtest`
+
+Use that branch when you need `MOCK_MODE` and `make stress-llm`:
+
+```bash
+git checkout chore/mock-llm-loadtest
+make stress-llm
+```
+
+See comparison notes:
+
+- `docs/zh/development/db-stress-comparison-20260308.md`
+
 ### Backend Performance Testing
 ```bash
 # Using wrk

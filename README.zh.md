@@ -92,6 +92,24 @@ DB_DRIVER=postgres make run-mock RESET=1
 
 `run-mock-sqllite` 与 `run-mock-postgre` 仍保留为兼容别名（已标记废弃）。
 
+### LLM 压测专用分支
+
+由于 `main` 启用了分支保护，LLM 压测工具链维护在独立分支：
+
+- 分支名：`chore/mock-llm-loadtest`
+- 用途：Mock LLM 压测（`MOCK_MODE`、`make stress-llm`）以及 SQLite / PostgreSQL 对比流程。
+
+如需执行压测，请切换到该分支：
+
+```bash
+git checkout chore/mock-llm-loadtest
+make stress-llm
+```
+
+压测对比文档模板位于：
+
+- `docs/zh/development/db-stress-comparison-20260308.md`
+
 ## 📖 详细文档
 
 欲了解更多关于架构设计、API 参考及代理接入指南的信息，请访问我们的 **[官方文档站点](https://l-rocket.github.io/EchoCenter/zh/)**。

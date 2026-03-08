@@ -92,6 +92,24 @@ DB_DRIVER=postgres make run-mock RESET=1
 
 `run-mock-sqllite` and `run-mock-postgre` are kept as deprecated compatibility aliases.
 
+### LLM Stress Testing Branch
+
+Because `main` is protected, the LLM stress tooling is maintained in a dedicated branch:
+
+- Branch: `chore/mock-llm-loadtest`
+- Purpose: mock-LLM pressure testing (`MOCK_MODE`, `make stress-llm`), SQLite vs PostgreSQL comparison workflow.
+
+To run the stress test tooling:
+
+```bash
+git checkout chore/mock-llm-loadtest
+make stress-llm
+```
+
+Comparison notes and result template live in:
+
+- `docs/zh/development/db-stress-comparison-20260308.md`
+
 ## 📖 Documentation
 
 For detailed guides on architecture, API references, and agent integration, please visit our **[Official Documentation Site](https://l-rocket.github.io/EchoCenter/)**.
