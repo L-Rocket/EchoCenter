@@ -110,6 +110,19 @@ make stress-llm
 
 - `docs/zh/development/db-stress-comparison-20260308.md`
 
+最新本地对比快照（`1000 请求 / 20 并发 / MOCK_MODE=800ms`）：
+
+- SQLite：
+  - `throughput=24.86 req/s`，`p50=802.2ms`
+  - 后端日志信号：`save_fail=1503`，`SQLITE_BUSY=2040`
+- 本地 PostgreSQL：
+  - `throughput≈24.34 req/s`，`p50≈815.6ms`
+  - 后端日志信号：`save_fail=0`，未出现对应锁冲突信号
+
+说明：
+- `save_fail` 是“日志层面的持久化失败信号计数”，不是“HTTP 请求失败率”。
+- 本轮请求级结果仍为 `200/1000`，但 SQLite 在并发写入下已出现明显持久化不稳定信号。
+
 ### WebSocket 连接容量验证
 
 - 日期：`2026-03-08`

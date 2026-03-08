@@ -110,6 +110,19 @@ Comparison notes and result template live in:
 
 - `docs/zh/development/db-stress-comparison-20260308.md`
 
+Latest local comparison snapshot (`1000 req / 20 concurrency / MOCK_MODE=800ms`):
+
+- SQLite:
+  - `throughput=24.86 req/s`, `p50=802.2ms`
+  - backend log signals: `save_fail=1503`, `SQLITE_BUSY=2040`
+- Local PostgreSQL:
+  - `throughput≈24.34 req/s`, `p50≈815.6ms`
+  - backend log signals: `save_fail=0`, no lock-conflict signals
+
+Note:
+- `save_fail` is a log-level persistence-failure signal count (not request-level HTTP failure rate).
+- Request-level status in this run remained `200/1000`, but SQLite showed clear concurrent-write instability in persistence logs.
+
 ### WebSocket Capacity Validation
 
 - Date: `2026-03-08`
