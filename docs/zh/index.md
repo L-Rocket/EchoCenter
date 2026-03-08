@@ -32,6 +32,14 @@ features:
 - [开发](/zh/development/setup) - 开发指南
 - [飞书接入](/zh/development/feishu-integration) - 飞书连接器接入与回调联调
 
+## WebSocket 容量快照
+
+- 最新验证（`2026-03-08`）：空闲长连接 `20,000 / 20,000` 通过（`100%`）。
+- 后端保持阶段观测：RSS 约 `401MB~415MB`，线程约 `29`。
+- 简要分析：该场景下瓶颈主要不在后端连接承载，通常先受压测端建连速率/源端口资源影响。
+- 详细过程与说明见：[测试指南](/zh/development/testing#websocket-长连接容量验证c20k)
+- 压测工具代码分支（与文档分支分离）：`feat/ws-c10k-stress-test`
+
 ## 文档结构
 
 - **架构** - 系统架构和组件说明
