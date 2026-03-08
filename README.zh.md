@@ -110,6 +110,19 @@ make stress-llm
 
 - `docs/zh/development/db-stress-comparison-20260308.md`
 
+### WebSocket 连接容量验证
+
+- 日期：`2026-03-08`
+- 场景：空闲长连接（仅 Keepalive Ping，不发送业务消息）
+- 结果：`20,000 / 20,000` 连接建立并维持成功（`100%`）
+- 稳态观测（保持阶段）：
+  - 后端 RSS 约 `401MB~415MB`
+  - 后端线程数约 `29`
+- 结论：在该测试画像下，EchoCenter 可稳定承载至少 `20,000` 个并发在线空闲 Agent/客户端连接。
+- 压测工具代码分支（与当前文档分支分离维护）：
+  - `git fetch origin`
+  - `git checkout feat/ws-c10k-stress-test`
+
 ## 📖 详细文档
 
 欲了解更多关于架构设计、API 参考及代理接入指南的信息，请访问我们的 **[官方文档站点](https://l-rocket.github.io/EchoCenter/zh/)**。
