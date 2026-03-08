@@ -108,6 +108,12 @@ Comparison notes and result template live in:
 
 - `docs/zh/development/db-stress-comparison-20260308.md`
 
+Latest local comparison summary (`1000 req / 20 concurrency / MOCK_MODE=800ms`):
+
+- SQLite: `24.31 req/s`, `p50=811.6ms`, but many `SQLITE_BUSY`/persist failures under concurrent writes.
+- Local PostgreSQL: `24.34 req/s`, `p50=815.6ms`, with no corresponding DB lock/persist failure signals.
+- Conclusion: latency/throughput are similar in this mock setting, but PostgreSQL is significantly more reliable under concurrency.
+
 ## 📖 Documentation
 
 For detailed guides on architecture, API references, and agent integration, please visit our **[Official Documentation Site](https://l-rocket.github.io/EchoCenter/)**.

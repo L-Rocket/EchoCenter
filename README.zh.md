@@ -108,6 +108,12 @@ make stress-llm
 
 - `docs/zh/development/db-stress-comparison-20260308.md`
 
+最新本地对比摘要（`1000 请求 / 20 并发 / MOCK_MODE=800ms`）：
+
+- SQLite：`24.31 req/s`，`p50=811.6ms`，但并发写入下出现大量 `SQLITE_BUSY` 与落库失败信号。
+- 本地 PostgreSQL：`24.34 req/s`，`p50=815.6ms`，未出现对应 DB 锁冲突/落库失败信号。
+- 结论：在该 Mock 场景下性能接近，但并发稳定性 PostgreSQL 明显更好。
+
 ## 📖 详细文档
 
 欲了解更多关于架构设计、API 参考及代理接入指南的信息，请访问我们的 **[官方文档站点](https://l-rocket.github.io/EchoCenter/zh/)**。
