@@ -205,6 +205,21 @@ See comparison notes:
   - `git fetch origin`
   - `git checkout feat/ws-c10k-stress-test`
 
+### WebSocket Long-Connection Capacity (C20K)
+
+- Validation date: `2026-03-08`
+- Verified profile: idle long-lived WebSocket connections (no business-message traffic), periodic Ping keepalive
+- Verified result: `20,000 / 20,000` connections established and held (`100%`)
+- Observed backend process during hold:
+  - RSS around `401MB~415MB`
+  - Threads around `29`
+- Important:
+  - This validates connection-carrying capacity for idle clients/agents.
+  - It does **not** represent message throughput limits for heavy chat/business traffic.
+- Tooling branch for executable stress code:
+  - `git fetch origin`
+  - `git checkout feat/ws-c10k-stress-test`
+
 ### Backend Performance Testing
 ```bash
 # Using wrk
