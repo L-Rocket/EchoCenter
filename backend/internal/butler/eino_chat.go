@@ -30,7 +30,7 @@ func (b *EinoBrain) ChatStream(ctx context.Context, sessionID, input, systemStat
 		}, nil
 	}
 
-	msgs := b.prepareConversation(sessionID, input, systemState)
+	msgs := b.prepareConversation(ctx, sessionID, input, systemState)
 
 	decision, err := b.orch.StreamAssistantForDecision(ctx, msgs, onChunk)
 	if err != nil {
