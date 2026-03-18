@@ -92,6 +92,44 @@ DB_DRIVER=postgres make run-mock RESET=1
 
 `run-mock-sqllite` 与 `run-mock-postgre` 仍保留为兼容别名（已标记废弃）。
 
+### CozeLoop 观测接入
+
+EchoCenter 现在支持把 Butler / Eino 的运行时链路上报到 CozeLoop。Eino 侧使用官方 `github.com/cloudwego/eino-ext/callbacks/cozeloop` callback，同时项目内部补了一层很薄的 Butler runtime 打点，用来记录用户消息处理和上下文压缩这类业务事件。
+
+启动前，在 `backend/.env` 中补上这些配置：
+
+```bash
+OBSERVABILITY_COZELOOP_ENABLED=true
+OBSERVABILITY_SERVICE_NAME=echocenter-backend
+COZELOOP_WORKSPACE_ID=your-workspace-id
+COZELOOP_API_TOKEN=your-cozeloop-token
+```
+
+不开启时，后端会按正常模式启动，不会初始化 CozeLoop client。
+
+API 到底填哪里：
+
+- 如果你说的是 CozeLoop 观测接入，就填 `backend/.env` 里的 `COZELOOP_WORKSPACE_ID` 和 `COZELOOP_API_TOKEN`。
+- 这两个变量只用于链路观测，不负责 Butler 调模型。
+- Butler 调模型仍然使用 `BUTLER_BASE_URL`、`BUTLER_API_TOKEN`、`BUTLER_MODEL`。
+
+一个完整示例：
+
+```bash
+# Butler 模型提供方（OpenAI 兼容接口）
+BUTLER_BASE_URL=https://api.siliconflow.cn/v1
+BUTLER_API_TOKEN=your-llm-provider-token
+BUTLER_MODEL=Qwen/Qwen3-8B
+
+# CozeLoop 观测
+OBSERVABILITY_COZELOOP_ENABLED=true
+OBSERVABILITY_SERVICE_NAME=echocenter-backend
+COZELOOP_WORKSPACE_ID=your-cozeloop-workspace-id
+COZELOOP_API_TOKEN=your-cozeloop-api-token
+```
+
+如果你说的“扣子”是普通 Coze Bot / Runtime 调用，而不是 CozeLoop 观测，那么当前项目还没有单独做 Coze Bot 适配器；这种情况下 Butler 仍然要求你提供一套 OpenAI 兼容的模型接口，也就是上面的 `BUTLER_*` 配置。
+
 ### LLM 压测专用分支
 
 由于 `main` 启用了分支保护，LLM 压测工具链维护在独立分支：
