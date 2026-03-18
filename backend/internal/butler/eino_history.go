@@ -1,35 +1,162 @@
 package butler
 
-import "github.com/cloudwego/eino/schema"
+import (
+	"context"
+	"log"
+	"time"
 
-func (b *EinoBrain) prepareConversation(sessionID, input, systemState string) []*schema.Message {
+	"github.com/cloudwego/eino/schema"
+)
+
+const fallbackRecentHistoryLimit = 20
+
+type conversationState struct {
+	Summary         string
+	RecentMessages  []*schema.Message
+	LastCompactedAt time.Time
+}
+
+func (b *EinoBrain) prepareConversation(ctx context.Context, sessionID, input, systemState string) []*schema.Message {
 	b.historyMu.Lock()
 	defer b.historyMu.Unlock()
 
-	msgs := b.history[sessionID]
-	systemPrompt := buildButlerSystemPrompt(systemState)
+	state := b.getOrCreateConversationState(sessionID)
+	state.RecentMessages = append(state.RecentMessages, schema.UserMessage(input))
 
-	if len(msgs) == 0 {
-		msgs = append(msgs, schema.SystemMessage(systemPrompt))
-	} else if msgs[0].Role == schema.System {
-		msgs[0].Content = systemPrompt
+	if err := b.compactHistoryIfNeededLocked(ctx, state); err != nil {
+		log.Printf("[Butler] Context compaction failed for session %s: %v", sessionID, err)
 	}
 
-	msgs = append(msgs, schema.UserMessage(input))
-	b.history[sessionID] = msgs
-	return msgs
+	return buildConversationMessages(buildButlerSystemPrompt(systemState), state)
 }
 
 func (b *EinoBrain) appendHistory(sessionID string, messages ...*schema.Message) {
+	if len(messages) == 0 {
+		return
+	}
+
 	b.historyMu.Lock()
 	defer b.historyMu.Unlock()
-	b.history[sessionID] = append(b.history[sessionID], messages...)
+
+	state := b.getOrCreateConversationState(sessionID)
+	state.RecentMessages = append(state.RecentMessages, cloneMessages(messages)...)
+	if !b.hasContextCompactor() {
+		state.RecentMessages = trimRecentMessages(state.RecentMessages, fallbackRecentHistoryLimit)
+	}
 }
 
-func (b *EinoBrain) trimHistory(sessionID string) {
-	if len(b.history[sessionID]) > 21 {
-		newHistory := []*schema.Message{b.history[sessionID][0]}
-		newHistory = append(newHistory, b.history[sessionID][len(b.history[sessionID])-20:]...)
-		b.history[sessionID] = newHistory
+func (b *EinoBrain) getOrCreateConversationState(sessionID string) *conversationState {
+	if b.history[sessionID] == nil {
+		b.history[sessionID] = &conversationState{}
 	}
+	return b.history[sessionID]
+}
+
+func (b *EinoBrain) compactHistoryIfNeededLocked(ctx context.Context, state *conversationState) error {
+	if !b.hasContextCompactor() || !b.shouldCompactLocked(state) {
+		return nil
+	}
+
+	messagesToCompact, recentWindow := splitMessagesForCompaction(state.RecentMessages, b.compaction.RecentWindow)
+	if len(messagesToCompact) == 0 {
+		return nil
+	}
+
+	summary, err := b.compactor.Compact(ctx, contextCompactionRequest{
+		ExistingSummary: state.Summary,
+		Messages:        cloneMessages(messagesToCompact),
+	})
+	if err != nil {
+		return err
+	}
+
+	state.Summary = summary
+	state.RecentMessages = recentWindow
+	state.LastCompactedAt = time.Now()
+	return nil
+}
+
+func (b *EinoBrain) hasContextCompactor() bool {
+	return b != nil && b.compaction.Enabled && b.compactor != nil
+}
+
+func (b *EinoBrain) shouldCompactLocked(state *conversationState) bool {
+	if state == nil {
+		return false
+	}
+
+	if b.compaction.TriggerMessages > 0 && len(state.RecentMessages) > b.compaction.TriggerMessages {
+		return true
+	}
+
+	if b.compaction.TriggerChars > 0 && estimateConversationChars(state) > b.compaction.TriggerChars {
+		return true
+	}
+
+	return false
+}
+
+func buildConversationMessages(systemPrompt string, state *conversationState) []*schema.Message {
+	msgs := []*schema.Message{schema.SystemMessage(systemPrompt)}
+	if state != nil && state.Summary != "" {
+		msgs = append(msgs, schema.SystemMessage(buildConversationSummaryPrompt(state.Summary)))
+	}
+	if state != nil {
+		msgs = append(msgs, cloneMessages(state.RecentMessages)...)
+	}
+	return msgs
+}
+
+func buildConversationSummaryPrompt(summary string) string {
+	return "Conversation summary so far:\n" + summary
+}
+
+func estimateConversationChars(state *conversationState) int {
+	if state == nil {
+		return 0
+	}
+
+	total := len(state.Summary)
+	for _, msg := range state.RecentMessages {
+		if msg == nil {
+			continue
+		}
+		total += len(msg.Content)
+	}
+	return total
+}
+
+func splitMessagesForCompaction(messages []*schema.Message, recentWindow int) ([]*schema.Message, []*schema.Message) {
+	if recentWindow < 1 {
+		recentWindow = 1
+	}
+	if len(messages) <= recentWindow {
+		return nil, cloneMessages(messages)
+	}
+
+	splitAt := len(messages) - recentWindow
+	return cloneMessages(messages[:splitAt]), cloneMessages(messages[splitAt:])
+}
+
+func trimRecentMessages(messages []*schema.Message, limit int) []*schema.Message {
+	if limit < 1 || len(messages) <= limit {
+		return cloneMessages(messages)
+	}
+	return cloneMessages(messages[len(messages)-limit:])
+}
+
+func cloneMessages(messages []*schema.Message) []*schema.Message {
+	if len(messages) == 0 {
+		return nil
+	}
+
+	cloned := make([]*schema.Message, 0, len(messages))
+	for _, msg := range messages {
+		if msg == nil {
+			continue
+		}
+		msgCopy := *msg
+		cloned = append(cloned, &msgCopy)
+	}
+	return cloned
 }

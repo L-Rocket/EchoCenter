@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/lea/echocenter/backend/internal/models"
@@ -49,6 +51,7 @@ func InitButler(id int, name string, hub HubInterface, repo repository.Repositor
 		baseURL := os.Getenv("BUTLER_BASE_URL")
 		apiToken := os.Getenv("BUTLER_API_TOKEN")
 		model := os.Getenv("BUTLER_MODEL")
+		compactionCfg := loadContextCompactionConfig(baseURL, apiToken, model)
 
 		if apiToken == "" {
 			log.Println("WARNING: BUTLER_API_TOKEN not found in environment.")
@@ -60,7 +63,7 @@ func InitButler(id int, name string, hub HubInterface, repo repository.Repositor
 			baseURL:    baseURL,
 			apiToken:   apiToken,
 			model:      model,
-			brain:      NewEinoBrain(baseURL, apiToken, model),
+			brain:      NewEinoBrain(baseURL, apiToken, model, compactionCfg),
 			hub:        hub,
 			repo:       repo,
 		}
@@ -70,6 +73,50 @@ func InitButler(id int, name string, hub HubInterface, repo repository.Repositor
 			log.Printf("Butler brain connected to: %s", baseURL)
 		}
 	})
+}
+
+func loadContextCompactionConfig(baseURL, apiToken, model string) ContextCompactionConfig {
+	cfg := newContextCompactionConfig(baseURL, apiToken, model)
+
+	if raw, ok := os.LookupEnv("BUTLER_CONTEXT_COMPACTION_ENABLED"); ok {
+		cfg.Enabled = parseBoolOrDefault(raw, cfg.Enabled)
+	}
+	if raw := strings.TrimSpace(os.Getenv("BUTLER_CONTEXT_COMPACTION_BASE_URL")); raw != "" {
+		cfg.BaseURL = raw
+	}
+	if raw := strings.TrimSpace(os.Getenv("BUTLER_CONTEXT_COMPACTION_API_TOKEN")); raw != "" {
+		cfg.APIToken = raw
+	}
+	if raw := strings.TrimSpace(os.Getenv("BUTLER_CONTEXT_COMPACTION_MODEL")); raw != "" {
+		cfg.Model = raw
+	}
+	if raw, ok := os.LookupEnv("BUTLER_CONTEXT_COMPACTION_TRIGGER_MESSAGES"); ok {
+		cfg.TriggerMessages = parseIntOrDefault(raw, cfg.TriggerMessages)
+	}
+	if raw, ok := os.LookupEnv("BUTLER_CONTEXT_COMPACTION_TRIGGER_CHARS"); ok {
+		cfg.TriggerChars = parseIntOrDefault(raw, cfg.TriggerChars)
+	}
+	if raw, ok := os.LookupEnv("BUTLER_CONTEXT_COMPACTION_RECENT_WINDOW"); ok {
+		cfg.RecentWindow = parseIntOrDefault(raw, cfg.RecentWindow)
+	}
+
+	return cfg.withDefaults()
+}
+
+func parseBoolOrDefault(raw string, fallback bool) bool {
+	parsed, err := strconv.ParseBool(strings.TrimSpace(raw))
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+func parseIntOrDefault(raw string, fallback int) int {
+	parsed, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }
 
 // GetButler returns the singleton instance
