@@ -18,6 +18,7 @@ import (
 	"github.com/lea/echocenter/backend/internal/auth"
 	"github.com/lea/echocenter/backend/internal/butler"
 	"github.com/lea/echocenter/backend/internal/config"
+	"github.com/lea/echocenter/backend/internal/observability"
 	"github.com/lea/echocenter/backend/internal/repository"
 )
 
@@ -27,6 +28,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
+
+	observerShutdown, err := observability.Init(cfg.Observability)
+	if err != nil {
+		log.Fatalf("Failed to initialize observability: %v", err)
+	}
+	defer observerShutdown(context.Background())
 
 	// Initialize repository
 	repo, err := repository.New(&cfg.Database)

@@ -92,6 +92,43 @@ DB_DRIVER=postgres make run-mock RESET=1
 
 `run-mock-sqllite` and `run-mock-postgre` are kept as deprecated compatibility aliases.
 
+### CozeLoop Observability
+
+EchoCenter can forward Butler runtime traces to CozeLoop. On the Eino side it uses the official `github.com/cloudwego/eino-ext/callbacks/cozeloop` callback, and it supplements that with a small local wrapper for Butler-specific runtime spans such as user-message handling and context compaction.
+
+Add these variables in `backend/.env` before starting the backend:
+
+```bash
+OBSERVABILITY_COZELOOP_ENABLED=true
+OBSERVABILITY_SERVICE_NAME=echocenter-backend
+COZELOOP_WORKSPACE_ID=your-workspace-id
+COZELOOP_API_TOKEN=your-cozeloop-token
+```
+
+When the switch is off, the backend starts normally without the CozeLoop client.
+
+### Docker Deployment
+
+This branch includes production-oriented Docker assets for deploying backend + frontend together:
+
+```bash
+# 1. Prepare backend env
+cp backend/.env.example backend/.env
+
+# 2. Edit backend/.env
+# Set JWT_SECRET and BUTLER_API_TOKEN at minimum.
+
+# 3. Build and start both services
+docker compose up --build
+```
+
+Service endpoints:
+
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:8080`
+
+The frontend container serves static assets via Nginx and reverse-proxies `/api` and `/api/ws` to the backend container.
+
 ### LLM Stress Testing Branch
 
 Because `main` is protected, the LLM stress tooling is maintained in a dedicated branch:

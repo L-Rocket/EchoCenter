@@ -14,11 +14,12 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	Auth     AuthConfig
-	CORS     CORSConfig
-	FeishuWS FeishuWSConfig
+	Server        ServerConfig
+	Database      DatabaseConfig
+	Auth          AuthConfig
+	CORS          CORSConfig
+	FeishuWS      FeishuWSConfig
+	Observability ObservabilityConfig
 }
 
 // ServerConfig holds HTTP server configuration
@@ -64,6 +65,13 @@ type FeishuWSConfig struct {
 	ReconnectInterval time.Duration
 }
 
+// ObservabilityConfig holds optional runtime observability integrations.
+type ObservabilityConfig struct {
+	CozeLoopEnabled bool
+	ServiceName     string
+	DeploymentEnv   string
+}
+
 // Load loads configuration from environment variables
 func Load() (*Config, error) {
 	// Load .env file if exists
@@ -102,6 +110,11 @@ func Load() (*Config, error) {
 			Enabled:           getEnvAsBool("FEISHU_WS_ENABLED", false),
 			URL:               getEnv("FEISHU_WS_URL", "wss://open.feishu.cn/open-apis/ws/v2"),
 			ReconnectInterval: getEnvAsDuration("FEISHU_WS_RECONNECT_INTERVAL", 5*time.Second),
+		},
+		Observability: ObservabilityConfig{
+			CozeLoopEnabled: getEnvAsBool("OBSERVABILITY_COZELOOP_ENABLED", false),
+			ServiceName:     getEnv("OBSERVABILITY_SERVICE_NAME", "echocenter-backend"),
+			DeploymentEnv:   getEnv("APP_ENV", "development"),
 		},
 	}
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lea/echocenter/backend/internal/models"
+	"github.com/lea/echocenter/backend/internal/observability"
 )
 
 func (s *ButlerService) handleUserMessageFlow(ctx context.Context, senderID int, payload string) {
@@ -19,15 +20,35 @@ func (s *ButlerService) handleUserMessageFlow(ctx context.Context, senderID int,
 	sessionID := fmt.Sprintf("user_%d", senderID)
 	streamID := uuid.New().String()
 	systemState := s.buildSystemState(ctx)
+	ctx, span := observability.StartSpan(ctx, "butler.user_message", "agent")
+	defer span.Finish(ctx)
+	span.SetThreadID(ctx, sessionID)
+	span.SetInput(ctx, map[string]any{
+		"sender_id":      senderID,
+		"payload":        payload,
+		"stream_id":      streamID,
+		"system_state":   systemState,
+		"payload_length": len(payload),
+	})
+	span.SetTags(ctx, map[string]any{
+		"stream_id": streamID,
+		"sender_id": senderID,
+	})
 
 	result, err := s.brain.ChatStream(ctx, sessionID, payload, systemState, func(chunk string) error {
 		s.broadcastStreamChunk(senderID, streamID, chunk)
 		return nil
 	})
 	if err != nil {
+		span.SetStatusCode(ctx, 1)
+		span.SetError(ctx, err)
 		log.Printf("[Butler] Error in chat reasoning: %v", err)
 		return
 	}
+	span.SetOutput(ctx, map[string]any{
+		"content":        strings.TrimSpace(result.Content),
+		"response_chars": len(strings.TrimSpace(result.Content)),
+	})
 
 	s.persistAndBroadcastChat(ctx, senderID, streamID, strings.TrimSpace(result.Content))
 

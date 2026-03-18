@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cloudwego/eino/schema"
+	"github.com/lea/echocenter/backend/internal/observability"
 )
 
 const fallbackRecentHistoryLimit = 20
@@ -57,22 +58,45 @@ func (b *EinoBrain) compactHistoryIfNeededLocked(ctx context.Context, state *con
 		return nil
 	}
 
+	preCompactChars := estimateConversationChars(state)
+	preCompactMessages := len(state.RecentMessages)
 	messagesToCompact, recentWindow := splitMessagesForCompaction(state.RecentMessages, b.compaction.RecentWindow)
 	if len(messagesToCompact) == 0 {
 		return nil
 	}
+
+	spanCtx, span := observability.StartSpan(ctx, "butler.context_compaction", "custom")
+	defer span.Finish(spanCtx)
+	span.SetTags(spanCtx, map[string]any{
+		"messages_before": preCompactMessages,
+		"chars_before":    preCompactChars,
+		"recent_window":   b.compaction.RecentWindow,
+	})
+	span.SetInput(spanCtx, map[string]any{
+		"existing_summary_length": len(state.Summary),
+		"messages_to_compact":     len(messagesToCompact),
+		"recent_window":           b.compaction.RecentWindow,
+	})
 
 	summary, err := b.compactor.Compact(ctx, contextCompactionRequest{
 		ExistingSummary: state.Summary,
 		Messages:        cloneMessages(messagesToCompact),
 	})
 	if err != nil {
+		span.SetStatusCode(spanCtx, 1)
+		span.SetError(spanCtx, err)
 		return err
 	}
 
 	state.Summary = summary
 	state.RecentMessages = recentWindow
 	state.LastCompactedAt = time.Now()
+	span.SetOutput(spanCtx, map[string]any{
+		"summary_length": len(summary),
+		"messages_after": len(state.RecentMessages),
+		"chars_after":    estimateConversationChars(state),
+		"compacted_at":   state.LastCompactedAt.Format(time.RFC3339Nano),
+	})
 	return nil
 }
 
