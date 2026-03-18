@@ -1,0 +1,12 @@
+.git
+.gitignore
+.worktrees
+backend/bin
+backend/.cache
+backend/logs
+backend/data
+backend/tmp
+frontend/node_modules
+frontend/dist
+docs/node_modules
+**/.DS_Store

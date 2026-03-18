@@ -48,6 +48,8 @@ func TestLoadWithExplicitEnv(t *testing.T) {
 	t.Setenv("DB_DSN", "postgres://test:test@localhost:5432/testdb?sslmode=disable")
 	t.Setenv("DB_PATH", "./tmp/test.db")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "http://a.local,http://b.local")
+	t.Setenv("OBSERVABILITY_COZELOOP_ENABLED", "true")
+	t.Setenv("OBSERVABILITY_SERVICE_NAME", "echocenter-test")
 
 	cfg, err := Load()
 	assert.NoError(t, err)
@@ -57,6 +59,9 @@ func TestLoadWithExplicitEnv(t *testing.T) {
 	assert.Equal(t, "postgres://test:test@localhost:5432/testdb?sslmode=disable", cfg.Database.DSN)
 	assert.Equal(t, "./tmp/test.db", cfg.Database.Path)
 	assert.Equal(t, []string{"http://a.local", "http://b.local"}, cfg.CORS.AllowedOrigins)
+	assert.True(t, cfg.Observability.CozeLoopEnabled)
+	assert.Equal(t, "echocenter-test", cfg.Observability.ServiceName)
+	assert.Equal(t, "development", cfg.Observability.DeploymentEnv)
 }
 
 func TestLoadBuildsPostgresDSNFromPGEnv(t *testing.T) {
