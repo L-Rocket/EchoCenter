@@ -37,7 +37,7 @@ func NewEinoBrain(baseURL, apiToken, model string, compactionCfg ContextCompacti
 	})
 	if err != nil {
 		log.Printf("ERROR: Failed to initialize Eino ChatModel: %v", err)
-		return newMockBrain()
+		return newMockBrain(compactionCfg)
 	}
 
 	// Use ReAct Agent for tool-enabled reasoning
