@@ -107,6 +107,30 @@ COZELOOP_API_TOKEN=your-cozeloop-token
 
 When the switch is off, the backend starts normally without the CozeLoop client.
 
+Which API goes where:
+
+- `COZELOOP_WORKSPACE_ID` and `COZELOOP_API_TOKEN` are only for CozeLoop observability.
+- Fill them in `backend/.env`.
+- This does not replace the Butler model config.
+- Butler model calls still use `BUTLER_BASE_URL`, `BUTLER_API_TOKEN`, and `BUTLER_MODEL`.
+
+Example:
+
+```bash
+# Butler model provider (OpenAI-compatible endpoint)
+BUTLER_BASE_URL=https://api.siliconflow.cn/v1
+BUTLER_API_TOKEN=your-llm-provider-token
+BUTLER_MODEL=Qwen/Qwen3-8B
+
+# CozeLoop tracing
+OBSERVABILITY_COZELOOP_ENABLED=true
+OBSERVABILITY_SERVICE_NAME=echocenter-backend
+COZELOOP_WORKSPACE_ID=your-cozeloop-workspace-id
+COZELOOP_API_TOKEN=your-cozeloop-api-token
+```
+
+If by "Coze" you mean a Coze bot/runtime endpoint rather than CozeLoop tracing, the project does not yet have a dedicated Coze bot adapter. In that case Butler still expects an OpenAI-compatible model API via the `BUTLER_*` variables above.
+
 ### Docker Deployment
 
 This branch includes production-oriented Docker assets for deploying backend + frontend together:

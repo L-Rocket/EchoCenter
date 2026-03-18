@@ -129,6 +129,18 @@ BUTLER_BASE_URL=https://api.siliconflow.cn/v1
 BUTLER_API_TOKEN=your_api_token_here
 BUTLER_MODEL=Qwen/Qwen3-8B
 
+# 可选：给运行时上下文压缩单独指定模型
+BUTLER_CONTEXT_COMPACTION_ENABLED=true
+BUTLER_CONTEXT_COMPACTION_BASE_URL=
+BUTLER_CONTEXT_COMPACTION_API_TOKEN=
+BUTLER_CONTEXT_COMPACTION_MODEL=
+
+# 可选：CozeLoop 观测
+OBSERVABILITY_COZELOOP_ENABLED=false
+OBSERVABILITY_SERVICE_NAME=echocenter-backend
+COZELOOP_WORKSPACE_ID=
+COZELOOP_API_TOKEN=
+
 # JWT 配置
 JWT_SECRET=your_jwt_secret_here_at_least_32_characters_long
 JWT_TOKEN_EXPIRATION=24h
@@ -147,6 +159,11 @@ CORS_MAX_AGE=86400
 PostgreSQL 的 mock 启动行为：
 - `DB_DRIVER=postgres` + `make run-mock` 会自动 ensure 目标数据库。
 - `DB_DRIVER=postgres` + `make run-mock RESET=1` 会在注入 mock 前先重建目标数据库。
+
+Coze / API 对应关系：
+- `COZELOOP_WORKSPACE_ID` 和 `COZELOOP_API_TOKEN` 只用于 CozeLoop 链路观测。
+- Butler 调模型仍然使用 `BUTLER_BASE_URL`、`BUTLER_API_TOKEN`、`BUTLER_MODEL`。
+- 如果你说的是普通 Coze Bot / Runtime，而不是 CozeLoop，那么当前项目还没有单独的 Coze Bot 适配器。
 
 ### 4. 运行后端
 
@@ -233,6 +250,27 @@ make run-mock RESET=0
 make run-mock RESET=1
 DB_DRIVER=postgres make run-mock RESET=1
 ```
+
+## Docker 部署
+
+```bash
+cp backend/.env.example backend/.env
+
+# 至少补这几个值：
+# JWT_SECRET
+# BUTLER_API_TOKEN
+
+# 可选：开启 CozeLoop 观测
+# OBSERVABILITY_COZELOOP_ENABLED=true
+# COZELOOP_WORKSPACE_ID=...
+# COZELOOP_API_TOKEN=...
+
+docker compose up --build
+```
+
+默认访问地址：
+- 前端：`http://localhost:3000`
+- 后端 API：`http://localhost:8080`
 
 兼容别名（已废弃）：
 

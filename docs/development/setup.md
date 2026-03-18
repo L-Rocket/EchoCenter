@@ -129,6 +129,18 @@ BUTLER_BASE_URL=https://api.siliconflow.cn/v1
 BUTLER_API_TOKEN=your_api_token_here
 BUTLER_MODEL=Qwen/Qwen3-8B
 
+# Optional: runtime context compaction can use a separate model provider.
+BUTLER_CONTEXT_COMPACTION_ENABLED=true
+BUTLER_CONTEXT_COMPACTION_BASE_URL=
+BUTLER_CONTEXT_COMPACTION_API_TOKEN=
+BUTLER_CONTEXT_COMPACTION_MODEL=
+
+# Optional: CozeLoop observability
+OBSERVABILITY_COZELOOP_ENABLED=false
+OBSERVABILITY_SERVICE_NAME=echocenter-backend
+COZELOOP_WORKSPACE_ID=
+COZELOOP_API_TOKEN=
+
 # JWT Configuration
 JWT_SECRET=your_jwt_secret_here_at_least_32_characters_long
 JWT_TOKEN_EXPIRATION=24h
@@ -147,6 +159,11 @@ CORS_MAX_AGE=86400
 PostgreSQL mock bootstrap behavior:
 - `DB_DRIVER=postgres` + `make run-mock` will auto-ensure target DB.
 - `DB_DRIVER=postgres` + `make run-mock RESET=1` will recreate target DB before seeding.
+
+Coze / API mapping:
+- `COZELOOP_WORKSPACE_ID` and `COZELOOP_API_TOKEN` are only for CozeLoop tracing.
+- Butler model calls still use `BUTLER_BASE_URL`, `BUTLER_API_TOKEN`, and `BUTLER_MODEL`.
+- If you mean a Coze bot/runtime endpoint rather than CozeLoop, EchoCenter does not yet ship a dedicated Coze bot adapter.
 
 ### 4. Run Backend
 
@@ -233,6 +250,27 @@ Quick one-off driver switch:
 make run-mock RESET=1
 DB_DRIVER=postgres make run-mock RESET=1
 ```
+
+## Docker Deployment
+
+```bash
+cp backend/.env.example backend/.env
+
+# At minimum fill these values in backend/.env:
+# JWT_SECRET
+# BUTLER_API_TOKEN
+
+# Optional CozeLoop tracing
+# OBSERVABILITY_COZELOOP_ENABLED=true
+# COZELOOP_WORKSPACE_ID=...
+# COZELOOP_API_TOKEN=...
+
+docker compose up --build
+```
+
+Default endpoints:
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:8080`
 
 Deprecated compatibility aliases:
 
