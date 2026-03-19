@@ -6,6 +6,7 @@ import {
   LogOut,
   Bot,
   UserCircle2,
+  Radar,
 } from "lucide-react"
 import { useNavigate, NavLink } from "react-router-dom"
 
@@ -44,6 +45,12 @@ const navItems = [
     key: "settings",
     path: "/settings",
     icon: Settings,
+    adminOnly: true,
+  },
+  {
+    key: "operations",
+    path: "/operations",
+    icon: Radar,
     adminOnly: true,
   },
 ]
@@ -91,6 +98,8 @@ export function AppSidebar() {
                       ? tx('Butler', '管家')
                       : item.key === 'agents'
                         ? tx('Agents', 'agent')
+                        : item.key === 'operations'
+                          ? tx('Operations', '运维')
                         : tx('Settings', '设置')
                 return (
                   <SidebarMenuItem key={item.key}>

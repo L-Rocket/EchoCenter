@@ -10,7 +10,8 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import ButlerPage from './pages/ButlerPage'
 import AgentsPage from './pages/AgentsPage'
-import TeamPage from './pages/TeamPage'
+import OperationsPage from './pages/OperationsPage'
+import SettingsPage from './pages/SettingsPage'
 
 function App() {
   return (
@@ -31,8 +32,9 @@ function App() {
                   
                   {/* Admin Only Routes */}
                   <Route element={<RequireAuth adminOnly />}>
-                    <Route path="/settings" element={<TeamPage />} />
-                    <Route path="/team" element={<Navigate to="/settings" replace />} />
+                    <Route path="/operations" element={<OperationsPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/team" element={<Navigate to="/operations" replace />} />
                   </Route>
 
                   {/* Default Redirect */}
