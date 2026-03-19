@@ -46,6 +46,11 @@ interface RuntimeStatusBadge {
 
 type OperationsPanel = 'overview' | 'executors' | 'agents' | 'ssh' | 'nodes' | 'openhands' | 'tasks';
 
+interface UserManagementProps {
+  mode?: 'operations' | 'settings';
+  forcedPanel?: OperationsPanel;
+}
+
 const PAGE_SIZE = 5;
 const TOKEN_CACHE_KEY = 'echocenter_agent_token_cache_v1';
 
@@ -102,8 +107,9 @@ const getRuntimeStatusBadge = (agent?: Agent | null): RuntimeStatusBadge => {
   return { variant: 'warning', label: 'Unknown', pulse: false };
 };
 
-const UserManagement = () => {
+const UserManagement = ({ mode = 'operations', forcedPanel }: UserManagementProps) => {
   const { tx, isZh } = useI18n();
+  const isSettingsMode = mode === 'settings';
   const [agents, setAgents] = useState<Agent[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -277,6 +283,21 @@ const UserManagement = () => {
       window.clearInterval(interval);
     };
   }, [fetchAgents, fetchOpsResources]);
+
+  useEffect(() => {
+    const allowedPanels: OperationsPanel[] = isSettingsMode
+      ? ['agents', 'ssh', 'nodes']
+      : ['overview', 'executors', 'openhands', 'tasks'];
+
+    if (forcedPanel && activePanel !== forcedPanel) {
+      setActivePanel(forcedPanel);
+      return;
+    }
+
+    if (!allowedPanels.includes(activePanel)) {
+      setActivePanel(allowedPanels[0]);
+    }
+  }, [activePanel, forcedPanel, isSettingsMode]);
 
   const filteredAgents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -757,7 +778,11 @@ const UserManagement = () => {
 
   panelMeta[2].desc = tx('Manage registered agent runtimes.', '管理已注册的 agent 运行时。');
 
-  const activePanelMeta = panelMeta.find((panel) => panel.key === activePanel) ?? panelMeta[0];
+  const visiblePanels: OperationsPanel[] = isSettingsMode
+    ? ['agents', 'ssh', 'nodes']
+    : ['overview', 'executors', 'openhands', 'tasks'];
+  const visiblePanelMeta = panelMeta.filter((panel) => visiblePanels.includes(panel.key));
+  const activePanelMeta = visiblePanelMeta.find((panel) => panel.key === activePanel) ?? visiblePanelMeta[0];
   const recentTaskPreview = openhandsTasks.slice(0, 3);
   const hasHealthyExecutor = Boolean(openhandsStatus?.enabled && openhandsStatus?.worker_reachable);
 
@@ -783,18 +808,19 @@ const UserManagement = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-700">
-      <div className="rounded-[28px] border border-border/70 bg-gradient-to-br from-background via-background to-muted/20 p-6 shadow-[0_24px_80px_-48px_rgba(0,0,0,0.75)]">
+    <div className={`${isSettingsMode ? 'space-y-5' : 'space-y-6 animate-in fade-in duration-700'}`}>
+      {!isSettingsMode && (
+      <div className="rounded-[28px] border border-border/70 bg-gradient-to-br from-background via-background to-muted/20 p-5 shadow-[0_24px_80px_-48px_rgba(0,0,0,0.75)]">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-3">
             <div className="text-[11px] font-black uppercase tracking-[0.32em] text-primary/80">
               {tx('Operations Fabric', '运维织网')}
             </div>
             <div className="space-y-1">
-              <h2 className="text-3xl font-black tracking-tight">
+              <h2 className="text-2xl font-black tracking-tight lg:text-[2rem]">
                 {tx('Operations Control Center', '运维控制中心')}
               </h2>
-              <p className="max-w-3xl text-sm text-muted-foreground font-medium">
+              <p className="max-w-3xl text-[13px] text-muted-foreground font-medium">
                 {tx('Operate agents, SSH assets, infrastructure nodes, and OpenHands runtime from one place.', '在一个页面统一管理 agent、SSH 资产、基础设施节点与 OpenHands 运行时。')}
               </p>
             </div>
@@ -802,21 +828,13 @@ const UserManagement = () => {
               {summaryCards.map((card) => (
                 <div key={card.key} className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
                   <div className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">{card.label}</div>
-                  <div className="mt-2 text-2xl font-black tracking-tight">{card.value}</div>
+                  <div className="mt-2 text-xl font-black tracking-tight lg:text-2xl">{card.value}</div>
                   <div className="mt-1 text-[11px] text-muted-foreground">{card.sublabel}</div>
                 </div>
               ))}
             </div>
           </div>
           <div className="flex items-center gap-2 self-start">
-            <Button
-              size="sm"
-              onClick={openCreateSheet}
-              className="h-11 gap-2 rounded-2xl border-2 uppercase font-black tracking-[0.18em] text-[10px] shadow-[0_16px_40px_-24px_rgba(255,255,255,0.95)]"
-            >
-              <UserPlus className="h-3.5 w-3.5" />
-              {tx('New Agent', '新建 agent')}
-            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -834,8 +852,10 @@ const UserManagement = () => {
         </div>
 
       </div>
+      )}
 
-      <div className="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)]">
+      {!isSettingsMode && (
+      <div className="grid gap-6 xl:grid-cols-[248px_minmax(0,1fr)]">
         <aside className="xl:sticky xl:top-24 h-fit">
           <div className="rounded-[28px] border border-border/70 bg-card/60 p-3 shadow-[0_24px_80px_-48px_rgba(0,0,0,0.75)] backdrop-blur-sm">
             <div className="px-3 pb-3 pt-2">
@@ -847,7 +867,7 @@ const UserManagement = () => {
               </div>
             </div>
             <div className="space-y-2">
-              {panelMeta.map((panel) => (
+              {visiblePanelMeta.map((panel) => (
                 <button
                   key={panel.key}
                   type="button"
@@ -896,8 +916,8 @@ const UserManagement = () => {
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
                 <div className="text-[10px] font-black uppercase tracking-[0.28em] text-primary/80">{tx('Current View', '当前视图')}</div>
-                <h3 className="mt-2 text-2xl font-black tracking-tight">{tx(activePanelMeta.label, activePanelMeta.zh)}</h3>
-                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{activePanelMeta.desc}</p>
+                <h3 className="mt-2 text-xl font-black tracking-tight lg:text-2xl">{tx(activePanelMeta.label, activePanelMeta.zh)}</h3>
+                <p className="mt-1 max-w-2xl text-[13px] text-muted-foreground">{activePanelMeta.desc}</p>
               </div>
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                 <StatusIndicator variant={hasHealthyExecutor ? 'success' : 'warning'} pulse={hasHealthyExecutor} />
@@ -920,9 +940,9 @@ const UserManagement = () => {
                 </CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-2">
                   {summaryCards.map((card) => (
-                    <div key={card.key} className="rounded-2xl border border-border/70 bg-background/70 p-4">
-                      <div className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">{card.label}</div>
-                      <div className="mt-3 text-3xl font-black tracking-tight">{card.value}</div>
+                      <div key={card.key} className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                        <div className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">{card.label}</div>
+                      <div className="mt-3 text-2xl font-black tracking-tight">{card.value}</div>
                       <div className="mt-1 text-[11px] text-muted-foreground">{card.sublabel}</div>
                     </div>
                   ))}
@@ -1022,17 +1042,17 @@ const UserManagement = () => {
                   </div>
                   <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
                     <div className="text-sm font-semibold">{tx('SSH Transport Layer', 'SSH 传输层')}</div>
-                    <div className="mt-3 text-3xl font-black tracking-tight">{infraNodes.length}</div>
+                    <div className="mt-3 text-2xl font-black tracking-tight">{infraNodes.length}</div>
                     <div className="mt-1 text-[11px] text-muted-foreground">{tx('connected infrastructure targets', '个已接入基础设施目标')}</div>
                   </div>
                   <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
                     <div className="text-sm font-semibold">{tx('Credential Vault', '凭据保险库')}</div>
-                    <div className="mt-3 text-3xl font-black tracking-tight">{sshKeys.length}</div>
+                    <div className="mt-3 text-2xl font-black tracking-tight">{sshKeys.length}</div>
                     <div className="mt-1 text-[11px] text-muted-foreground">{tx('encrypted SSH materials available to runtime', '份可供运行时使用的加密 SSH 凭据')}</div>
                   </div>
                   <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
                     <div className="text-sm font-semibold">{tx('Delegation Trail', '委派轨迹')}</div>
-                    <div className="mt-3 text-3xl font-black tracking-tight">{openhandsTasks.length}</div>
+                    <div className="mt-3 text-2xl font-black tracking-tight">{openhandsTasks.length}</div>
                     <div className="mt-1 text-[11px] text-muted-foreground">{tx('recent operations recorded in memory', '条近期内存态任务记录')}</div>
                   </div>
                 </CardContent>
@@ -1055,6 +1075,19 @@ const UserManagement = () => {
               </Card>
             </div>
           )}
+
+      {isSettingsMode && activePanel === 'agents' && (
+      <div className="flex items-center justify-end">
+        <Button
+          size="sm"
+          onClick={openCreateSheet}
+          className="h-10 gap-2 rounded-2xl border-2 uppercase font-black tracking-[0.14em] text-[10px]"
+        >
+          <UserPlus className="h-3.5 w-3.5" />
+          {tx('New Agent', '新建 agent')}
+        </Button>
+      </div>
+      )}
 
       {activePanel === 'agents' && (
       <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm">
@@ -1508,6 +1541,7 @@ const UserManagement = () => {
 
         </section>
       </div>
+      )}
 
       {opsError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive font-semibold">

@@ -42,15 +42,15 @@ const navItems = [
     icon: Bot,
   },
   {
-    key: "settings",
-    path: "/settings",
-    icon: Settings,
-    adminOnly: true,
-  },
-  {
     key: "operations",
     path: "/operations",
     icon: Radar,
+    adminOnly: true,
+  },
+  {
+    key: "settings",
+    path: "/settings",
+    icon: Settings,
     adminOnly: true,
   },
 ]
