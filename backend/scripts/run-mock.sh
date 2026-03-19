@@ -109,6 +109,14 @@ if [ "$DB_DRIVER" = "postgres" ]; then
     fi
 fi
 
+SKIP_DEV_RESET=0
+if [ "$DB_DRIVER" = "postgres" ] && [ "$RESET" = "1" ]; then
+    # `mockdb --action recreate` already truncates and recreates the full schema.
+    # Calling /api/dev/mock/reset again would recreate Butler/Admin with new IDs
+    # after the in-memory Butler singleton has already been initialized.
+    SKIP_DEV_RESET=1
+fi
+
 echo -e "${YELLOW}[2/5] Starting backend service...${NC}"
 cd "$BACKEND_DIR"
 go build -o bin/server ./cmd/server
@@ -153,13 +161,17 @@ if [ -z "$TOKEN" ]; then
 fi
 
 if [ "$RESET" = "1" ]; then
-    echo "  Calling dev mock reset API..."
-    RESET_RES=$(curl -s -X POST "$API_URL/dev/mock/reset" \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $TOKEN")
-    if ! echo "$RESET_RES" | grep -q '"status":"reset"'; then
-        echo -e "${RED}Error: mock reset failed. Response: $RESET_RES${NC}"
-        exit 1
+    if [ "$SKIP_DEV_RESET" = "1" ]; then
+        echo "  Skip dev mock reset (database already recreated)"
+    else
+        echo "  Calling dev mock reset API..."
+        RESET_RES=$(curl -s -X POST "$API_URL/dev/mock/reset" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $TOKEN")
+        if ! echo "$RESET_RES" | grep -q '"status":"reset"'; then
+            echo -e "${RED}Error: mock reset failed. Response: $RESET_RES${NC}"
+            exit 1
+        fi
     fi
 else
     echo "  Skip DB reset (RESET=$RESET)"
