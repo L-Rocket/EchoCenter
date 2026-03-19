@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Bot, Terminal, Shield, Loader2, XCircle } from 'lucide-react';
+import { Send, Bot, Terminal, Shield, Loader2 } from 'lucide-react';
 import { useChatStore } from '@/store/useChatStore';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
@@ -35,7 +35,6 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
   const isPeerPending = useChatStore((state) =>
     agent?.id ? Boolean(state.pendingByPeer[agent.id]) : false
   );
-  const clearPeerPending = useChatStore((state) => state.clearPeerPending);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -72,7 +71,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
 
   const handleSend = (_e: React.FormEvent) => {
     _e.preventDefault();
-    if (!input.trim() || !user || !agent?.id) return;
+    if (!input.trim() || !user || !agent?.id || isPeerPending) return;
     sendMessage(agent.id, input);
     setInput('');
   };
@@ -236,18 +235,9 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
           {isPeerPending && messages.length > 0 && (
             <div className="flex justify-start pt-2 animate-in fade-in slide-in-from-bottom-3 duration-500">
               <div className="flex flex-col gap-2 w-full max-w-[240px]">
-                <div className="flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">{tx('Waiting Reply', '等待回复')}</span>
-                  </div>
-                  <button 
-                    onClick={() => clearPeerPending(agent.id)}
-                    className="group flex items-center gap-1 hover:bg-destructive/10 px-1.5 py-0.5 rounded transition-colors"
-                  >
-                    <span className="text-[8px] font-bold text-muted-foreground group-hover:text-destructive uppercase">{tx('Abort', '中止')}</span>
-                    <XCircle className="h-2.5 w-2.5 text-muted-foreground group-hover:text-destructive" />
-                  </button>
+                <div className="flex items-center gap-2 px-1">
+                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">{tx('Waiting Reply', '等待回复')}</span>
                 </div>
                 <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
                   <div className="h-full bg-primary w-1/3 animate-[progress_2s_ease-in-out_infinite] rounded-full shadow-[0_0_8px_rgba(79,70,229,0.4)]" />
@@ -264,7 +254,9 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
         <form onSubmit={handleSend} className="max-w-3xl mx-auto flex items-center gap-3">
           <div className="relative flex-grow">
             <Input
-              placeholder={tx(`Send instruction to ${agent.username}...`, `向 ${agent.username} 发送指令...`)}
+              placeholder={isPeerPending
+                ? tx('Wait for the current reply to finish...', '请等待当前回复完成...')
+                : tx(`Send instruction to ${agent.username}...`, `向 ${agent.username} 发送指令...`)}
               className="h-12 bg-muted/50 border focus:bg-background focus:ring-primary transition-all pr-12 rounded-xl"
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -277,6 +269,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
             type="submit" 
             size="icon" 
             className="h-12 w-12 shrink-0 shadow-lg rounded-xl transition-all active:scale-95 bg-indigo-600 hover:bg-indigo-700 text-white"
+            disabled={isPeerPending || !input.trim()}
           >
             <Send className="h-5 w-5" />
           </Button>

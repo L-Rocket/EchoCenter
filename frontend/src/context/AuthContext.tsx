@@ -99,9 +99,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const peerId = msg.sender_id === currentUser?.id ? msg.target_id : msg.sender_id;
             if (peerId) {
               useChatStore.getState().removeProcessMessages(peerId);
-              if (msg.sender_id !== currentUser?.id) {
-                clearPeerPending(peerId);
-              }
               appendStreamChunk(peerId, {
                 stream_id: msg.stream_id || 'unknown',
                 payload: msg.payload as string,
