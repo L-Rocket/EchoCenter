@@ -1,3 +1,2 @@
 fastapi==0.116.1
 uvicorn[standard]==0.35.0
-https://github.com/OpenHands/software-agent-sdk/archive/703151e01f7b477cf3c8e45d1d57c562fab50823.zip

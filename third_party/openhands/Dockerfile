@@ -4,6 +4,8 @@ WORKDIR /app
 
 COPY third_party/openhands/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
+COPY third_party/openhands/install_sdk.sh /app/install_sdk.sh
+RUN bash /app/install_sdk.sh
 
 COPY third_party/openhands/app.py /app/app.py
 
