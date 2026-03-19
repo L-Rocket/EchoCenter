@@ -69,6 +69,7 @@ type FeishuWSConfig struct {
 // OpenHandsConfig holds the backend-managed OpenHands ops agent configuration.
 type OpenHandsConfig struct {
 	Enabled             bool
+	ServiceURL          string
 	PythonBin           string
 	RunnerScript        string
 	BaseURL             string
@@ -126,6 +127,7 @@ func Load() (*Config, error) {
 		},
 		OpenHands: OpenHandsConfig{
 			Enabled:             getEnvAsBool("OPENHANDS_ENABLED", false),
+			ServiceURL:          getEnv("OPENHANDS_SERVICE_URL", ""),
 			PythonBin:           getEnv("OPENHANDS_PYTHON_BIN", "python3"),
 			RunnerScript:        getEnv("OPENHANDS_RUNNER_SCRIPT", "./scripts/openhands_ops_runner.py"),
 			BaseURL:             getEnv("OPENHANDS_BASE_URL", ""),

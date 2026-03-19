@@ -10,8 +10,12 @@ services:
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: 8080
       DB_PATH: /app/data/echo_center.db
+      OPENHANDS_SERVICE_URL: http://openhands:8000
+      OPENHANDS_WORKSPACE_DIR: /workspace
     volumes:
       - backend-data:/app/data
+    depends_on:
+      - openhands
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -26,5 +30,21 @@ services:
       - "3000:80"
     restart: unless-stopped
 
+  openhands:
+    build:
+      context: .
+      dockerfile: third_party/openhands/Dockerfile
+    env_file:
+      - ./backend/.env
+    environment:
+      OPENHANDS_ENABLED: "true"
+      OPENHANDS_WORKSPACE_DIR: /workspace
+    volumes:
+      - openhands-data:/workspace
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
 volumes:
   backend-data:
+  openhands-data:

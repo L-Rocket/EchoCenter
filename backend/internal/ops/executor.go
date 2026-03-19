@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -141,6 +143,10 @@ func (e *Executor) buildPayload(ctx context.Context, task, reasoning string) (*r
 }
 
 func (e *Executor) run(ctx context.Context, payload *runnerPayload) (string, error) {
+	if strings.TrimSpace(e.cfg.ServiceURL) != "" {
+		return e.runViaService(ctx, payload)
+	}
+
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return "", err
@@ -177,6 +183,45 @@ func (e *Executor) run(ctx context.Context, payload *runnerPayload) (string, err
 		return "", errors.New(resp.Error)
 	}
 	return strings.TrimSpace(resp.Summary), nil
+}
+
+func (e *Executor) runViaService(ctx context.Context, payload *runnerPayload) (string, error) {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(e.cfg.ServiceURL, "/")+"/run", bytes.NewReader(data))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("OpenHands service request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read OpenHands service response: %w", err)
+	}
+
+	var result runnerResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", fmt.Errorf("parse OpenHands service response: %w", err)
+	}
+	if resp.StatusCode >= 400 || !result.OK {
+		if result.Error == "" {
+			result.Error = strings.TrimSpace(string(body))
+		}
+		if result.Error == "" {
+			result.Error = fmt.Sprintf("OpenHands service returned HTTP %d", resp.StatusCode)
+		}
+		return "", errors.New(result.Error)
+	}
+	return strings.TrimSpace(result.Summary), nil
 }
 
 func ensureManagedAgent(ctx context.Context, repo repository.Repository) (*models.User, error) {
