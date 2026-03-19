@@ -16,6 +16,21 @@ type conversationState struct {
 	Summary         string
 	RecentMessages  []*schema.Message
 	LastCompactedAt time.Time
+	PendingCompaction *pendingCompactionState
+}
+
+type pendingCompactionState struct {
+	JobID             uint64
+	CompactedMessages []*schema.Message
+}
+
+type asyncCompactionJob struct {
+	SessionID         string
+	JobID             uint64
+	PreCompactChars   int
+	PreCompactMessages int
+	Request           contextCompactionRequest
+	CompactedMessages []*schema.Message
 }
 
 type PromptTrace struct {
@@ -36,16 +51,17 @@ type PromptMessageTrace struct {
 
 func (b *EinoBrain) prepareConversation(ctx context.Context, sessionID, input, systemState string) []*schema.Message {
 	b.historyMu.Lock()
-	defer b.historyMu.Unlock()
-
 	state := b.getOrCreateConversationState(sessionID)
 	state.RecentMessages = append(state.RecentMessages, schema.UserMessage(input))
+	job := b.startAsyncCompactionLocked(sessionID, state)
+	msgs := buildConversationMessages(buildButlerSystemPrompt(systemState), state)
+	b.historyMu.Unlock()
 
-	if err := b.compactHistoryIfNeededLocked(ctx, state); err != nil {
-		log.Printf("[Butler] Context compaction failed for session %s: %v", sessionID, err)
+	if job != nil {
+		go b.runAsyncCompaction(job)
 	}
 
-	return buildConversationMessages(buildButlerSystemPrompt(systemState), state)
+	return msgs
 }
 
 func (b *EinoBrain) appendHistory(sessionID string, messages ...*schema.Message) {
@@ -70,51 +86,117 @@ func (b *EinoBrain) getOrCreateConversationState(sessionID string) *conversation
 	return b.history[sessionID]
 }
 
-func (b *EinoBrain) compactHistoryIfNeededLocked(ctx context.Context, state *conversationState) error {
-	if !b.hasContextCompactor() || !b.shouldCompactLocked(state) {
+func (b *EinoBrain) startAsyncCompactionLocked(sessionID string, state *conversationState) *asyncCompactionJob {
+	if !b.hasContextCompactor() || !b.shouldCompactLocked(state) || state == nil || state.PendingCompaction != nil {
 		return nil
 	}
 
 	preCompactChars := estimateConversationChars(state)
 	preCompactMessages := len(state.RecentMessages)
-	messagesToCompact, recentWindow := splitMessagesForCompaction(state.RecentMessages, b.compaction.RecentWindow)
+	messagesToCompact, _ := splitMessagesForCompaction(state.RecentMessages, b.compaction.RecentWindow)
 	if len(messagesToCompact) == 0 {
 		return nil
 	}
 
+	b.nextCompactionJob++
+	jobID := b.nextCompactionJob
+	compactedMessages := cloneMessages(messagesToCompact)
+	state.PendingCompaction = &pendingCompactionState{
+		JobID:             jobID,
+		CompactedMessages: compactedMessages,
+	}
+
+	return &asyncCompactionJob{
+		SessionID:          sessionID,
+		JobID:              jobID,
+		PreCompactChars:    preCompactChars,
+		PreCompactMessages: preCompactMessages,
+		Request: contextCompactionRequest{
+			ExistingSummary: state.Summary,
+			Messages:        compactedMessages,
+		},
+		CompactedMessages: compactedMessages,
+	}
+}
+
+func (b *EinoBrain) runAsyncCompaction(job *asyncCompactionJob) {
+	if b == nil || job == nil || b.compactor == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	spanCtx, span := observability.StartSpan(ctx, "butler.context_compaction", "custom")
 	defer span.Finish(spanCtx)
+	span.SetThreadID(spanCtx, job.SessionID)
 	span.SetTags(spanCtx, map[string]any{
-		"messages_before": preCompactMessages,
-		"chars_before":    preCompactChars,
+		"messages_before": job.PreCompactMessages,
+		"chars_before":    job.PreCompactChars,
 		"recent_window":   b.compaction.RecentWindow,
+		"async":           true,
 	})
 	span.SetInput(spanCtx, map[string]any{
-		"existing_summary_length": len(state.Summary),
-		"messages_to_compact":     len(messagesToCompact),
+		"existing_summary_length": len(job.Request.ExistingSummary),
+		"messages_to_compact":     len(job.Request.Messages),
 		"recent_window":           b.compaction.RecentWindow,
+		"job_id":                  job.JobID,
 	})
 
-	summary, err := b.compactor.Compact(ctx, contextCompactionRequest{
-		ExistingSummary: state.Summary,
-		Messages:        cloneMessages(messagesToCompact),
-	})
+	summary, err := b.compactor.Compact(spanCtx, job.Request)
 	if err != nil {
 		span.SetStatusCode(spanCtx, 1)
 		span.SetError(spanCtx, err)
-		return err
+		log.Printf("[Butler] Context compaction failed for session %s: %v", job.SessionID, err)
+		b.clearPendingCompaction(job.SessionID, job.JobID)
+		return
 	}
 
-	state.Summary = summary
-	state.RecentMessages = recentWindow
-	state.LastCompactedAt = time.Now()
+	state, applied := b.applyCompletedCompaction(job.SessionID, job.JobID, job.CompactedMessages, summary)
+	if !applied {
+		log.Printf("[Butler] Dropped stale context compaction result for session %s", job.SessionID)
+		return
+	}
+
 	span.SetOutput(spanCtx, map[string]any{
 		"summary_length": len(summary),
 		"messages_after": len(state.RecentMessages),
 		"chars_after":    estimateConversationChars(state),
 		"compacted_at":   state.LastCompactedAt.Format(time.RFC3339Nano),
 	})
-	return nil
+}
+
+func (b *EinoBrain) clearPendingCompaction(sessionID string, jobID uint64) {
+	b.historyMu.Lock()
+	defer b.historyMu.Unlock()
+
+	state := b.history[sessionID]
+	if state == nil || state.PendingCompaction == nil || state.PendingCompaction.JobID != jobID {
+		return
+	}
+	state.PendingCompaction = nil
+}
+
+func (b *EinoBrain) applyCompletedCompaction(sessionID string, jobID uint64, compactedMessages []*schema.Message, summary string) (*conversationState, bool) {
+	b.historyMu.Lock()
+	defer b.historyMu.Unlock()
+
+	state := b.history[sessionID]
+	if state == nil || state.PendingCompaction == nil || state.PendingCompaction.JobID != jobID {
+		return nil, false
+	}
+	defer func() {
+		state.PendingCompaction = nil
+	}()
+
+	if !hasMessagePrefix(state.RecentMessages, compactedMessages) {
+		return nil, false
+	}
+
+	state.Summary = summary
+	state.RecentMessages = cloneMessages(state.RecentMessages[len(compactedMessages):])
+	state.LastCompactedAt = time.Now()
+	return state, true
 }
 
 func (b *EinoBrain) hasContextCompactor() bool {
@@ -200,6 +282,25 @@ func cloneMessages(messages []*schema.Message) []*schema.Message {
 		cloned = append(cloned, &msgCopy)
 	}
 	return cloned
+}
+
+func hasMessagePrefix(messages, prefix []*schema.Message) bool {
+	if len(prefix) == 0 {
+		return true
+	}
+	if len(messages) < len(prefix) {
+		return false
+	}
+
+	for idx, msg := range prefix {
+		if msg == nil || messages[idx] == nil {
+			return false
+		}
+		if messages[idx].Role != msg.Role || messages[idx].Content != msg.Content {
+			return false
+		}
+	}
+	return true
 }
 
 func summarizePreparedMessages(messages []*schema.Message) PromptTrace {

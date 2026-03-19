@@ -20,8 +20,9 @@ type EinoBrain struct {
 	compaction ContextCompactionConfig
 
 	// Simple in-memory history management.
-	historyMu sync.RWMutex
-	history   map[string]*conversationState
+	historyMu         sync.RWMutex
+	history           map[string]*conversationState
+	nextCompactionJob uint64
 }
 
 func NewEinoBrain(baseURL, apiToken, model string, compactionCfg ContextCompactionConfig) *EinoBrain {
