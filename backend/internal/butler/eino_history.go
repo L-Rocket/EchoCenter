@@ -3,6 +3,7 @@ package butler
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/cloudwego/eino/schema"
@@ -15,6 +16,22 @@ type conversationState struct {
 	Summary         string
 	RecentMessages  []*schema.Message
 	LastCompactedAt time.Time
+}
+
+type PromptTrace struct {
+	TotalMessages      int                  `json:"total_messages"`
+	TotalChars         int                  `json:"total_chars"`
+	SystemPromptChars  int                  `json:"system_prompt_chars"`
+	MemorySummaryChars int                  `json:"memory_summary_chars"`
+	RecentMessages     int                  `json:"recent_messages"`
+	SummaryInjected    bool                 `json:"summary_injected"`
+	Messages           []PromptMessageTrace `json:"messages"`
+}
+
+type PromptMessageTrace struct {
+	Role    string `json:"role"`
+	Chars   int    `json:"chars"`
+	Preview string `json:"preview"`
 }
 
 func (b *EinoBrain) prepareConversation(ctx context.Context, sessionID, input, systemState string) []*schema.Message {
@@ -183,4 +200,47 @@ func cloneMessages(messages []*schema.Message) []*schema.Message {
 		cloned = append(cloned, &msgCopy)
 	}
 	return cloned
+}
+
+func summarizePreparedMessages(messages []*schema.Message) PromptTrace {
+	trace := PromptTrace{
+		TotalMessages: len(messages),
+	}
+	if len(messages) == 0 {
+		return trace
+	}
+
+	for idx, msg := range messages {
+		if msg == nil {
+			continue
+		}
+
+		contentLen := len(msg.Content)
+		trace.TotalChars += contentLen
+		trace.Messages = append(trace.Messages, PromptMessageTrace{
+			Role:    string(msg.Role),
+			Chars:   contentLen,
+			Preview: promptPreview(msg.Content),
+		})
+
+		switch {
+		case idx == 0 && msg.Role == schema.System:
+			trace.SystemPromptChars = contentLen
+		case idx == 1 && msg.Role == schema.System && strings.HasPrefix(msg.Content, "Conversation summary so far:\n"):
+			trace.MemorySummaryChars = contentLen
+			trace.SummaryInjected = true
+		default:
+			trace.RecentMessages++
+		}
+	}
+
+	return trace
+}
+
+func promptPreview(content string) string {
+	normalized := strings.TrimSpace(strings.ReplaceAll(content, "\n", " "))
+	if len(normalized) <= 160 {
+		return normalized
+	}
+	return normalized[:160] + "..."
 }
