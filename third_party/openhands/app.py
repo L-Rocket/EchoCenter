@@ -6,9 +6,11 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, SecretStr
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from starlette.routing import Route
 
 
 class RunnerNode(BaseModel):
@@ -34,9 +36,6 @@ class RunnerResponse(BaseModel):
     ok: bool
     summary: str = ""
     error: str = ""
-
-
-app = FastAPI(title="EchoCenter OpenHands Worker")
 
 
 def write_key_file(base_dir: Path, node: RunnerNode) -> Path:
@@ -144,14 +143,13 @@ def run_openhands(payload: RunnerPayload, workspace: Path, nodes: list[dict[str,
     return "OpenHands completed the task, but no RESULT.md was produced."
 
 
-@app.get("/healthz")
-def healthz() -> dict[str, str]:
-    return {"status": "ok"}
+async def healthz(_: Request) -> JSONResponse:
+    return JSONResponse({"status": "ok"})
 
 
-@app.post("/run", response_model=RunnerResponse)
-def run(payload: RunnerPayload) -> RunnerResponse:
+async def run(request: Request) -> JSONResponse:
     try:
+        payload = RunnerPayload.model_validate(await request.json())
         with tempfile.TemporaryDirectory(prefix="echocenter-openhands-") as tmpdir:
             base_workspace = Path(payload.workspace_dir or tmpdir)
             base_workspace.mkdir(parents=True, exist_ok=True)
@@ -165,9 +163,18 @@ def run(payload: RunnerPayload) -> RunnerResponse:
                 nodes.append(node_data)
 
             summary = run_openhands(payload, workspace, nodes)
-            return RunnerResponse(ok=True, summary=summary)
+            return JSONResponse(RunnerResponse(ok=True, summary=summary).model_dump())
     except Exception as exc:
         return JSONResponse(
             status_code=500,
             content={"ok": False, "summary": "", "error": str(exc)},
         )
+
+
+app = Starlette(
+    debug=False,
+    routes=[
+        Route("/healthz", healthz, methods=["GET"]),
+        Route("/run", run, methods=["POST"]),
+    ],
+)
