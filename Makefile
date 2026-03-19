@@ -20,7 +20,8 @@ install: ## Install all dependencies (Go, Node, Python)
 	@echo "Installing frontend dependencies..."
 	cd frontend && npm install
 	@echo "Installing Python dependencies..."
-	pip3 install -r backend/mock_agents/requirements.txt 
+	pip3 install -r backend/mock_agents/requirements.txt
+	pip3 install -r third_party/openhands/requirements.txt
 dev-backend: ## Run backend in development mode
 	cd backend && go run cmd/server/main.go
 
