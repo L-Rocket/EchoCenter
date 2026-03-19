@@ -26,7 +26,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { useI18n } from '@/hooks/useI18n';
 import { getWsUrl } from '@/lib/config';
 import { userService } from '@/services/userService';
-import type { Agent, InfraNode, SSHKey } from '@/types';
+import type { Agent, InfraNode, OpenHandsStatus, SSHKey } from '@/types';
 
 type ConnectionState = 'idle' | 'testing' | 'success' | 'failed';
 
@@ -40,6 +40,8 @@ interface RuntimeStatusBadge {
   label: string;
   pulse: boolean;
 }
+
+type OperationsPanel = 'agents' | 'ssh' | 'nodes' | 'openhands';
 
 const PAGE_SIZE = 5;
 const TOKEN_CACHE_KEY = 'echocenter_agent_token_cache_v1';
@@ -139,6 +141,8 @@ const UserManagement = () => {
   const [isCreatingNode, setIsCreatingNode] = useState(false);
   const [deletingSSHKeyID, setDeletingSSHKeyID] = useState<number | null>(null);
   const [deletingNodeID, setDeletingNodeID] = useState<number | null>(null);
+  const [activePanel, setActivePanel] = useState<OperationsPanel>('agents');
+  const [openhandsStatus, setOpenhandsStatus] = useState<OpenHandsStatus | null>(null);
 
   const wsUrl = getWsUrl();
 
@@ -229,12 +233,14 @@ const UserManagement = () => {
 
   const fetchOpsResources = useCallback(async () => {
     try {
-      const [keys, nodes] = await Promise.all([
+      const [keys, nodes, status] = await Promise.all([
         userService.listSSHKeys(),
         userService.listInfraNodes(),
+        userService.getOpenHandsStatus(),
       ]);
       setSSHKeys(Array.isArray(keys) ? keys : []);
       setInfraNodes(Array.isArray(nodes) ? nodes : []);
+      setOpenhandsStatus(status ?? null);
       setOpsError('');
     } catch (_err) {
       setOpsError('Failed to load OpenHands ops resources from backend.');
@@ -360,7 +366,7 @@ const UserManagement = () => {
     e.preventDefault();
     const username = newAgentName.trim();
     const token = newAgentToken.trim();
-    if (!username || !token || isCreating) return;
+    if (!username || isCreating || (newAgentKind === 'generic' && !token)) return;
 
     setIsCreating(true);
     setCreateError('');
@@ -600,19 +606,34 @@ const UserManagement = () => {
       'Not tested yet.': '尚未进行连接测试。',
       'No agents matched your search.': '未匹配到任何 agent。',
       'No agent selected.': '未选择 agent。',
+      'Failed to load OpenHands ops resources from backend.': '从后端加载 OpenHands 运维资源失败。',
+      'Failed to create SSH key.': '创建 SSH 密钥失败。',
+      'Failed to delete SSH key.': '删除 SSH 密钥失败。',
+      'Failed to create infra node.': '创建基础设施节点失败。',
+      'Failed to delete infra node.': '删除基础设施节点失败。',
     };
     return map[message] ?? message;
   };
+
+  const panelButtonClass = (panel: OperationsPanel) =>
+    `h-9 rounded-full border-2 px-4 text-[10px] uppercase tracking-widest font-black ${
+      activePanel === panel ? 'bg-primary text-primary-foreground border-primary' : 'border-border bg-background'
+    }`;
+
+  const managedOpenHandsAgent = useMemo(
+    () => agents.find((agent) => agent.agent_kind === 'openhands_ops') ?? null,
+    [agents]
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-black tracking-tighter italic">
-            {tx('Agent', 'Agent')} <span className="text-primary">{tx('Token Console', '密钥控制台')}</span>
+            {tx('Operations', '运维')} <span className="text-primary">{tx('Control Center', '控制中心')}</span>
           </h2>
           <p className="text-sm text-muted-foreground font-medium">
-            {tx('Search, create, and maintain agent tokens in one place.', '在一个页面完成搜索、创建与维护 agent 密钥。')}
+            {tx('Operate agents, SSH assets, infrastructure nodes, and OpenHands runtime from one place.', '在一个页面统一管理 agent、SSH 资产、基础设施节点与 OpenHands 运行时。')}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -627,7 +648,10 @@ const UserManagement = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => fetchAgents()}
+            onClick={() => {
+              void fetchAgents();
+              void fetchOpsResources();
+            }}
             disabled={isLoading}
             className="h-9 gap-2 border-2 uppercase font-black tracking-widest text-[10px]"
           >
@@ -637,6 +661,22 @@ const UserManagement = () => {
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className={panelButtonClass('agents')} onClick={() => setActivePanel('agents')}>
+          {tx('Agents', 'Agents')}
+        </button>
+        <button type="button" className={panelButtonClass('ssh')} onClick={() => setActivePanel('ssh')}>
+          {tx('SSH Vault', 'SSH 密钥库')}
+        </button>
+        <button type="button" className={panelButtonClass('nodes')} onClick={() => setActivePanel('nodes')}>
+          {tx('Nodes', '基础设施节点')}
+        </button>
+        <button type="button" className={panelButtonClass('openhands')} onClick={() => setActivePanel('openhands')}>
+          {tx('OpenHands', 'OpenHands')}
+        </button>
+      </div>
+
+      {activePanel === 'agents' && (
       <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm">
         <CardHeader className="pb-4 gap-3">
           <div className="flex items-center justify-between gap-3">
@@ -793,45 +833,147 @@ const UserManagement = () => {
           )}
         </CardContent>
       </Card>
+      )}
 
+      {activePanel === 'ssh' && (
+      <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm">
+        <CardHeader className="pb-4 gap-2">
+          <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
+            <ShieldEllipsis className="h-4 w-4 text-primary" />
+            {tx('SSH Key Vault', 'SSH 密钥库')}
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            {tx('Private keys are encrypted in the backend and only decrypted for OpenHands runtime execution.', '私钥会在后端加密保存，仅在 OpenHands 运行时短暂解密使用。')}
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form onSubmit={handleCreateSSHKey} className="space-y-3">
+            <Input value={newSSHKeyName} onChange={(e) => setNewSSHKeyName(e.target.value)} placeholder={tx('SSH key name', 'SSH 密钥名称')} className="h-9 text-xs" />
+            <Input value={newSSHPublicKey} onChange={(e) => setNewSSHPublicKey(e.target.value)} placeholder={tx('Public key (optional)', '公钥（可选）')} className="h-9 text-xs font-mono" />
+            <textarea value={newSSHPrivateKey} onChange={(e) => setNewSSHPrivateKey(e.target.value)} placeholder={tx('Private key', '私钥')} className="min-h-[120px] w-full rounded-md border bg-background px-3 py-2 text-xs font-mono" />
+            <Button type="submit" className="h-9 text-[10px] uppercase tracking-widest" disabled={isCreatingSSHKey || !newSSHKeyName.trim() || !newSSHPrivateKey.trim()}>
+              {isCreatingSSHKey ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <KeyRound className="mr-1 h-4 w-4" />}
+              {tx('Add SSH Key', '添加 SSH 密钥')}
+            </Button>
+          </form>
+          <div className="space-y-2">
+            {sshKeys.map((key) => (
+              <div key={key.id} className="flex items-center justify-between rounded-md border p-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold">{key.name}</div>
+                  <div className="text-[11px] text-muted-foreground">{key.public_key ? maskToken(key.public_key) : tx('Private key stored securely', '私钥已安全存储')}</div>
+                </div>
+                <Button type="button" variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleDeleteSSHKey(key.id)} disabled={deletingSSHKeyID === key.id}>
+                  {deletingSSHKeyID === key.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+            ))}
+            {sshKeys.length === 0 && (
+              <div className="rounded-md border bg-muted/20 p-4 text-xs text-muted-foreground">
+                {tx('No SSH keys configured yet.', '暂未配置 SSH 密钥。')}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+      )}
+
+      {activePanel === 'nodes' && (
+      <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm">
+        <CardHeader className="pb-4 gap-2">
+          <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
+            <Server className="h-4 w-4 text-primary" />
+            {tx('Infrastructure Nodes', '基础设施节点')}
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            {tx('These SSH nodes are made available to the backend-managed OpenHands Ops Agent.', '这些 SSH 节点会提供给后端托管的 OpenHands 运维 Agent。')}
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form onSubmit={handleCreateNode} className="grid gap-3 md:grid-cols-2">
+            <Input value={newNodeName} onChange={(e) => setNewNodeName(e.target.value)} placeholder={tx('Node name', '节点名称')} className="h-9 text-xs" />
+            <Input value={newNodeHost} onChange={(e) => setNewNodeHost(e.target.value)} placeholder={tx('Host', '主机地址')} className="h-9 text-xs" />
+            <Input value={newNodeSSHUser} onChange={(e) => setNewNodeSSHUser(e.target.value)} placeholder={tx('SSH user', 'SSH 用户')} className="h-9 text-xs" />
+            <Input value={newNodePort} onChange={(e) => setNewNodePort(e.target.value)} placeholder={tx('Port', '端口')} className="h-9 text-xs" />
+            <select value={newNodeSSHKeyID} onChange={(e) => setNewNodeSSHKeyID(e.target.value)} className="h-9 rounded-md border bg-background px-3 text-xs md:col-span-2">
+              <option value="">{tx('Select SSH key', '选择 SSH 密钥')}</option>
+              {sshKeys.map((key) => (
+                <option key={key.id} value={String(key.id)}>{key.name}</option>
+              ))}
+            </select>
+            <Input value={newNodeDescription} onChange={(e) => setNewNodeDescription(e.target.value)} placeholder={tx('Description (optional)', '描述（可选）')} className="h-9 text-xs md:col-span-2" />
+            <div className="md:col-span-2">
+              <Button type="submit" className="h-9 text-[10px] uppercase tracking-widest" disabled={isCreatingNode || !newNodeName.trim() || !newNodeHost.trim() || !newNodeSSHUser.trim() || !newNodeSSHKeyID}>
+                {isCreatingNode ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Server className="mr-1 h-4 w-4" />}
+                {tx('Add Node', '添加节点')}
+              </Button>
+            </div>
+          </form>
+          <div className="space-y-2">
+            {infraNodes.map((node) => {
+              const keyName = sshKeys.find((key) => key.id === node.ssh_key_id)?.name || `#${node.ssh_key_id}`;
+              return (
+                <div key={node.id} className="flex items-center justify-between rounded-md border p-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold">{node.name}</div>
+                    <div className="text-[11px] text-muted-foreground">{node.ssh_user}@{node.host}:{node.port} · {keyName}</div>
+                    {node.description && <div className="text-[11px] text-muted-foreground">{node.description}</div>}
+                  </div>
+                  <Button type="button" variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleDeleteNode(node.id)} disabled={deletingNodeID === node.id}>
+                    {deletingNodeID === node.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
+              );
+            })}
+            {infraNodes.length === 0 && (
+              <div className="rounded-md border bg-muted/20 p-4 text-xs text-muted-foreground">
+                {tx('No infrastructure nodes configured yet.', '暂未配置基础设施节点。')}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+      )}
+
+      {activePanel === 'openhands' && (
       <div className="grid gap-6 xl:grid-cols-2">
         <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm">
           <CardHeader className="pb-4 gap-2">
             <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
-              <ShieldEllipsis className="h-4 w-4 text-primary" />
-              {tx('SSH Key Vault', 'SSH 密钥库')}
+              <PlugZap className="h-4 w-4 text-primary" />
+              {tx('OpenHands Runtime', 'OpenHands 运行时')}
             </CardTitle>
             <p className="text-xs text-muted-foreground">
-              {tx('Private keys are encrypted in the backend and only decrypted for OpenHands runtime execution.', '私钥会在后端加密保存，仅在 OpenHands 运行时短暂解密使用。')}
+              {tx('Monitor the backend-managed OpenHands worker and the infrastructure context Butler can delegate into.', '监控后端托管的 OpenHands worker 以及 Butler 可委派进入的基础设施上下文。')}
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
-            <form onSubmit={handleCreateSSHKey} className="space-y-3">
-              <Input value={newSSHKeyName} onChange={(e) => setNewSSHKeyName(e.target.value)} placeholder={tx('SSH key name', 'SSH 密钥名称')} className="h-9 text-xs" />
-              <Input value={newSSHPublicKey} onChange={(e) => setNewSSHPublicKey(e.target.value)} placeholder={tx('Public key (optional)', '公钥（可选）')} className="h-9 text-xs font-mono" />
-              <textarea value={newSSHPrivateKey} onChange={(e) => setNewSSHPrivateKey(e.target.value)} placeholder={tx('Private key', '私钥')} className="min-h-[120px] w-full rounded-md border bg-background px-3 py-2 text-xs font-mono" />
-              <Button type="submit" className="h-9 text-[10px] uppercase tracking-widest" disabled={isCreatingSSHKey || !newSSHKeyName.trim() || !newSSHPrivateKey.trim()}>
-                {isCreatingSSHKey ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <KeyRound className="mr-1 h-4 w-4" />}
-                {tx('Add SSH Key', '添加 SSH 密钥')}
-              </Button>
-            </form>
-            <div className="space-y-2">
-              {sshKeys.map((key) => (
-                <div key={key.id} className="flex items-center justify-between rounded-md border p-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold">{key.name}</div>
-                    <div className="text-[11px] text-muted-foreground">{key.public_key ? maskToken(key.public_key) : tx('Private key stored securely', '私钥已安全存储')}</div>
-                  </div>
-                  <Button type="button" variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleDeleteSSHKey(key.id)} disabled={deletingSSHKeyID === key.id}>
-                    {deletingSSHKeyID === key.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                  </Button>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-lg border p-4">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{tx('Mode', '运行模式')}</div>
+                <div className="mt-1 text-lg font-black">{openhandsStatus?.worker_mode || tx('Unknown', '未知')}</div>
+              </div>
+              <div className="rounded-lg border p-4">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{tx('Health', '健康状态')}</div>
+                <div className="mt-2 flex items-center gap-2">
+                  <StatusIndicator variant={openhandsStatus?.worker_reachable ? 'success' : 'warning'} pulse={Boolean(openhandsStatus?.worker_reachable)} />
+                  <span className="text-sm font-semibold">
+                    {openhandsStatus?.enabled
+                      ? openhandsStatus?.worker_reachable
+                        ? tx('Reachable', '可连接')
+                        : tx('Not Reachable', '不可连接')
+                      : tx('Disabled', '已关闭')}
+                  </span>
                 </div>
-              ))}
-              {sshKeys.length === 0 && (
-                <div className="rounded-md border bg-muted/20 p-4 text-xs text-muted-foreground">
-                  {tx('No SSH keys configured yet.', '暂未配置 SSH 密钥。')}
-                </div>
-              )}
+              </div>
+              <div className="rounded-lg border p-4">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{tx('Managed Agent', '托管 Agent')}</div>
+                <div className="mt-1 text-sm font-semibold">{openhandsStatus?.managed_agent_name || managedOpenHandsAgent?.username || tx('Not provisioned', '未创建')}</div>
+              </div>
+              <div className="rounded-lg border p-4">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{tx('Service URL', '服务地址')}</div>
+                <div className="mt-1 break-all text-xs text-muted-foreground">{openhandsStatus?.service_url || tx('Local runner fallback', '本地 runner 回退')}</div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -840,57 +982,41 @@ const UserManagement = () => {
           <CardHeader className="pb-4 gap-2">
             <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
               <Server className="h-4 w-4 text-primary" />
-              {tx('Infrastructure Nodes', '基础设施节点')}
+              {tx('Delegation Surface', '委派面')}
             </CardTitle>
             <p className="text-xs text-muted-foreground">
-              {tx('These SSH nodes are made available to the backend-managed OpenHands Ops Agent.', '这些 SSH 节点会提供给后端托管的 OpenHands 运维 Agent。')}
+              {tx('Summarizes what OpenHands can reach when Butler delegates an operations task.', '总结 Butler 委派运维任务时，OpenHands 当前可触达的范围。')}
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
-            <form onSubmit={handleCreateNode} className="grid gap-3 md:grid-cols-2">
-              <Input value={newNodeName} onChange={(e) => setNewNodeName(e.target.value)} placeholder={tx('Node name', '节点名称')} className="h-9 text-xs" />
-              <Input value={newNodeHost} onChange={(e) => setNewNodeHost(e.target.value)} placeholder={tx('Host', '主机地址')} className="h-9 text-xs" />
-              <Input value={newNodeSSHUser} onChange={(e) => setNewNodeSSHUser(e.target.value)} placeholder={tx('SSH user', 'SSH 用户')} className="h-9 text-xs" />
-              <Input value={newNodePort} onChange={(e) => setNewNodePort(e.target.value)} placeholder={tx('Port', '端口')} className="h-9 text-xs" />
-              <select value={newNodeSSHKeyID} onChange={(e) => setNewNodeSSHKeyID(e.target.value)} className="h-9 rounded-md border bg-background px-3 text-xs md:col-span-2">
-                <option value="">{tx('Select SSH key', '选择 SSH 密钥')}</option>
-                {sshKeys.map((key) => (
-                  <option key={key.id} value={String(key.id)}>{key.name}</option>
-                ))}
-              </select>
-              <Input value={newNodeDescription} onChange={(e) => setNewNodeDescription(e.target.value)} placeholder={tx('Description (optional)', '描述（可选）')} className="h-9 text-xs md:col-span-2" />
-              <div className="md:col-span-2">
-                <Button type="submit" className="h-9 text-[10px] uppercase tracking-widest" disabled={isCreatingNode || !newNodeName.trim() || !newNodeHost.trim() || !newNodeSSHUser.trim() || !newNodeSSHKeyID}>
-                  {isCreatingNode ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Server className="mr-1 h-4 w-4" />}
-                  {tx('Add Node', '添加节点')}
-                </Button>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-lg border p-4">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{tx('SSH Keys', 'SSH 密钥')}</div>
+                <div className="mt-1 text-lg font-black">{openhandsStatus?.ssh_key_count ?? sshKeys.length}</div>
               </div>
-            </form>
-            <div className="space-y-2">
-              {infraNodes.map((node) => {
-                const keyName = sshKeys.find((key) => key.id === node.ssh_key_id)?.name || `#${node.ssh_key_id}`;
-                return (
-                  <div key={node.id} className="flex items-center justify-between rounded-md border p-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold">{node.name}</div>
-                      <div className="text-[11px] text-muted-foreground">{node.ssh_user}@{node.host}:{node.port} · {keyName}</div>
-                      {node.description && <div className="text-[11px] text-muted-foreground">{node.description}</div>}
-                    </div>
-                    <Button type="button" variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleDeleteNode(node.id)} disabled={deletingNodeID === node.id}>
-                      {deletingNodeID === node.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                    </Button>
-                  </div>
-                );
-              })}
-              {infraNodes.length === 0 && (
-                <div className="rounded-md border bg-muted/20 p-4 text-xs text-muted-foreground">
-                  {tx('No infrastructure nodes configured yet.', '暂未配置基础设施节点。')}
-                </div>
-              )}
+              <div className="rounded-lg border p-4">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{tx('Nodes', '节点')}</div>
+                <div className="mt-1 text-lg font-black">{openhandsStatus?.node_count ?? infraNodes.length}</div>
+              </div>
+              <div className="rounded-lg border p-4">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{tx('Runtime Kind', '运行时类型')}</div>
+                <div className="mt-1 text-lg font-black">{managedOpenHandsAgent?.runtime_kind || tx('OpenHands', 'OpenHands')}</div>
+              </div>
             </div>
+            <div className="rounded-lg border bg-muted/20 p-4 text-xs text-muted-foreground">
+              {tx('SSH keys are encrypted at rest, nodes are reachable over SSH, and Butler can delegate concrete operations to the backend-managed OpenHands agent after approval.', 'SSH 密钥静态加密保存，节点通过 SSH 接入，Butler 在审批后可以把具体运维任务委派给后端托管的 OpenHands agent。')}
+            </div>
+            {managedOpenHandsAgent && (
+              <div className="rounded-lg border p-4">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{tx('Managed Agent Identity', '托管 Agent 身份')}</div>
+                <div className="mt-2 text-sm font-semibold">{managedOpenHandsAgent.username}</div>
+                <div className="text-[11px] text-muted-foreground">#{managedOpenHandsAgent.id} · {managedOpenHandsAgent.description || tx('Backend-managed operations agent', '后端托管运维 Agent')}</div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
+      )}
 
       {opsError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive font-semibold">
@@ -1051,6 +1177,11 @@ const UserManagement = () => {
                 <div className="rounded-md border bg-muted/20 p-3 text-[11px] text-muted-foreground">
                   {tx('Agent ID:', 'Agent ID：')} <span className="font-semibold text-foreground">#{selectedAgent.id}</span>
                 </div>
+                {selectedAgent.agent_kind === 'openhands_ops' && (
+                  <div className="rounded-md border bg-primary/5 p-3 text-[11px] text-muted-foreground">
+                    {tx('This agent is backend-managed. Token editing is disabled because Butler reaches it through the OpenHands runtime instead of a WebSocket token.', '这是一个后端托管 Agent。由于 Butler 通过 OpenHands 运行时而不是 WebSocket 密钥访问它，因此这里不提供 token 编辑。')}
+                  </div>
+                )}
                 <div className="rounded-md border bg-muted/20 p-3">
                   {(() => {
                     const runtimeBadge = getRuntimeStatusBadge(selectedAgent);
@@ -1075,6 +1206,7 @@ const UserManagement = () => {
                     }
                     placeholder={tx('Set agent token', '设置 agent 密钥')}
                     className="h-10 font-mono text-xs"
+                    disabled={selectedAgent.agent_kind === 'openhands_ops'}
                   />
 
                   <div className="grid grid-cols-4 gap-2">
@@ -1088,6 +1220,7 @@ const UserManagement = () => {
                           [selectedAgent.id]: !prev[selectedAgent.id],
                         }))
                       }
+                      disabled={selectedAgent.agent_kind === 'openhands_ops'}
                     >
                       {tokenVisible[selectedAgent.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
@@ -1101,6 +1234,7 @@ const UserManagement = () => {
                           [selectedAgent.id]: generateAgentToken(),
                         }))
                       }
+                      disabled={selectedAgent.agent_kind === 'openhands_ops'}
                     >
                       <KeyRound className="h-4 w-4" />
                     </Button>
@@ -1118,7 +1252,7 @@ const UserManagement = () => {
                       variant="outline"
                       className="h-9"
                       onClick={() => handleTestAgentToken(selectedAgent.id)}
-                      disabled={agentConnection[selectedAgent.id]?.state === 'testing'}
+                      disabled={agentConnection[selectedAgent.id]?.state === 'testing' || selectedAgent.agent_kind === 'openhands_ops'}
                     >
                       {agentConnection[selectedAgent.id]?.state === 'testing' ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -1155,7 +1289,7 @@ const UserManagement = () => {
                 <Button
                   type="button"
                   onClick={() => handleSaveToken(selectedAgent.id)}
-                  disabled={isSavingToken[selectedAgent.id]}
+                  disabled={isSavingToken[selectedAgent.id] || selectedAgent.agent_kind === 'openhands_ops'}
                 >
                   {isSavingToken[selectedAgent.id] ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-1" />

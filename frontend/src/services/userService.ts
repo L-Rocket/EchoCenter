@@ -1,5 +1,5 @@
 import api from './api';
-import type { User, Agent, ChatMessage, SSHKey, InfraNode } from '@/types';
+import type { User, Agent, ChatMessage, SSHKey, InfraNode, OpenHandsStatus } from '@/types';
 
 export const userService = {
   getUsers: async () => {
@@ -61,6 +61,11 @@ export const userService = {
 
   listSSHKeys: async () => {
     const response = await api.get<SSHKey[]>('/api/users/ops/ssh-keys');
+    return response.data;
+  },
+
+  getOpenHandsStatus: async () => {
+    const response = await api.get<OpenHandsStatus>('/api/users/ops/status');
     return response.data;
   },
 

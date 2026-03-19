@@ -42,6 +42,17 @@ export interface InfraNode {
   updated_at?: string;
 }
 
+export interface OpenHandsStatus {
+  enabled: boolean;
+  service_url?: string;
+  worker_reachable: boolean;
+  worker_mode?: string;
+  managed_agent_id?: number;
+  managed_agent_name?: string;
+  node_count: number;
+  ssh_key_count: number;
+}
+
 export interface ChatMessage {
   id?: number;
   local_id?: string;
