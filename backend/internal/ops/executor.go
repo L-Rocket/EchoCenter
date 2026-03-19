@@ -33,6 +33,8 @@ const (
 type Executor struct {
 	repo repository.Repository
 	cfg  config.OpenHandsConfig
+	mu   sync.RWMutex
+	jobs []models.OpenHandsTaskRecord
 }
 
 type runnerPayload struct {
@@ -116,11 +118,36 @@ func (e *Executor) ExecuteAgentCommand(ctx context.Context, task, reasoning stri
 	if e == nil || !e.cfg.Enabled {
 		return "", fmt.Errorf("OpenHands executor is disabled")
 	}
+	record := models.OpenHandsTaskRecord{
+		ID:         fmt.Sprintf("openhands-%d", time.Now().UnixNano()),
+		Task:       strings.TrimSpace(task),
+		Reasoning:  strings.TrimSpace(reasoning),
+		StartedAt:  time.Now().UTC(),
+		WorkerMode: "local_runner",
+	}
+	if strings.TrimSpace(e.cfg.ServiceURL) != "" {
+		record.WorkerMode = "service"
+	}
 	payload, err := e.buildPayload(ctx, task, reasoning)
 	if err != nil {
+		record.FinishedAt = time.Now().UTC()
+		record.DurationMS = record.FinishedAt.Sub(record.StartedAt).Milliseconds()
+		record.Error = err.Error()
+		e.appendTaskRecord(record)
 		return "", err
 	}
-	return e.run(ctx, payload)
+	summary, err := e.run(ctx, payload)
+	record.FinishedAt = time.Now().UTC()
+	record.DurationMS = record.FinishedAt.Sub(record.StartedAt).Milliseconds()
+	if err != nil {
+		record.Error = err.Error()
+		e.appendTaskRecord(record)
+		return "", err
+	}
+	record.Success = true
+	record.Summary = strings.TrimSpace(summary)
+	e.appendTaskRecord(record)
+	return summary, nil
 }
 
 func (e *Executor) TestNodeConnectivity(ctx context.Context, nodeID int) (*models.InfraNodeTestResult, error) {
@@ -213,6 +240,32 @@ func (e *Executor) StatusSummary(ctx context.Context) StatusSummary {
 	}
 
 	return summary
+}
+
+func (e *Executor) RecentTasks(limit int) []models.OpenHandsTaskRecord {
+	if e == nil {
+		return nil
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	if len(e.jobs) == 0 {
+		return []models.OpenHandsTaskRecord{}
+	}
+
+	if limit > len(e.jobs) {
+		limit = len(e.jobs)
+	}
+
+	result := make([]models.OpenHandsTaskRecord, 0, limit)
+	for i := len(e.jobs) - 1; i >= 0 && len(result) < limit; i-- {
+		result = append(result, e.jobs[i])
+	}
+	return result
 }
 
 func (e *Executor) buildPayload(ctx context.Context, task, reasoning string) (*runnerPayload, error) {
@@ -329,6 +382,18 @@ func (e *Executor) runViaService(ctx context.Context, payload *runnerPayload) (s
 		return "", errors.New(result.Error)
 	}
 	return strings.TrimSpace(result.Summary), nil
+}
+
+func (e *Executor) appendTaskRecord(record models.OpenHandsTaskRecord) {
+	if e == nil {
+		return
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.jobs = append(e.jobs, record)
+	if len(e.jobs) > 20 {
+		e.jobs = append([]models.OpenHandsTaskRecord(nil), e.jobs[len(e.jobs)-20:]...)
+	}
 }
 
 func (e *Executor) serviceHealthy(ctx context.Context) bool {

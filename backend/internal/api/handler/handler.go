@@ -481,6 +481,29 @@ func (h *Handler) GetOpsStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, status)
 }
 
+func (h *Handler) ListOpenHandsTasks(c *gin.Context) {
+	executor := ops.GetExecutor()
+	if executor == nil {
+		c.JSON(http.StatusOK, []models.OpenHandsTaskRecord{})
+		return
+	}
+
+	limit := 10
+	if v := strings.TrimSpace(c.Query("limit")); v != "" {
+		parsed, err := strconv.Atoi(v)
+		if err != nil || parsed <= 0 {
+			h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid limit"))
+			return
+		}
+		if parsed > 20 {
+			parsed = 20
+		}
+		limit = parsed
+	}
+
+	c.JSON(http.StatusOK, executor.RecentTasks(limit))
+}
+
 func (h *Handler) CreateSSHKey(c *gin.Context) {
 	var key models.SSHKey
 	if err := c.ShouldBindJSON(&key); err != nil {

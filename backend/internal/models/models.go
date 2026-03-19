@@ -89,6 +89,19 @@ type InfraNodeTestResult struct {
 	CheckedAtUTC time.Time `json:"checked_at_utc"`
 }
 
+type OpenHandsTaskRecord struct {
+	ID         string    `json:"id"`
+	Task       string    `json:"task"`
+	Reasoning  string    `json:"reasoning,omitempty"`
+	Success    bool      `json:"success"`
+	Summary    string    `json:"summary,omitempty"`
+	Error      string    `json:"error,omitempty"`
+	WorkerMode string    `json:"worker_mode,omitempty"`
+	StartedAt  time.Time `json:"started_at"`
+	FinishedAt time.Time `json:"finished_at"`
+	DurationMS int64     `json:"duration_ms"`
+}
+
 type FeishuConnector struct {
 	ID                 int        `json:"id" db:"id"`
 	ConnectorName      string     `json:"connector_name" db:"connector_name"`

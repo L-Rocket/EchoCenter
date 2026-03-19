@@ -26,7 +26,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { useI18n } from '@/hooks/useI18n';
 import { getWsUrl } from '@/lib/config';
 import { userService } from '@/services/userService';
-import type { Agent, InfraNode, InfraNodeTestResult, OpenHandsStatus, SSHKey } from '@/types';
+import type { Agent, InfraNode, InfraNodeTestResult, OpenHandsStatus, OpenHandsTaskRecord, SSHKey } from '@/types';
 
 type ConnectionState = 'idle' | 'testing' | 'success' | 'failed';
 
@@ -145,6 +145,7 @@ const UserManagement = () => {
   const [nodeTestResults, setNodeTestResults] = useState<Record<number, InfraNodeTestResult>>({});
   const [activePanel, setActivePanel] = useState<OperationsPanel>('agents');
   const [openhandsStatus, setOpenhandsStatus] = useState<OpenHandsStatus | null>(null);
+  const [openhandsTasks, setOpenhandsTasks] = useState<OpenHandsTaskRecord[]>([]);
 
   const wsUrl = getWsUrl();
 
@@ -235,14 +236,16 @@ const UserManagement = () => {
 
   const fetchOpsResources = useCallback(async () => {
     try {
-      const [keys, nodes, status] = await Promise.all([
+      const [keys, nodes, status, tasks] = await Promise.all([
         userService.listSSHKeys(),
         userService.listInfraNodes(),
         userService.getOpenHandsStatus(),
+        userService.listOpenHandsTasks(),
       ]);
       setSSHKeys(Array.isArray(keys) ? keys : []);
       setInfraNodes(Array.isArray(nodes) ? nodes : []);
       setOpenhandsStatus(status ?? null);
+      setOpenhandsTasks(Array.isArray(tasks) ? tasks : []);
       setOpsError('');
     } catch (_err) {
       setOpsError('Failed to load OpenHands ops resources from backend.');
@@ -1058,6 +1061,63 @@ const UserManagement = () => {
                 <div className="mt-2 text-sm font-semibold">{managedOpenHandsAgent.username}</div>
                 <div className="text-[11px] text-muted-foreground">#{managedOpenHandsAgent.id} · {managedOpenHandsAgent.description || tx('Backend-managed operations agent', '后端托管运维 Agent')}</div>
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm xl:col-span-2">
+          <CardHeader className="pb-4 gap-2">
+            <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
+              <RefreshCw className="h-4 w-4 text-primary" />
+              {tx('Recent Tasks', '最近任务')}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {tx('Shows the latest OpenHands operations Butler delegated through the managed runtime.', '展示 Butler 最近通过托管运行时委派给 OpenHands 的运维任务。')}
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {openhandsTasks.length === 0 ? (
+              <div className="rounded-md border bg-muted/20 p-4 text-xs text-muted-foreground">
+                {tx('No OpenHands task has been executed yet.', '暂时还没有执行过 OpenHands 任务。')}
+              </div>
+            ) : (
+              openhandsTasks.map((task) => (
+                <div key={task.id} className="rounded-lg border p-4">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold break-words">{task.task}</div>
+                      {task.reasoning && (
+                        <div className="mt-1 text-[11px] text-muted-foreground break-words">{task.reasoning}</div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <StatusIndicator variant={task.success ? 'success' : 'warning'} pulse={false} />
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                        {task.success ? tx('Success', '成功') : tx('Failed', '失败')}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-3 md:grid-cols-3 text-[11px] text-muted-foreground">
+                    <div>
+                      <div className="uppercase tracking-wider">{tx('Duration', '耗时')}</div>
+                      <div className="mt-1 text-foreground">{task.duration_ms}ms</div>
+                    </div>
+                    <div>
+                      <div className="uppercase tracking-wider">{tx('Mode', '模式')}</div>
+                      <div className="mt-1 text-foreground">{task.worker_mode || tx('Unknown', '未知')}</div>
+                    </div>
+                    <div>
+                      <div className="uppercase tracking-wider">{tx('Finished', '完成时间')}</div>
+                      <div className="mt-1 text-foreground">{formatCreatedAt(task.finished_at)}</div>
+                    </div>
+                  </div>
+                  {(task.summary || task.error) && (
+                    <div className={`mt-3 rounded-md border px-3 py-2 text-xs ${task.success ? 'bg-emerald-50/50 text-emerald-700 border-emerald-200' : 'bg-amber-50/50 text-amber-700 border-amber-200'}`}>
+                      {task.success ? task.summary : task.error}
+                    </div>
+                  )}
+                </div>
+              ))
             )}
           </CardContent>
         </Card>

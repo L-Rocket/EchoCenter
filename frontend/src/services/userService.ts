@@ -1,5 +1,5 @@
 import api from './api';
-import type { User, Agent, ChatMessage, SSHKey, InfraNode, InfraNodeTestResult, OpenHandsStatus } from '@/types';
+import type { User, Agent, ChatMessage, SSHKey, InfraNode, InfraNodeTestResult, OpenHandsStatus, OpenHandsTaskRecord } from '@/types';
 
 export const userService = {
   getUsers: async () => {
@@ -66,6 +66,11 @@ export const userService = {
 
   getOpenHandsStatus: async () => {
     const response = await api.get<OpenHandsStatus>('/api/users/ops/status');
+    return response.data;
+  },
+
+  listOpenHandsTasks: async (limit = 10) => {
+    const response = await api.get<OpenHandsTaskRecord[]>(`/api/users/ops/tasks?limit=${limit}`);
     return response.data;
   },
 

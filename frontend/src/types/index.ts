@@ -61,6 +61,19 @@ export interface OpenHandsStatus {
   ssh_key_count: number;
 }
 
+export interface OpenHandsTaskRecord {
+  id: string;
+  task: string;
+  reasoning?: string;
+  success: boolean;
+  summary?: string;
+  error?: string;
+  worker_mode?: string;
+  started_at: string;
+  finished_at: string;
+  duration_ms: number;
+}
+
 export interface ChatMessage {
   id?: number;
   local_id?: string;
