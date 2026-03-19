@@ -165,6 +165,42 @@ func (r *sqlRepository) CreateInfraNode(ctx context.Context, node *models.InfraN
 	return nil
 }
 
+func (r *sqlRepository) UpdateInfraNode(ctx context.Context, node *models.InfraNode) error {
+	if node == nil {
+		return apperrors.New(apperrors.ErrInvalidInput, "infra node is required")
+	}
+	if node.ID <= 0 {
+		return apperrors.New(apperrors.ErrInvalidInput, "infra node id is required")
+	}
+	node.Name = strings.TrimSpace(node.Name)
+	node.Host = strings.TrimSpace(node.Host)
+	node.SSHUser = strings.TrimSpace(node.SSHUser)
+	node.Description = strings.TrimSpace(node.Description)
+	if node.Name == "" || node.Host == "" || node.SSHUser == "" || node.SSHKeyID <= 0 {
+		return apperrors.New(apperrors.ErrInvalidInput, "name, host, ssh_user, and ssh_key_id are required")
+	}
+	if node.Port <= 0 {
+		node.Port = 22
+	}
+
+	result, err := r.execContext(ctx, `
+		UPDATE infra_nodes
+		SET name = ?, host = ?, port = ?, ssh_user = ?, ssh_key_id = ?, description = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, node.Name, node.Host, node.Port, node.SSHUser, node.SSHKeyID, node.Description, node.ID)
+	if err != nil {
+		if isUniqueConstraintError(err) {
+			return apperrors.Wrap(apperrors.ErrConflict, "infra node name already exists", err)
+		}
+		return apperrors.Wrap(apperrors.ErrDatabase, "failed to update infra node", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return apperrors.New(apperrors.ErrNotFound, "infra node not found")
+	}
+	return nil
+}
+
 func (r *sqlRepository) DeleteInfraNode(ctx context.Context, id int) error {
 	result, err := r.execContext(ctx, `DELETE FROM infra_nodes WHERE id = ?`, id)
 	if err != nil {

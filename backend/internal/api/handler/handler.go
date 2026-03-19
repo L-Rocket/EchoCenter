@@ -553,6 +553,27 @@ func (h *Handler) CreateInfraNode(c *gin.Context) {
 	c.JSON(http.StatusCreated, node)
 }
 
+func (h *Handler) UpdateInfraNode(c *gin.Context) {
+	nodeID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || nodeID <= 0 {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid infra node id"))
+		return
+	}
+
+	var node models.InfraNode
+	if err := c.ShouldBindJSON(&node); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid request body", err))
+		return
+	}
+	node.ID = nodeID
+
+	if err := h.repo.UpdateInfraNode(c.Request.Context(), &node); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, node)
+}
+
 func (h *Handler) DeleteInfraNode(c *gin.Context) {
 	nodeID, err := strconv.Atoi(c.Param("id"))
 	if err != nil || nodeID <= 0 {

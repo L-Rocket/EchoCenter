@@ -94,6 +94,11 @@ export const userService = {
     return response.data;
   },
 
+  updateInfraNode: async (id: number, payload: { name: string; host: string; port: number; ssh_user: string; ssh_key_id: number; description?: string }) => {
+    const response = await api.patch<InfraNode>(`/api/users/ops/nodes/${id}`, payload);
+    return response.data;
+  },
+
   deleteInfraNode: async (id: number) => {
     const response = await api.delete(`/api/users/ops/nodes/${id}`);
     return response.data;

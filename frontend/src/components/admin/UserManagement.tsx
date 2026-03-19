@@ -136,6 +136,7 @@ const UserManagement = () => {
   const [newNodeSSHUser, setNewNodeSSHUser] = useState('root');
   const [newNodeSSHKeyID, setNewNodeSSHKeyID] = useState('');
   const [newNodeDescription, setNewNodeDescription] = useState('');
+  const [editingNodeID, setEditingNodeID] = useState<number | null>(null);
   const [opsError, setOpsError] = useState('');
   const [isCreatingSSHKey, setIsCreatingSSHKey] = useState(false);
   const [isCreatingNode, setIsCreatingNode] = useState(false);
@@ -532,23 +533,29 @@ const UserManagement = () => {
     if (!newNodeName.trim() || !newNodeHost.trim() || !newNodeSSHUser.trim() || Number.isNaN(sshKeyID) || sshKeyID <= 0 || isCreatingNode) return;
     setIsCreatingNode(true);
     try {
-      await userService.createInfraNode({
+      const payload = {
         name: newNodeName.trim(),
         host: newNodeHost.trim(),
         port: Math.max(1, Number(newNodePort) || 22),
         ssh_user: newNodeSSHUser.trim(),
         ssh_key_id: sshKeyID,
         description: newNodeDescription.trim(),
-      });
+      };
+      if (editingNodeID) {
+        await userService.updateInfraNode(editingNodeID, payload);
+      } else {
+        await userService.createInfraNode(payload);
+      }
       setNewNodeName('');
       setNewNodeHost('');
       setNewNodePort('22');
       setNewNodeSSHUser('root');
       setNewNodeSSHKeyID('');
       setNewNodeDescription('');
+      setEditingNodeID(null);
       await fetchOpsResources();
     } catch (_err) {
-      setOpsError('Failed to create infra node.');
+      setOpsError(editingNodeID ? 'Failed to update infra node.' : 'Failed to create infra node.');
     } finally {
       setIsCreatingNode(false);
     }
@@ -558,6 +565,9 @@ const UserManagement = () => {
     setDeletingNodeID(id);
     try {
       await userService.deleteInfraNode(id);
+      if (editingNodeID === id) {
+        resetNodeForm();
+      }
       setNodeTestResults((prev) => {
         const next = { ...prev };
         delete next[id];
@@ -569,6 +579,27 @@ const UserManagement = () => {
     } finally {
       setDeletingNodeID(null);
     }
+  };
+
+  const handleEditNode = (node: InfraNode) => {
+    setEditingNodeID(node.id);
+    setNewNodeName(node.name);
+    setNewNodeHost(node.host);
+    setNewNodePort(String(node.port || 22));
+    setNewNodeSSHUser(node.ssh_user || 'root');
+    setNewNodeSSHKeyID(String(node.ssh_key_id));
+    setNewNodeDescription(node.description || '');
+    setActivePanel('nodes');
+  };
+
+  const resetNodeForm = () => {
+    setEditingNodeID(null);
+    setNewNodeName('');
+    setNewNodeHost('');
+    setNewNodePort('22');
+    setNewNodeSSHUser('root');
+    setNewNodeSSHKeyID('');
+    setNewNodeDescription('');
   };
 
   const handleTestNode = async (id: number) => {
@@ -637,6 +668,7 @@ const UserManagement = () => {
       'Failed to create SSH key.': '创建 SSH 密钥失败。',
       'Failed to delete SSH key.': '删除 SSH 密钥失败。',
       'Failed to create infra node.': '创建基础设施节点失败。',
+      'Failed to update infra node.': '更新基础设施节点失败。',
       'Failed to delete infra node.': '删除基础设施节点失败。',
       'Failed to test infra node.': '测试基础设施节点失败。',
     };
@@ -931,10 +963,17 @@ const UserManagement = () => {
             </select>
             <Input value={newNodeDescription} onChange={(e) => setNewNodeDescription(e.target.value)} placeholder={tx('Description (optional)', '描述（可选）')} className="h-9 text-xs md:col-span-2" />
             <div className="md:col-span-2">
-              <Button type="submit" className="h-9 text-[10px] uppercase tracking-widest" disabled={isCreatingNode || !newNodeName.trim() || !newNodeHost.trim() || !newNodeSSHUser.trim() || !newNodeSSHKeyID}>
-                {isCreatingNode ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Server className="mr-1 h-4 w-4" />}
-                {tx('Add Node', '添加节点')}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button type="submit" className="h-9 text-[10px] uppercase tracking-widest" disabled={isCreatingNode || !newNodeName.trim() || !newNodeHost.trim() || !newNodeSSHUser.trim() || !newNodeSSHKeyID}>
+                  {isCreatingNode ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Server className="mr-1 h-4 w-4" />}
+                  {editingNodeID ? tx('Update Node', '更新节点') : tx('Add Node', '添加节点')}
+                </Button>
+                {editingNodeID && (
+                  <Button type="button" variant="outline" className="h-9 text-[10px] uppercase tracking-widest" onClick={resetNodeForm}>
+                    {tx('Cancel Edit', '取消编辑')}
+                  </Button>
+                )}
+              </div>
             </div>
           </form>
           <div className="space-y-2">
@@ -956,6 +995,15 @@ const UserManagement = () => {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-[10px]"
+                      onClick={() => handleEditNode(node)}
+                    >
+                      {tx('Edit', '编辑')}
+                    </Button>
                     <Button
                       type="button"
                       variant="outline"

@@ -29,6 +29,7 @@ type UserRepository interface {
 	GetSSHKeyMaterial(ctx context.Context, id int) (*models.SSHKey, error)
 	ListInfraNodes(ctx context.Context) ([]models.InfraNode, error)
 	CreateInfraNode(ctx context.Context, node *models.InfraNode) error
+	UpdateInfraNode(ctx context.Context, node *models.InfraNode) error
 	DeleteInfraNode(ctx context.Context, id int) error
 }
 
