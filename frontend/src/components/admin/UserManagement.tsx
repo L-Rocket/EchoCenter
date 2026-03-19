@@ -261,6 +261,7 @@ const UserManagement = () => {
     const interval = window.setInterval(() => {
       if (!alive) return;
       void fetchAgents(true);
+      void fetchOpsResources();
     }, 10000);
 
     return () => {
