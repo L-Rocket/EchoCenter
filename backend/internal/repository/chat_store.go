@@ -23,11 +23,25 @@ func (r *sqlRepository) SaveChatMessage(ctx context.Context, msg *models.ChatMes
 	if msg.LocalID != "" {
 		var existingID int
 		var existingTime time.Time
-		err := r.queryRowContext(ctx, "SELECT id, timestamp FROM chat_messages WHERE local_id = ?", msg.LocalID).Scan(&existingID, &existingTime)
+		var existingConversationID sql.NullInt64
+		err := r.queryRowContext(ctx, "SELECT id, timestamp, conversation_id FROM chat_messages WHERE local_id = ?", msg.LocalID).Scan(&existingID, &existingTime, &existingConversationID)
 		if err == nil {
 			msg.ID = existingID
 			msg.Timestamp = existingTime
+			if existingConversationID.Valid {
+				msg.ConversationID = int(existingConversationID.Int64)
+			}
 			return nil
+		}
+	}
+
+	if msg.ConversationID <= 0 {
+		thread, err := r.inferDirectConversation(ctx, msg.SenderID, msg.ReceiverID)
+		if err != nil {
+			return err
+		}
+		if thread != nil {
+			msg.ConversationID = thread.ID
 		}
 	}
 
@@ -38,11 +52,11 @@ func (r *sqlRepository) SaveChatMessage(ctx context.Context, msg *models.ChatMes
 		id  int64
 	)
 	if msg.LocalID != "" {
-		query := `INSERT INTO chat_messages (local_id, sender_id, receiver_id, type, content, timestamp) VALUES (?, ?, ?, ?, ?, ?)`
-		id, err = r.insertAndReturnID(ctx, query, msg.LocalID, msg.SenderID, msg.ReceiverID, msgType, msg.Payload, timestamp)
+		query := `INSERT INTO chat_messages (local_id, conversation_id, sender_id, receiver_id, type, content, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)`
+		id, err = r.insertAndReturnID(ctx, query, msg.LocalID, nullableInt(msg.ConversationID), msg.SenderID, msg.ReceiverID, msgType, msg.Payload, timestamp)
 	} else {
-		query := `INSERT INTO chat_messages (sender_id, receiver_id, type, content, timestamp) VALUES (?, ?, ?, ?, ?)`
-		id, err = r.insertAndReturnID(ctx, query, msg.SenderID, msg.ReceiverID, msgType, msg.Payload, timestamp)
+		query := `INSERT INTO chat_messages (conversation_id, sender_id, receiver_id, type, content, timestamp) VALUES (?, ?, ?, ?, ?, ?)`
+		id, err = r.insertAndReturnID(ctx, query, nullableInt(msg.ConversationID), msg.SenderID, msg.ReceiverID, msgType, msg.Payload, timestamp)
 	}
 
 	if err != nil {
@@ -51,30 +65,51 @@ func (r *sqlRepository) SaveChatMessage(ctx context.Context, msg *models.ChatMes
 
 	msg.ID = int(id)
 	msg.Timestamp = timestamp
+	if msg.ConversationID > 0 {
+		_ = r.touchConversationThread(ctx, msg.ConversationID, timestamp)
+	}
 	return nil
 }
 
 // GetChatHistory retrieves chat history between two users.
 func (r *sqlRepository) GetChatHistory(ctx context.Context, user1ID, user2ID int, limit int) ([]models.ChatMessage, error) {
-	query := `
-		SELECT id, local_id, sender_id, receiver_id, type, content, timestamp
+	thread, err := r.inferDirectConversation(ctx, user1ID, user2ID)
+	if err != nil {
+		return nil, err
+	}
+	if thread != nil {
+		return r.GetConversationMessages(ctx, thread.ID, limit)
+	}
+
+	rows, err := r.queryContext(ctx, `
+		SELECT id, local_id, conversation_id, sender_id, receiver_id, type, content, timestamp
 		FROM chat_messages
 		WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
 		ORDER BY timestamp ASC, id ASC
 		LIMIT ?
-	`
-	rows, err := r.queryContext(ctx, query, user1ID, user2ID, user2ID, user1ID, limit)
+	`, user1ID, user2ID, user2ID, user1ID, limit)
 	if err != nil {
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to query chat history", err)
 	}
 	defer rows.Close()
+	return scanChatMessages(rows)
+}
 
+func nullableInt(v int) any {
+	if v <= 0 {
+		return nil
+	}
+	return v
+}
+
+func scanChatMessages(rows *sql.Rows) ([]models.ChatMessage, error) {
 	var messages []models.ChatMessage
 	for rows.Next() {
 		var m models.ChatMessage
 		var msgType sql.NullString
 		var localID sql.NullString
-		if err := rows.Scan(&m.ID, &localID, &m.SenderID, &m.ReceiverID, &msgType, &m.Payload, &m.Timestamp); err != nil {
+		var conversationID sql.NullInt64
+		if err := rows.Scan(&m.ID, &localID, &conversationID, &m.SenderID, &m.ReceiverID, &msgType, &m.Payload, &m.Timestamp); err != nil {
 			return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to scan chat message", err)
 		}
 		if msgType.Valid {
@@ -85,13 +120,14 @@ func (r *sqlRepository) GetChatHistory(ctx context.Context, user1ID, user2ID int
 		if localID.Valid {
 			m.LocalID = localID.String
 		}
+		if conversationID.Valid {
+			m.ConversationID = int(conversationID.Int64)
+		}
 		messages = append(messages, m)
 	}
-
 	if err := rows.Err(); err != nil {
 		return nil, apperrors.Wrap(apperrors.ErrDatabase, "error iterating chat messages", err)
 	}
-
 	return messages, nil
 }
 

@@ -42,11 +42,27 @@ type LoginResponse struct {
 type ChatMessage struct {
 	ID         int       `json:"id" db:"id"`
 	LocalID    string    `json:"local_id" db:"local_id"`
+	ConversationID int   `json:"conversation_id,omitempty" db:"conversation_id"`
 	SenderID   int       `json:"sender_id" db:"sender_id"`
 	ReceiverID int       `json:"receiver_id" db:"receiver_id"`
 	Type       string    `json:"type" db:"type"` // CHAT, AUTH_REQUEST, AUTH_RESPONSE
 	Payload    string    `json:"payload" db:"content"`
 	Timestamp  time.Time `json:"timestamp" db:"timestamp"`
+}
+
+type ConversationThread struct {
+	ID            int       `json:"id" db:"id"`
+	OwnerUserID   int       `json:"owner_user_id" db:"owner_user_id"`
+	PeerUserID    int       `json:"peer_user_id" db:"peer_user_id"`
+	ChannelKind   string    `json:"channel_kind" db:"channel_kind"`
+	Title         string    `json:"title" db:"title"`
+	Summary       string    `json:"summary,omitempty" db:"summary"`
+	IsPinned      bool      `json:"is_pinned" db:"is_pinned"`
+	IsDefault     bool      `json:"is_default" db:"is_default"`
+	ArchivedAt    *time.Time `json:"archived_at,omitempty" db:"archived_at"`
+	LastMessageAt *time.Time `json:"last_message_at,omitempty" db:"last_message_at"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type ButlerAuthorization struct {

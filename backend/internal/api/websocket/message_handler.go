@@ -140,7 +140,7 @@ func (h *ButlerMessageHandler) HandleMessage(ctx context.Context, msg *Message) 
 	log.Printf("[ButlerMessageHandler] Processing message from %d to Butler: %s", msg.SenderID, payloadStr)
 
 	// Handle the message
-	butlerService.HandleUserMessage(ctx, msg.SenderID, payloadStr)
+	butlerService.HandleUserMessageWithConversation(ctx, msg.SenderID, msg.ConversationID, payloadStr)
 }
 
 // PersistingMessageHandler saves CHAT messages to the database
@@ -195,6 +195,7 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 
 	// Save to database
 	chatMsg := &models.ChatMessage{
+		ConversationID: msg.ConversationID,
 		LocalID:    msg.LocalID,
 		SenderID:   msg.SenderID,
 		ReceiverID: msg.TargetID,
@@ -207,6 +208,7 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 		log.Printf("[PersistingMessageHandler] Successfully saved message from %d to %d (ID: %d)", msg.SenderID, msg.TargetID, chatMsg.ID)
 		// CRITICAL: Fill back the database ID and accurate timestamp into the broadcast message
 		msg.ID = chatMsg.ID
+		msg.ConversationID = chatMsg.ConversationID
 		msg.Timestamp = chatMsg.Timestamp.Format(time.RFC3339Nano)
 		// Keep the LocalID in the broadcast so frontend can match it
 		msg.LocalID = chatMsg.LocalID

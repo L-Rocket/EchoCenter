@@ -24,7 +24,7 @@ type HubInterface interface {
 type Service interface {
 	GetButlerID() int
 	ProcessLog(ctx context.Context, msg models.Message)
-	RequestAuthorization(actionID string, targetID int, command, reasoning string)
+	RequestAuthorization(ctx context.Context, actionID string, targetID int, command, reasoning string)
 	HandleUserMessage(ctx context.Context, senderID int, payload string)
 }
 
@@ -191,8 +191,11 @@ func (s *ButlerService) ProcessLog(ctx context.Context, msg models.Message) {
 }
 
 // RequestAuthorization emits an AUTH_REQUEST WebSocket frame
-func (s *ButlerService) RequestAuthorization(actionID string, targetID int, command, reasoning string) {
-	ctx := context.Background()
+func (s *ButlerService) RequestAuthorization(ctx context.Context, actionID string, targetID int, command, reasoning string) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	conversationID := ConversationIDFromContext(ctx)
 
 	targetName := "Unknown Agent"
 	agents, err := s.repo.GetAgents(ctx)
@@ -230,6 +233,7 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
 	}
 
 	chatMsg := &models.ChatMessage{
+		ConversationID: conversationID,
 		SenderID:   s.butlerID,
 		ReceiverID: adminID,
 		Type:       "AUTH_REQUEST",
@@ -248,6 +252,7 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
 			"sender_name": s.butlerName,
 			"sender_role": "BUTLER",
 			"target_id":   adminID,
+			"conversation_id": conversationID,
 			"payload":     payloadMap,
 		}
 		s.hub.BroadcastGeneric(msg)
@@ -256,7 +261,12 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
 
 // HandleUserMessage processes direct instructions to the butler
 func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, payload string) {
-	s.handleUserMessageFlow(ctx, senderID, payload)
+	s.handleUserMessageFlow(ctx, senderID, 0, payload)
+}
+
+// HandleUserMessageWithConversation processes a user message scoped to a specific conversation thread.
+func (s *ButlerService) HandleUserMessageWithConversation(ctx context.Context, senderID int, conversationID int, payload string) {
+	s.handleUserMessageFlow(ctx, senderID, conversationID, payload)
 }
 
 // ExecutePendingCommand executes a pending command after user approval

@@ -38,6 +38,11 @@ type UserRepository interface {
 type ChatRepository interface {
 	SaveChatMessage(ctx context.Context, msg *models.ChatMessage) error
 	GetChatHistory(ctx context.Context, user1ID, user2ID int, limit int) ([]models.ChatMessage, error)
+	GetConversationThread(ctx context.Context, threadID int) (*models.ConversationThread, error)
+	ListConversationThreads(ctx context.Context, ownerUserID, peerUserID int, channelKind string) ([]models.ConversationThread, error)
+	CreateConversationThread(ctx context.Context, thread *models.ConversationThread) error
+	UpdateConversationThread(ctx context.Context, thread *models.ConversationThread) error
+	GetConversationMessages(ctx context.Context, threadID, limit int) ([]models.ChatMessage, error)
 	UpdateAuthRequestStatus(ctx context.Context, actionID string, status string) error
 	ExpirePendingAuthRequests(ctx context.Context) (int, error)
 }

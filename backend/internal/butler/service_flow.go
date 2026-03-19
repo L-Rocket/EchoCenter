@@ -12,12 +12,16 @@ import (
 	"github.com/lea/echocenter/backend/internal/observability"
 )
 
-func (s *ButlerService) handleUserMessageFlow(ctx context.Context, senderID int, payload string) {
+func (s *ButlerService) handleUserMessageFlow(ctx context.Context, senderID int, conversationID int, payload string) {
 	if s.brain == nil {
 		return
 	}
 
 	sessionID := fmt.Sprintf("user_%d", senderID)
+	if conversationID > 0 {
+		sessionID = fmt.Sprintf("user_%d_thread_%d", senderID, conversationID)
+		ctx = WithConversationID(ctx, conversationID)
+	}
 	streamID := uuid.New().String()
 	systemState := s.buildSystemState(ctx)
 	ctx, span := observability.StartSpan(ctx, "butler.user_message", "agent")
@@ -27,6 +31,7 @@ func (s *ButlerService) handleUserMessageFlow(ctx context.Context, senderID int,
 		"sender_id":      senderID,
 		"payload":        payload,
 		"stream_id":      streamID,
+		"conversation_id": conversationID,
 		"system_state":   systemState,
 		"payload_length": len(payload),
 	}
@@ -37,7 +42,7 @@ func (s *ButlerService) handleUserMessageFlow(ctx context.Context, senderID int,
 	})
 
 	result, err := s.brain.ChatStream(ctx, sessionID, payload, systemState, func(chunk string) error {
-		s.broadcastStreamChunk(senderID, streamID, chunk)
+		s.broadcastStreamChunk(senderID, conversationID, streamID, chunk)
 		return nil
 	})
 	if result != nil && result.PromptInfo.TotalMessages > 0 {
@@ -61,11 +66,11 @@ func (s *ButlerService) handleUserMessageFlow(ctx context.Context, senderID int,
 		"response_chars": len(strings.TrimSpace(result.Content)),
 	})
 
-	s.persistAndBroadcastChat(ctx, senderID, streamID, strings.TrimSpace(result.Content))
+	s.persistAndBroadcastChat(ctx, senderID, conversationID, streamID, strings.TrimSpace(result.Content))
 
 	// Command execution is now handled automatically by ReAct Agent + CommandAgentTool
 	// HasCommand and Command fields are deprecated and no longer used
-	s.broadcastStreamEnd(senderID, streamID)
+	s.broadcastStreamEnd(senderID, conversationID, streamID)
 }
 
 func (s *ButlerService) buildSystemState(ctx context.Context) string {
@@ -86,12 +91,13 @@ func (s *ButlerService) buildSystemState(ctx context.Context) string {
 	return builder.String()
 }
 
-func (s *ButlerService) persistAndBroadcastChat(ctx context.Context, senderID int, streamID string, content string) {
+func (s *ButlerService) persistAndBroadcastChat(ctx context.Context, senderID int, conversationID int, streamID string, content string) {
 	if content == "" {
 		return
 	}
 
 	chatMsg := &models.ChatMessage{
+		ConversationID: conversationID,
 		LocalID:    uuid.New().String(),
 		SenderID:   s.butlerID,
 		ReceiverID: senderID,
@@ -105,6 +111,7 @@ func (s *ButlerService) persistAndBroadcastChat(ctx context.Context, senderID in
 	s.broadcast(map[string]any{
 		"id":          chatMsg.ID,
 		"local_id":    chatMsg.LocalID,
+		"conversation_id": chatMsg.ConversationID,
 		"stream_id":   streamID,
 		"type":        "CHAT",
 		"sender_id":   chatMsg.SenderID,
@@ -119,25 +126,27 @@ func (s *ButlerService) persistAndBroadcastChat(ctx context.Context, senderID in
 	go s.forwardButlerReplyToFeishu(context.Background(), chatMsg.ReceiverID, content)
 }
 
-func (s *ButlerService) broadcastStreamChunk(senderID int, streamID, chunk string) {
+func (s *ButlerService) broadcastStreamChunk(senderID int, conversationID int, streamID, chunk string) {
 	s.broadcast(map[string]any{
 		"type":        "CHAT_STREAM",
 		"sender_id":   s.butlerID,
 		"sender_name": s.butlerName,
 		"sender_role": "BUTLER",
 		"target_id":   senderID,
+		"conversation_id": conversationID,
 		"payload":     chunk,
 		"stream_id":   streamID,
 	})
 }
 
-func (s *ButlerService) broadcastStreamEnd(senderID int, streamID string) {
+func (s *ButlerService) broadcastStreamEnd(senderID int, conversationID int, streamID string) {
 	s.broadcast(map[string]any{
 		"type":        "CHAT_STREAM_END",
 		"sender_id":   s.butlerID,
 		"sender_name": s.butlerName,
 		"sender_role": "BUTLER",
 		"target_id":   senderID,
+		"conversation_id": conversationID,
 		"payload":     "",
 		"stream_id":   streamID,
 	})

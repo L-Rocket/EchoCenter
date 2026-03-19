@@ -32,6 +32,10 @@ func Setup(r *gin.Engine, h *handler.Handler, authSvc auth.Service) {
 
 		// Chat
 		protected.GET("/chat/history/:peer_id", h.GetChatHistory)
+		protected.GET("/chat/threads", h.ListConversationThreads)
+		protected.POST("/chat/threads", h.CreateConversationThread)
+		protected.PATCH("/chat/threads/:thread_id", h.UpdateConversationThread)
+		protected.GET("/chat/threads/:thread_id/messages", h.GetConversationMessages)
 		protected.GET("/chat/butler-agent/:agent_id", h.GetButlerAgentConversation)
 		protected.POST("/chat/auth/response", h.AuthResponse)
 

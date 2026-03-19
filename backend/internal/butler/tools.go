@@ -132,7 +132,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 
 	// 3. Notify user via WebSocket
 	if b != nil {
-		b.RequestAuthorization(actionID, input.TargetAgentID, input.Command, input.Reasoning)
+		b.RequestAuthorization(ctx, actionID, input.TargetAgentID, input.Command, input.Reasoning)
 	}
 
 	log.Printf("[Butler Tool] Action %s is now PENDING user approval.", actionID)
@@ -161,6 +161,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 			"sender_id":   b.butlerID,
 			"sender_name": b.butlerName,
 			"target_id":   1,
+			"conversation_id": ConversationIDFromContext(ctx),
 			"payload":     "\n\n> Execution started... Connecting to target agent.",
 			"stream_id":   "exec_" + actionID,
 		})
@@ -185,6 +186,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 	if b != nil {
 		commandMsg := fmt.Sprintf("[DIRECTIVE] %s", input.Command)
 		chatMsg := &models.ChatMessage{
+			ConversationID: ConversationIDFromContext(ctx),
 			SenderID:   b.butlerID,
 			ReceiverID: input.TargetAgentID,
 			Payload:    commandMsg,
@@ -198,6 +200,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 			"sender_name": b.butlerName,
 			"sender_role": "BUTLER",
 			"target_id":   input.TargetAgentID,
+			"conversation_id": chatMsg.ConversationID,
 			"payload":     commandMsg,
 		}
 		if chatMsg.ID > 0 {
@@ -327,6 +330,7 @@ func executeManagedAgentCommand(ctx context.Context, b *ButlerService, agentID i
 
 	if b != nil {
 		outbound := &models.ChatMessage{
+			ConversationID: ConversationIDFromContext(ctx),
 			SenderID:   b.butlerID,
 			ReceiverID: agentID,
 			Payload:    fmt.Sprintf("[DIRECTIVE] %s", command),
@@ -341,6 +345,7 @@ func executeManagedAgentCommand(ctx context.Context, b *ButlerService, agentID i
 			"sender_name": b.butlerName,
 			"sender_role": "BUTLER",
 			"target_id":   agentID,
+			"conversation_id": outbound.ConversationID,
 			"payload":     outbound.Payload,
 			"timestamp":   outbound.Timestamp.Format(time.RFC3339Nano),
 		})
@@ -355,6 +360,7 @@ func executeManagedAgentCommand(ctx context.Context, b *ButlerService, agentID i
 
 	if b != nil {
 		inbound := &models.ChatMessage{
+			ConversationID: ConversationIDFromContext(ctx),
 			SenderID:   agentID,
 			ReceiverID: b.butlerID,
 			Payload:    result,
@@ -369,6 +375,7 @@ func executeManagedAgentCommand(ctx context.Context, b *ButlerService, agentID i
 			"sender_name": user.Username,
 			"sender_role": "AGENT",
 			"target_id":   b.butlerID,
+			"conversation_id": inbound.ConversationID,
 			"payload":     result,
 			"timestamp":   inbound.Timestamp.Format(time.RFC3339Nano),
 		})

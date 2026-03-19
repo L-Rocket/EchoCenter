@@ -328,6 +328,146 @@ func (h *Handler) GetChatHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, messages)
 }
 
+func (h *Handler) ListConversationThreads(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.respondWithError(c, http.StatusUnauthorized, apperrors.ErrUnauthorized)
+		return
+	}
+
+	peerID, _ := strconv.Atoi(strings.TrimSpace(c.Query("peer_id")))
+	channelKind := strings.TrimSpace(c.Query("channel_kind"))
+
+	threads, err := h.repo.ListConversationThreads(c.Request.Context(), userID.(int), peerID, channelKind)
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, threads)
+}
+
+func (h *Handler) CreateConversationThread(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.respondWithError(c, http.StatusUnauthorized, apperrors.ErrUnauthorized)
+		return
+	}
+
+	var req struct {
+		PeerID      int    `json:"peer_id"`
+		ChannelKind string `json:"channel_kind"`
+		Title       string `json:"title"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid request body", err))
+		return
+	}
+	if req.PeerID <= 0 || strings.TrimSpace(req.ChannelKind) == "" {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "peer_id and channel_kind are required"))
+		return
+	}
+
+	thread := &models.ConversationThread{
+		OwnerUserID: userID.(int),
+		PeerUserID:  req.PeerID,
+		ChannelKind: strings.TrimSpace(req.ChannelKind),
+		Title:       strings.TrimSpace(req.Title),
+	}
+	if err := h.repo.CreateConversationThread(c.Request.Context(), thread); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusCreated, thread)
+}
+
+func (h *Handler) UpdateConversationThread(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.respondWithError(c, http.StatusUnauthorized, apperrors.ErrUnauthorized)
+		return
+	}
+	threadID, err := strconv.Atoi(c.Param("thread_id"))
+	if err != nil || threadID <= 0 {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid thread_id"))
+		return
+	}
+
+	thread, err := h.repo.GetConversationThread(c.Request.Context(), threadID)
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	if thread == nil || thread.OwnerUserID != userID.(int) {
+		h.respondWithError(c, http.StatusNotFound, apperrors.New(apperrors.ErrNotFound, "conversation thread not found"))
+		return
+	}
+
+	var req struct {
+		Title      *string `json:"title"`
+		Summary    *string `json:"summary"`
+		IsPinned   *bool   `json:"is_pinned"`
+		IsArchived *bool   `json:"is_archived"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid request body", err))
+		return
+	}
+
+	if req.Title != nil {
+		thread.Title = strings.TrimSpace(*req.Title)
+	}
+	if req.Summary != nil {
+		thread.Summary = strings.TrimSpace(*req.Summary)
+	}
+	if req.IsPinned != nil {
+		thread.IsPinned = *req.IsPinned
+	}
+	if req.IsArchived != nil {
+		if *req.IsArchived {
+			now := time.Now()
+			thread.ArchivedAt = &now
+		} else {
+			thread.ArchivedAt = nil
+		}
+	}
+
+	if err := h.repo.UpdateConversationThread(c.Request.Context(), thread); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, thread)
+}
+
+func (h *Handler) GetConversationMessages(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.respondWithError(c, http.StatusUnauthorized, apperrors.ErrUnauthorized)
+		return
+	}
+	threadID, err := strconv.Atoi(c.Param("thread_id"))
+	if err != nil || threadID <= 0 {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid thread_id"))
+		return
+	}
+
+	thread, err := h.repo.GetConversationThread(c.Request.Context(), threadID)
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	if thread == nil || thread.OwnerUserID != userID.(int) {
+		h.respondWithError(c, http.StatusNotFound, apperrors.New(apperrors.ErrNotFound, "conversation thread not found"))
+		return
+	}
+
+	messages, err := h.repo.GetConversationMessages(c.Request.Context(), threadID, 200)
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, messages)
+}
+
 func (h *Handler) GetButlerAgentConversation(c *gin.Context) {
 	agentIDStr := c.Param("agent_id")
 	agentID, err := strconv.Atoi(agentIDStr)

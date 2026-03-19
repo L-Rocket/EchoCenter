@@ -245,6 +245,76 @@ func TestTokenHintHandlesSingleCharacterToken(t *testing.T) {
 	})
 }
 
+func TestChatMessagesCreateDefaultConversationThread(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	require.NoError(t, repo.InitializeAdmin(ctx, "admin", "admin123", 4))
+	butler, err := repo.InitializeButler(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, butler)
+
+	msg := &models.ChatMessage{
+		LocalID:    "thread-default-1",
+		SenderID:   1,
+		ReceiverID: butler.ID,
+		Type:       "CHAT",
+		Payload:    "hello butler",
+	}
+	require.NoError(t, repo.SaveChatMessage(ctx, msg))
+	require.NotZero(t, msg.ConversationID)
+
+	threads, err := repo.ListConversationThreads(ctx, 1, butler.ID, "butler_direct")
+	require.NoError(t, err)
+	require.Len(t, threads, 1)
+	assert.True(t, threads[0].IsDefault)
+
+	history, err := repo.GetChatHistory(ctx, 1, butler.ID, 20)
+	require.NoError(t, err)
+	require.Len(t, history, 1)
+	assert.Equal(t, msg.ConversationID, history[0].ConversationID)
+}
+
+func TestConversationThreadCreateAndQueryMessages(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	require.NoError(t, repo.InitializeAdmin(ctx, "admin", "admin123", 4))
+	require.NoError(t, repo.CreateAgent(ctx, "agentA", "tok-agent-A"))
+	agent, err := repo.GetAgentByToken(ctx, "tok-agent-A")
+	require.NoError(t, err)
+	require.NotNil(t, agent)
+
+	thread := &models.ConversationThread{
+		OwnerUserID: 1,
+		PeerUserID:  agent.ID,
+		ChannelKind: "agent_direct",
+		Title:       "Deploy follow-up",
+	}
+	require.NoError(t, repo.CreateConversationThread(ctx, thread))
+	require.NotZero(t, thread.ID)
+
+	msg := &models.ChatMessage{
+		LocalID:        "thread-explicit-1",
+		ConversationID: thread.ID,
+		SenderID:       1,
+		ReceiverID:     agent.ID,
+		Type:           "CHAT",
+		Payload:        "check deploy logs",
+	}
+	require.NoError(t, repo.SaveChatMessage(ctx, msg))
+
+	messages, err := repo.GetConversationMessages(ctx, thread.ID, 20)
+	require.NoError(t, err)
+	require.Len(t, messages, 1)
+	assert.Equal(t, thread.ID, messages[0].ConversationID)
+
+	threads, err := repo.ListConversationThreads(ctx, 1, agent.ID, "agent_direct")
+	require.NoError(t, err)
+	require.Len(t, threads, 1)
+	assert.Equal(t, "Deploy follow-up", threads[0].Title)
+}
+
 func TestFeishuConnectorCRUD(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()
