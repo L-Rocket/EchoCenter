@@ -48,6 +48,10 @@ OPENHANDS_SERVICE_URL="${OPENHANDS_SERVICE_URL:-}"
 OPENHANDS_PYTHON_BIN="${OPENHANDS_PYTHON_BIN:-python3}"
 OPENHANDS_WORKER_PID=""
 
+if [ "$OPENHANDS_PYTHON_BIN" = "python3" ] && [ -x "$PROJECT_DIR/third_party/openhands/.runtime/python-3.12.12/bin/python3" ]; then
+    OPENHANDS_PYTHON_BIN="$PROJECT_DIR/third_party/openhands/.runtime/python-3.12.12/bin/python3"
+fi
+
 if [ "$OPENHANDS_ENABLED" = "true" ] && [ -z "$OPENHANDS_SERVICE_URL" ]; then
     OPENHANDS_SERVICE_URL="http://127.0.0.1:8000"
 fi

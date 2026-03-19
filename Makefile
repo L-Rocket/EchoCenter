@@ -3,6 +3,9 @@
 # Default goal
 .DEFAULT_GOAL := help
 RESET ?= 1
+PYTHON_BIN ?= python3
+OPENHANDS_PYTHON_VERSION ?= 3.12.12
+OPENHANDS_LOCAL_PYTHON ?= $(CURDIR)/third_party/openhands/.runtime/python-$(OPENHANDS_PYTHON_VERSION)/bin/python3
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -20,9 +23,11 @@ install: ## Install all dependencies (Go, Node, Python)
 	@echo "Installing frontend dependencies..."
 	cd frontend && npm install
 	@echo "Installing Python dependencies..."
-	pip3 install -r backend/mock_agents/requirements.txt
-	pip3 install -r third_party/openhands/requirements.txt
-	bash third_party/openhands/install_sdk.sh
+	$(PYTHON_BIN) -m pip install -r backend/mock_agents/requirements.txt
+	@echo "Preparing local OpenHands Python runtime..."
+	@OPENHANDS_PYTHON_BIN="$$(OPENHANDS_PYTHON_VERSION=$(OPENHANDS_PYTHON_VERSION) bash third_party/openhands/ensure_python.sh)" && \
+		"$$OPENHANDS_PYTHON_BIN" -m pip install -r third_party/openhands/requirements.txt && \
+		PYTHON_BIN="$$OPENHANDS_PYTHON_BIN" bash third_party/openhands/install_sdk.sh
 dev-backend: ## Run backend in development mode
 	cd backend && go run cmd/server/main.go
 

@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import stat
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 
 
 class RunnerNode(BaseModel):
@@ -67,19 +68,65 @@ def build_task(payload: RunnerPayload, workspace: Path, nodes: list[dict[str, An
         )
     lines.append("")
     lines.append(f"Workspace path: {workspace}")
+    lines.append("You can write files and execute shell commands inside the workspace.")
+    lines.append("When you need to produce code, create a file, run it, and report the output.")
     return "\n".join(lines).strip()
+
+
+def normalize_model_name(model: str, base_url: str) -> str:
+    model = model.strip()
+    if not model:
+        return model
+    if "/" not in model:
+        return model
+    provider = model.split("/", 1)[0].lower()
+    known_providers = {
+        "openai",
+        "anthropic",
+        "azure",
+        "bedrock",
+        "gemini",
+        "google",
+        "groq",
+        "huggingface",
+        "ollama",
+        "openrouter",
+        "vertex_ai",
+        "xai",
+    }
+    if provider in known_providers:
+        return model
+    if base_url.strip():
+        return f"openai/{model}"
+    return model
 
 
 def run_openhands(payload: RunnerPayload, workspace: Path, nodes: list[dict[str, Any]]) -> str:
     try:
-        from openhands.sdk import Conversation
-        from openhands.sdk.agent import CodeAgent
+        from openhands.sdk import Agent, Conversation, LLM
+        from openhands.sdk.tool import Tool, register_tool
+        from echo_shell_tool import EchoShellToolDefinition
     except Exception as exc:  # pragma: no cover - import depends on image build
         raise RuntimeError(
             "OpenHands SDK is not installed in the worker image."
         ) from exc
+    register_tool("EchoShellTool", EchoShellToolDefinition)
 
-    agent = CodeAgent()
+    api_key = payload.api_key.strip()
+    if not api_key:
+        raise RuntimeError("OpenHands model API key is empty.")
+
+    model = normalize_model_name(payload.model, payload.base_url)
+    if not model:
+        raise RuntimeError("OpenHands model name is empty.")
+
+    llm = LLM(
+        usage_id="echocenter-openhands",
+        model=model,
+        api_key=SecretStr(api_key),
+        base_url=payload.base_url.strip() or None,
+    )
+    agent = Agent(llm=llm, tools=[Tool(name="EchoShellTool")])
     conversation = Conversation(agent=agent, workspace=str(workspace))
     conversation.send_message(build_task(payload, workspace, nodes))
     response = conversation.run()
@@ -101,7 +148,9 @@ def healthz() -> dict[str, str]:
 def run(payload: RunnerPayload) -> RunnerResponse:
     try:
         with tempfile.TemporaryDirectory(prefix="echocenter-openhands-") as tmpdir:
-            workspace = Path(payload.workspace_dir or tmpdir)
+            base_workspace = Path(payload.workspace_dir or tmpdir)
+            base_workspace.mkdir(parents=True, exist_ok=True)
+            workspace = base_workspace / f"task-{uuid.uuid4().hex[:12]}"
             workspace.mkdir(parents=True, exist_ok=True)
 
             nodes: list[dict[str, Any]] = []
