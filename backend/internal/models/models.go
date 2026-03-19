@@ -81,6 +81,14 @@ type InfraNode struct {
 	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
 }
 
+type InfraNodeTestResult struct {
+	NodeID       int       `json:"node_id"`
+	OK           bool      `json:"ok"`
+	Message      string    `json:"message"`
+	RoundTripMS  int64     `json:"round_trip_ms"`
+	CheckedAtUTC time.Time `json:"checked_at_utc"`
+}
+
 type FeishuConnector struct {
 	ID                 int        `json:"id" db:"id"`
 	ConnectorName      string     `json:"connector_name" db:"connector_name"`

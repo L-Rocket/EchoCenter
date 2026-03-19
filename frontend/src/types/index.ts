@@ -42,6 +42,14 @@ export interface InfraNode {
   updated_at?: string;
 }
 
+export interface InfraNodeTestResult {
+  node_id: number;
+  ok: boolean;
+  message: string;
+  round_trip_ms: number;
+  checked_at_utc?: string;
+}
+
 export interface OpenHandsStatus {
   enabled: boolean;
   service_url?: string;

@@ -543,6 +543,28 @@ func (h *Handler) DeleteInfraNode(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+func (h *Handler) TestInfraNode(c *gin.Context) {
+	nodeID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || nodeID <= 0 {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid infra node id"))
+		return
+	}
+
+	executor := ops.GetExecutor()
+	if executor == nil {
+		h.respondWithError(c, http.StatusInternalServerError, apperrors.New(apperrors.ErrInternal, "OpenHands executor is not initialized"))
+		return
+	}
+
+	result, err := executor.TestNodeConnectivity(c.Request.Context(), nodeID)
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
 func (h *Handler) TestAgentConnection(c *gin.Context) {
 	var req struct {
 		APIToken string `json:"api_token"`

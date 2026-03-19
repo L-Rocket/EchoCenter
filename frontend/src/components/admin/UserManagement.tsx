@@ -26,7 +26,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { useI18n } from '@/hooks/useI18n';
 import { getWsUrl } from '@/lib/config';
 import { userService } from '@/services/userService';
-import type { Agent, InfraNode, OpenHandsStatus, SSHKey } from '@/types';
+import type { Agent, InfraNode, InfraNodeTestResult, OpenHandsStatus, SSHKey } from '@/types';
 
 type ConnectionState = 'idle' | 'testing' | 'success' | 'failed';
 
@@ -141,6 +141,8 @@ const UserManagement = () => {
   const [isCreatingNode, setIsCreatingNode] = useState(false);
   const [deletingSSHKeyID, setDeletingSSHKeyID] = useState<number | null>(null);
   const [deletingNodeID, setDeletingNodeID] = useState<number | null>(null);
+  const [testingNodeID, setTestingNodeID] = useState<number | null>(null);
+  const [nodeTestResults, setNodeTestResults] = useState<Record<number, InfraNodeTestResult>>({});
   const [activePanel, setActivePanel] = useState<OperationsPanel>('agents');
   const [openhandsStatus, setOpenhandsStatus] = useState<OpenHandsStatus | null>(null);
 
@@ -552,11 +554,32 @@ const UserManagement = () => {
     setDeletingNodeID(id);
     try {
       await userService.deleteInfraNode(id);
+      setNodeTestResults((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       await fetchOpsResources();
     } catch (_err) {
       setOpsError('Failed to delete infra node.');
     } finally {
       setDeletingNodeID(null);
+    }
+  };
+
+  const handleTestNode = async (id: number) => {
+    setTestingNodeID(id);
+    try {
+      const result = await userService.testInfraNode(id);
+      setNodeTestResults((prev) => ({
+        ...prev,
+        [id]: result,
+      }));
+      setOpsError('');
+    } catch (_err) {
+      setOpsError('Failed to test infra node.');
+    } finally {
+      setTestingNodeID(null);
     }
   };
 
@@ -611,6 +634,7 @@ const UserManagement = () => {
       'Failed to delete SSH key.': '删除 SSH 密钥失败。',
       'Failed to create infra node.': '创建基础设施节点失败。',
       'Failed to delete infra node.': '删除基础设施节点失败。',
+      'Failed to test infra node.': '测试基础设施节点失败。',
     };
     return map[message] ?? message;
   };
@@ -912,16 +936,37 @@ const UserManagement = () => {
           <div className="space-y-2">
             {infraNodes.map((node) => {
               const keyName = sshKeys.find((key) => key.id === node.ssh_key_id)?.name || `#${node.ssh_key_id}`;
+              const nodeTest = nodeTestResults[node.id];
               return (
                 <div key={node.id} className="flex items-center justify-between rounded-md border p-3">
                   <div className="min-w-0">
                     <div className="text-sm font-semibold">{node.name}</div>
                     <div className="text-[11px] text-muted-foreground">{node.ssh_user}@{node.host}:{node.port} · {keyName}</div>
                     {node.description && <div className="text-[11px] text-muted-foreground">{node.description}</div>}
+                    {nodeTest && (
+                      <div className={`mt-2 text-[11px] ${nodeTest.ok ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {nodeTest.ok ? tx('SSH reachable', 'SSH 可连接') : tx('SSH not reachable', 'SSH 不可连接')}
+                        {nodeTest.round_trip_ms > 0 ? ` · ${nodeTest.round_trip_ms}ms` : ''}
+                        <span className="ml-1 text-muted-foreground">{nodeTest.message}</span>
+                      </div>
+                    )}
                   </div>
-                  <Button type="button" variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleDeleteNode(node.id)} disabled={deletingNodeID === node.id}>
-                    {deletingNodeID === node.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-[10px]"
+                      onClick={() => handleTestNode(node.id)}
+                      disabled={testingNodeID === node.id}
+                    >
+                      {testingNodeID === node.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <PlugZap className="h-3.5 w-3.5 mr-1" />}
+                      {tx('Test', '测试')}
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleDeleteNode(node.id)} disabled={deletingNodeID === node.id}>
+                      {deletingNodeID === node.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                    </Button>
+                  </div>
                 </div>
               );
             })}

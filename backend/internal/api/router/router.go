@@ -50,6 +50,7 @@ func Setup(r *gin.Engine, h *handler.Handler, authSvc auth.Service) {
 			admin.GET("/ops/nodes", h.ListInfraNodes)
 			admin.POST("/ops/nodes", h.CreateInfraNode)
 			admin.DELETE("/ops/nodes/:id", h.DeleteInfraNode)
+			admin.POST("/ops/nodes/:id/test", h.TestInfraNode)
 		}
 
 		integrations := protected.Group("/integrations")

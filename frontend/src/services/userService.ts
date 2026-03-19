@@ -1,5 +1,5 @@
 import api from './api';
-import type { User, Agent, ChatMessage, SSHKey, InfraNode, OpenHandsStatus } from '@/types';
+import type { User, Agent, ChatMessage, SSHKey, InfraNode, InfraNodeTestResult, OpenHandsStatus } from '@/types';
 
 export const userService = {
   getUsers: async () => {
@@ -91,6 +91,11 @@ export const userService = {
 
   deleteInfraNode: async (id: number) => {
     const response = await api.delete(`/api/users/ops/nodes/${id}`);
+    return response.data;
+  },
+
+  testInfraNode: async (id: number) => {
+    const response = await api.post<InfraNodeTestResult>(`/api/users/ops/nodes/${id}/test`);
     return response.data;
   }
 };

@@ -7,10 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +20,8 @@ import (
 	"github.com/lea/echocenter/backend/internal/config"
 	"github.com/lea/echocenter/backend/internal/models"
 	"github.com/lea/echocenter/backend/internal/repository"
+	apperrors "github.com/lea/echocenter/backend/pkg/errors"
+	"golang.org/x/crypto/ssh"
 )
 
 const (
@@ -117,6 +121,65 @@ func (e *Executor) ExecuteAgentCommand(ctx context.Context, task, reasoning stri
 		return "", err
 	}
 	return e.run(ctx, payload)
+}
+
+func (e *Executor) TestNodeConnectivity(ctx context.Context, nodeID int) (*models.InfraNodeTestResult, error) {
+	if e == nil || e.repo == nil {
+		return nil, apperrors.New(apperrors.ErrInternal, "OpenHands executor is not initialized")
+	}
+
+	nodes, err := e.repo.ListInfraNodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var node *models.InfraNode
+	for i := range nodes {
+		if nodes[i].ID == nodeID {
+			node = &nodes[i]
+			break
+		}
+	}
+	if node == nil {
+		return nil, apperrors.New(apperrors.ErrNotFound, "infra node not found")
+	}
+
+	key, err := e.repo.GetSSHKeyMaterial(ctx, node.SSHKeyID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &models.InfraNodeTestResult{
+		NodeID:       nodeID,
+		CheckedAtUTC: time.Now().UTC(),
+	}
+
+	signer, err := ssh.ParsePrivateKey([]byte(key.PrivateKey))
+	if err != nil {
+		result.Message = fmt.Sprintf("SSH private key could not be parsed: %v", err)
+		return result, nil
+	}
+
+	config := &ssh.ClientConfig{
+		User:            node.SSHUser,
+		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         5 * time.Second,
+	}
+
+	address := net.JoinHostPort(node.Host, strconv.Itoa(node.Port))
+	startedAt := time.Now()
+	client, err := ssh.Dial("tcp", address, config)
+	result.RoundTripMS = time.Since(startedAt).Milliseconds()
+	if err != nil {
+		result.Message = fmt.Sprintf("SSH handshake failed for %s: %v", address, err)
+		return result, nil
+	}
+	defer client.Close()
+
+	result.OK = true
+	result.Message = fmt.Sprintf("SSH handshake succeeded for %s.", address)
+	return result, nil
 }
 
 func (e *Executor) StatusSummary(ctx context.Context) StatusSummary {
