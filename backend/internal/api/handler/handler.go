@@ -97,6 +97,10 @@ func (h *Handler) Login(c *gin.Context) {
 		h.respondWithError(c, http.StatusUnauthorized, apperrors.ErrInvalidCredentials)
 		return
 	}
+	if user == nil {
+		h.respondWithError(c, http.StatusUnauthorized, apperrors.ErrInvalidCredentials)
+		return
+	}
 
 	if err := h.authSvc.VerifyPassword(user.PasswordHash, req.Password); err != nil {
 		h.respondWithError(c, http.StatusUnauthorized, apperrors.ErrInvalidCredentials)

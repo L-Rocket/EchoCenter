@@ -43,16 +43,16 @@ func main() {
 	}
 	defer repo.Close()
 
-	if err := ops.Init(repo, cfg.OpenHands); err != nil {
-		log.Fatalf("Failed to initialize OpenHands ops executor: %v", err)
-	}
-
 	// Initialize admin user
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	if err := repo.InitializeAdmin(ctx, cfg.Auth.InitialAdminUser, cfg.Auth.InitialAdminPassword, cfg.Auth.BcryptCost); err != nil {
 		log.Printf("Failed to initialize admin: %v", err)
 	}
 	cancel()
+
+	if err := ops.Init(repo, cfg.OpenHands); err != nil {
+		log.Fatalf("Failed to initialize OpenHands ops executor: %v", err)
+	}
 
 	// Initialize authentication service
 	authSvc := auth.NewService(&cfg.Auth, repo)
