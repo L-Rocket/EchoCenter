@@ -12,6 +12,7 @@ import ButlerPage from './pages/ButlerPage'
 import AgentsPage from './pages/AgentsPage'
 import OperationsPage from './pages/OperationsPage'
 import SettingsPage from './pages/SettingsPage'
+import DialogueMonitorPage from './pages/DialogueMonitorPage'
 
 function App() {
   return (
@@ -29,6 +30,9 @@ function App() {
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/butler" element={<ButlerPage />} />
                   <Route path="/agents" element={<AgentsPage />} />
+                  <Route element={<RequireAuth adminOnly />}>
+                    <Route path="/dialogue-monitor" element={<DialogueMonitorPage />} />
+                  </Route>
                   
                   {/* Admin Only Routes */}
                   <Route element={<RequireAuth adminOnly />}>

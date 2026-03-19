@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Bot, Loader2, Plus, ShieldAlert, Sparkles } from 'lucide-react';
 import ChatView from '@/components/agent/ChatView';
-import ButlerDialogueMonitor from '@/components/butler/ButlerDialogueMonitor';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useI18n } from '@/hooks/useI18n';
@@ -12,7 +11,6 @@ import type { Agent, ConversationThread } from '@/types';
 const ButlerPage = () => {
   const { tx } = useI18n();
   const [butler, setButler] = useState<Agent | null>(null);
-  const [agents, setAgents] = useState<Agent[]>([]);
   const [threads, setThreads] = useState<ConversationThread[]>([]);
   const [selectedThreadId, setSelectedThreadId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,7 +23,6 @@ const ButlerPage = () => {
     try {
       const data = await userService.getAgents();
       const agentList = Array.isArray(data) ? data : [];
-      setAgents(agentList);
       const butlerAgent =
         agentList.find((agent) => (agent.role || '').toUpperCase() === 'BUTLER') ||
         agentList.find((agent) => (agent.username || '').toLowerCase() === 'butler');
@@ -43,7 +40,6 @@ const ButlerPage = () => {
     } catch (_err) {
       setError(tx('Failed to load Butler channel.', '加载 Butler 通道失败。'));
       setButler(null);
-      setAgents([]);
     } finally {
       setLoading(false);
     }
@@ -102,7 +98,7 @@ const ButlerPage = () => {
           </div>
         </Card>
       ) : (
-        <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[300px_minmax(0,1fr)_360px]">
+        <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[300px_minmax(0,1fr)_300px]">
           <Card className="flex min-h-0 flex-col overflow-hidden border-border/70 bg-card/60">
             <div className="border-b px-5 py-4">
               <div className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-primary">
@@ -182,11 +178,29 @@ const ButlerPage = () => {
               <div className="mt-3 space-y-2">
                 <div className="text-base font-black">{tx('Butler stays conversational; execution stays inspectable.', 'Butler 负责对话，执行链路保持可观测。')}</div>
                 <p className="text-sm text-muted-foreground">
-                  {tx('The main canvas focuses on your conversation, while the side rail keeps approvals and delegated execution visible without interrupting reading.', '主画布聚焦你的对话，右侧栏则保留审批和委派执行，不打断阅读。')}
+                  {tx('The main canvas focuses on your conversation, while the side rail keeps the active thread readable and ready for runtime execution details.', '主画布聚焦你的对话，右侧栏则保留线程级说明与执行准备信息。')}
                 </p>
               </div>
             </Card>
-            <ButlerDialogueMonitor butler={butler} agents={agents} className="min-h-0 flex-1" />
+            <Card className="border-border/70 bg-card/60 p-5">
+              <div className="text-[10px] font-black uppercase tracking-[0.22em] text-primary/80">
+                {tx('Workspace Notes', '工作区说明')}
+              </div>
+              <div className="mt-3 space-y-3 text-sm text-muted-foreground">
+                <p>
+                  {tx(
+                    'Dialogue monitoring now lives in its own sidebar view so this page can stay focused on reading, writing, and delegated execution.',
+                    '对话监控已经拆到独立侧边栏视图，这一页只保留阅读、输入和委派执行本身。'
+                  )}
+                </p>
+                <p>
+                  {tx(
+                    'Use the dedicated monitor entry to inspect Butler-to-agent chatter without interrupting the main conversation workspace.',
+                    '如果要查看 Butler 与其他 Agent 的内部交流，请进入单独的监控入口，不会打断当前主对话。'
+                  )}
+                </p>
+              </div>
+            </Card>
           </div>
         </div>
       )}

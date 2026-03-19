@@ -7,6 +7,7 @@ import {
   Bot,
   UserCircle2,
   Radar,
+  MessagesSquare,
 } from "lucide-react"
 import { useNavigate, NavLink } from "react-router-dom"
 
@@ -45,6 +46,12 @@ const navItems = [
     key: "operations",
     path: "/operations",
     icon: Radar,
+    adminOnly: true,
+  },
+  {
+    key: "dialogue-monitor",
+    path: "/dialogue-monitor",
+    icon: MessagesSquare,
     adminOnly: true,
   },
   {
@@ -100,7 +107,9 @@ export function AppSidebar() {
                         ? tx('Agents', 'agent')
                         : item.key === 'operations'
                           ? tx('Operations', '运维')
-                        : tx('Settings', '设置')
+                          : item.key === 'dialogue-monitor'
+                            ? tx('Monitor', '监控')
+                            : tx('Settings', '设置')
                 return (
                   <SidebarMenuItem key={item.key}>
                     <SidebarMenuButton asChild tooltip={title}>

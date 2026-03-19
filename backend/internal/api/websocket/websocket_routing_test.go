@@ -73,3 +73,29 @@ func TestRouteToTarget_DoesNotEchoAgentSender(t *testing.T) {
 	}
 }
 
+func TestBroadcastGeneric_ParsesConversationID(t *testing.T) {
+	h := &hub{
+		clients:   map[int]*Client{},
+		broadcast: make(chan *Message, 1),
+	}
+
+	h.BroadcastGeneric(map[string]any{
+		"type":            "CHAT_STREAM",
+		"sender_id":       3,
+		"target_id":       1,
+		"conversation_id": 42,
+		"payload":         "chunk",
+	})
+
+	select {
+	case msg := <-h.broadcast:
+		if msg.ConversationID != 42 {
+			t.Fatalf("expected conversation id 42, got %d", msg.ConversationID)
+		}
+		if msg.Type != MessageTypeChatStream {
+			t.Fatalf("expected chat stream type, got %s", msg.Type)
+		}
+	default:
+		t.Fatalf("expected generic message to be enqueued")
+	}
+}

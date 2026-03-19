@@ -275,6 +275,11 @@ func (h *hub) BroadcastGeneric(msg any) {
 		} else if tid, ok := data["target_id"].(float64); ok {
 			m.TargetID = int(tid)
 		}
+		if cid, ok := data["conversation_id"].(int); ok {
+			m.ConversationID = cid
+		} else if cid, ok := data["conversation_id"].(float64); ok {
+			m.ConversationID = int(cid)
+		}
 
 		if sname, ok := data["sender_name"].(string); ok {
 			m.SenderName = sname
