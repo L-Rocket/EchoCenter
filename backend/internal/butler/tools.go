@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,6 +36,49 @@ type CommandAgentInput struct {
 	TargetAgentID int    `json:"target_agent_id"`
 	Command       string `json:"command"`
 	Reasoning     string `json:"reasoning"`
+}
+
+// DelegateResearchInput represents the input for delegated runtime research.
+type DelegateResearchInput struct {
+	Question  string `json:"question"`
+	Reasoning string `json:"reasoning"`
+}
+
+// DelegateResearchTool asks relevant online agents for fresh facts without exposing
+// the runtime routing exchange in the user-visible conversation history.
+type DelegateResearchTool struct{}
+
+// Info returns tool information.
+func (t *DelegateResearchTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
+	return &schema.ToolInfo{
+		Name: "delegate_research",
+		Desc: "Asks relevant online agents for fresh operational facts. Parameters: question (string), reasoning (string). Use this when you need live status or recent system facts before answering the user.",
+	}, nil
+}
+
+// InvokableRun executes runtime research and returns a briefing for Butler to summarize.
+func (t *DelegateResearchTool) InvokableRun(ctx context.Context, argumentsInJSON string, opts ...tool.Option) (string, error) {
+	var input DelegateResearchInput
+	if err := json.Unmarshal([]byte(argumentsInJSON), &input); err != nil {
+		return "", err
+	}
+
+	b := GetButler()
+	if b == nil {
+		return "Runtime research unavailable because Butler service is not initialized.", nil
+	}
+
+	question := strings.TrimSpace(input.Question)
+	if question == "" {
+		return "Runtime research skipped because no question was provided.", nil
+	}
+
+	briefing := b.buildRuntimeRouterBriefing(ctx, question)
+	if strings.TrimSpace(briefing) == "" {
+		return "No additional live agent findings were needed or available.", nil
+	}
+
+	return briefing, nil
 }
 
 // CommandAgentTool implements the command agent tool
@@ -197,6 +241,11 @@ func RegisterAgentResponse(agentID int, payload string) bool {
 // NewCommandAgentTool creates a tool that requires human approval
 func NewCommandAgentTool() tool.InvokableTool {
 	return &CommandAgentTool{}
+}
+
+// NewDelegateResearchTool creates a runtime-only research tool.
+func NewDelegateResearchTool() tool.InvokableTool {
+	return &DelegateResearchTool{}
 }
 
 func enqueuePendingResponse(agentID int, ch chan string) {

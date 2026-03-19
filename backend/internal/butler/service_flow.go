@@ -20,10 +20,6 @@ func (s *ButlerService) handleUserMessageFlow(ctx context.Context, senderID int,
 	sessionID := fmt.Sprintf("user_%d", senderID)
 	streamID := uuid.New().String()
 	systemState := s.buildSystemState(ctx)
-	runtimeBriefing := s.buildRuntimeRouterBriefing(ctx, payload)
-	if runtimeBriefing != "" {
-		systemState = systemState + "\n\n" + runtimeBriefing
-	}
 	ctx, span := observability.StartSpan(ctx, "butler.user_message", "agent")
 	defer span.Finish(ctx)
 	span.SetThreadID(ctx, sessionID)
@@ -33,9 +29,6 @@ func (s *ButlerService) handleUserMessageFlow(ctx context.Context, senderID int,
 		"stream_id":      streamID,
 		"system_state":   systemState,
 		"payload_length": len(payload),
-	}
-	if runtimeBriefing != "" {
-		spanInput["runtime_briefing"] = runtimeBriefing
 	}
 	span.SetInput(ctx, spanInput)
 	span.SetTags(ctx, map[string]any{

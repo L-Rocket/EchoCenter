@@ -1,6 +1,7 @@
 package butler
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -66,5 +67,25 @@ func TestRuntimeAgentLabel_UsesUsernameWhenAvailable(t *testing.T) {
 	}
 	if got := runtimeAgentLabel(7, ""); got != "Agent 7" {
 		t.Fatalf("unexpected fallback label: %q", got)
+	}
+}
+
+func TestDelegateResearchToolInfo(t *testing.T) {
+	info, err := (&DelegateResearchTool{}).Info(context.Background())
+	if err != nil {
+		t.Fatalf("expected tool info, got error: %v", err)
+	}
+	if info.Name != "delegate_research" {
+		t.Fatalf("unexpected tool name: %q", info.Name)
+	}
+}
+
+func TestDelegateResearchToolRejectsEmptyQuestion(t *testing.T) {
+	result, err := (&DelegateResearchTool{}).InvokableRun(context.Background(), `{"question":"   "}`)
+	if err != nil {
+		t.Fatalf("expected empty-question guard, got error: %v", err)
+	}
+	if !strings.Contains(result, "no question was provided") {
+		t.Fatalf("unexpected result: %q", result)
 	}
 }
