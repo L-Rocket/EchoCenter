@@ -54,6 +54,7 @@ def build_task(payload: RunnerPayload, workspace: Path, nodes: list[dict[str, An
         "Prefer read-only inspection unless the task explicitly requires a change.",
         "Use SSH for infrastructure nodes using the provided key files.",
         "Always leave a concise RESULT.md in the workspace with findings, actions taken, and next steps.",
+        "If the task involves writing or running code, use file-based execution and avoid fragile inline shell quoting.",
         "",
         f"Primary task: {payload.task.strip()}",
     ]
@@ -70,7 +71,18 @@ def build_task(payload: RunnerPayload, workspace: Path, nodes: list[dict[str, An
     lines.append("You can write files and execute shell commands inside the workspace.")
     lines.append("When you need to produce code, create a file, run it, and report the output.")
     lines.append("Always overwrite stale files instead of appending to them.")
-    lines.append("Before finishing, create RESULT.md with these sections: Code, Output, Final Result.")
+    lines.append("Use python3 for Python scripts.")
+    lines.append("Do not use inline commands like python -c or python3 -c for multi-line code.")
+    lines.append("Do not print the source code from inside Python. Put the code into RESULT.md instead.")
+    lines.append("Before finishing, create RESULT.md with these sections exactly: Code, Output, Final Result.")
+    lines.append("After RESULT.md is written, stop immediately and return a short completion message.")
+    lines.append("")
+    lines.append("Recommended execution pattern for Python tasks:")
+    lines.append("1. Create script.py with a heredoc such as: cat <<'PY' > script.py")
+    lines.append("2. Put the Python source in script.py")
+    lines.append("3. Run: python3 script.py")
+    lines.append("4. Create RESULT.md separately with the code and stdout")
+    lines.append("5. Finish without additional shell experiments")
     return "\n".join(lines).strip()
 
 
