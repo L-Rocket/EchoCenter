@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { useI18n } from '@/hooks/useI18n';
 import type { Agent } from '@/types';
 import AuthRequestCard from './AuthRequestCard';
+import OpenHandsExecutionPanel from './OpenHandsExecutionPanel';
 import ProcessMessage from './ProcessMessage';
 import { userService } from '@/services/userService';
 import type { ChatMessage } from '@/types';
@@ -36,6 +37,7 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
     agent?.id ? Boolean(state.pendingByPeer[agent.id]) : false
   );
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isButlerChannel = (agent.role || '').toUpperCase() === 'BUTLER' || /butler/i.test(agent.username || '');
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -142,6 +144,10 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
                 </div>
               </div>
             </div>
+          )}
+
+          {isButlerChannel && (
+            <OpenHandsExecutionPanel messages={messages} isPeerPending={isPeerPending} />
           )}
 
           {messages.map((msg, i) => {
