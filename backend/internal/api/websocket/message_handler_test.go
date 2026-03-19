@@ -209,3 +209,15 @@ func TestButlerAgentMonitorHandlerSkipsWhenNoAdminRecipients(t *testing.T) {
 		t.Fatalf("expected no emitted event when no admin recipients")
 	}
 }
+
+func TestShouldSkipRuntimeOnlyChat(t *testing.T) {
+	if !shouldSkipRuntimeOnlyChat("[RUNTIME-QUESTION] summarize current queue depth") {
+		t.Fatalf("expected runtime-only prefix to be skipped")
+	}
+	if shouldSkipRuntimeOnlyChat("normal user chat") {
+		t.Fatalf("expected normal chat not to be skipped")
+	}
+	if shouldSkipRuntimeOnlyChat(map[string]any{"payload": "nope"}) {
+		t.Fatalf("expected non-string payload not to be skipped")
+	}
+}

@@ -164,6 +164,11 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 		return
 	}
 
+	if shouldSkipRuntimeOnlyChat(msg.Payload) {
+		log.Printf("[PersistingMessageHandler] Skipping runtime-only Butler message from %d to %d", msg.SenderID, msg.TargetID)
+		return
+	}
+
 	if !h.shouldPersistMessage(ctx, msg) {
 		log.Printf("[PersistingMessageHandler] Skipping message from %d to %d (persistence policy)", msg.SenderID, msg.TargetID)
 		return
@@ -232,6 +237,10 @@ func (h *ButlerAgentMonitorHandler) SetEmitter(emit func(any)) {
 // HandleMessage emits BUTLER_AGENT_MESSAGE when Butler and Agent exchange CHAT messages.
 func (h *ButlerAgentMonitorHandler) HandleMessage(ctx context.Context, msg *Message) {
 	if msg == nil || msg.Type != MessageTypeChat || msg.TargetID == 0 || h.repo == nil || h.emit == nil {
+		return
+	}
+
+	if shouldSkipRuntimeOnlyChat(msg.Payload) {
 		return
 	}
 
@@ -332,6 +341,14 @@ func (h *PersistingMessageHandler) shouldPersistMessage(ctx context.Context, msg
 	}
 
 	return shouldPersistChatPair(sender, receiver, msg.SenderRole)
+}
+
+func shouldSkipRuntimeOnlyChat(payload any) bool {
+	content, ok := payload.(string)
+	if !ok {
+		return false
+	}
+	return strings.HasPrefix(strings.TrimSpace(content), butler.RuntimeQuestionPrefix())
 }
 
 func shouldPersistChatPair(sender, receiver *models.User, senderRole string) bool {

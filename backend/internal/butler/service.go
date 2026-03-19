@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/lea/echocenter/backend/internal/models"
 	"github.com/lea/echocenter/backend/internal/repository"
@@ -29,15 +30,17 @@ type Service interface {
 
 // ButlerService implements the Service interface
 type ButlerService struct {
-	butlerID   int
-	butlerName string
-	baseURL    string
-	apiToken   string
-	model      string
-	mu         sync.RWMutex
-	brain      *EinoBrain
-	hub        HubInterface
-	repo       repository.Repository
+	butlerID            int
+	butlerName          string
+	baseURL             string
+	apiToken            string
+	model               string
+	mu                  sync.RWMutex
+	brain               *EinoBrain
+	router              runtimeRouter
+	hub                 HubInterface
+	repo                repository.Repository
+	runtimeRouterConfig RuntimeRouterConfig
 }
 
 var (
@@ -52,20 +55,23 @@ func InitButler(id int, name string, hub HubInterface, repo repository.Repositor
 		apiToken := os.Getenv("BUTLER_API_TOKEN")
 		model := os.Getenv("BUTLER_MODEL")
 		compactionCfg := loadContextCompactionConfig(baseURL, apiToken, model)
+		runtimeRouterCfg := loadRuntimeRouterConfig(baseURL, apiToken, model)
 
 		if apiToken == "" {
 			log.Println("WARNING: BUTLER_API_TOKEN not found in environment.")
 		}
 
 		instance = &ButlerService{
-			butlerID:   id,
-			butlerName: name,
-			baseURL:    baseURL,
-			apiToken:   apiToken,
-			model:      model,
-			brain:      NewEinoBrain(baseURL, apiToken, model, compactionCfg),
-			hub:        hub,
-			repo:       repo,
+			butlerID:            id,
+			butlerName:          name,
+			baseURL:             baseURL,
+			apiToken:            apiToken,
+			model:               model,
+			brain:               NewEinoBrain(baseURL, apiToken, model, compactionCfg),
+			router:              newRuntimeRouter(runtimeRouterCfg.BaseURL, runtimeRouterCfg.APIToken, runtimeRouterCfg.Model, runtimeRouterCfg),
+			hub:                 hub,
+			repo:                repo,
+			runtimeRouterConfig: runtimeRouterCfg,
 		}
 
 		log.Printf("Butler service initialized for agent: %s (ID: %d)", name, id)
@@ -73,6 +79,31 @@ func InitButler(id int, name string, hub HubInterface, repo repository.Repositor
 			log.Printf("Butler brain connected to: %s", baseURL)
 		}
 	})
+}
+
+func loadRuntimeRouterConfig(baseURL, apiToken, model string) RuntimeRouterConfig {
+	cfg := newRuntimeRouterConfig(baseURL, apiToken, model)
+
+	if raw, ok := os.LookupEnv("BUTLER_RUNTIME_ROUTER_ENABLED"); ok {
+		cfg.Enabled = parseBoolOrDefault(raw, cfg.Enabled)
+	}
+	if raw := strings.TrimSpace(os.Getenv("BUTLER_RUNTIME_ROUTER_BASE_URL")); raw != "" {
+		cfg.BaseURL = raw
+	}
+	if raw := strings.TrimSpace(os.Getenv("BUTLER_RUNTIME_ROUTER_API_TOKEN")); raw != "" {
+		cfg.APIToken = raw
+	}
+	if raw := strings.TrimSpace(os.Getenv("BUTLER_RUNTIME_ROUTER_MODEL")); raw != "" {
+		cfg.Model = raw
+	}
+	if raw, ok := os.LookupEnv("BUTLER_RUNTIME_ROUTER_TIMEOUT"); ok {
+		cfg.Timeout = parseDurationOrDefault(raw, cfg.Timeout)
+	}
+	if raw, ok := os.LookupEnv("BUTLER_RUNTIME_ROUTER_MAX_QUESTIONS"); ok {
+		cfg.MaxQuestions = parseIntOrDefault(raw, cfg.MaxQuestions)
+	}
+
+	return cfg.withDefaults()
 }
 
 func loadContextCompactionConfig(baseURL, apiToken, model string) ContextCompactionConfig {
@@ -113,6 +144,14 @@ func parseBoolOrDefault(raw string, fallback bool) bool {
 
 func parseIntOrDefault(raw string, fallback int) int {
 	parsed, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+func parseDurationOrDefault(raw string, fallback time.Duration) time.Duration {
+	parsed, err := time.ParseDuration(strings.TrimSpace(raw))
 	if err != nil {
 		return fallback
 	}
