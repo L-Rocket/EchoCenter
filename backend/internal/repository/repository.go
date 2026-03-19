@@ -25,6 +25,7 @@ type UserRepository interface {
 	UpdateAgentToken(ctx context.Context, agentID int, token string) error
 	ListSSHKeys(ctx context.Context) ([]models.SSHKey, error)
 	CreateSSHKey(ctx context.Context, key *models.SSHKey) error
+	UpdateSSHKey(ctx context.Context, key *models.SSHKey) error
 	DeleteSSHKey(ctx context.Context, id int) error
 	GetSSHKeyMaterial(ctx context.Context, id int) (*models.SSHKey, error)
 	ListInfraNodes(ctx context.Context) ([]models.InfraNode, error)

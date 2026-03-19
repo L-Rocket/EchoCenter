@@ -518,6 +518,28 @@ func (h *Handler) CreateSSHKey(c *gin.Context) {
 	c.JSON(http.StatusCreated, key)
 }
 
+func (h *Handler) UpdateSSHKey(c *gin.Context) {
+	keyID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || keyID <= 0 {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid ssh key id"))
+		return
+	}
+
+	var key models.SSHKey
+	if err := c.ShouldBindJSON(&key); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid request body", err))
+		return
+	}
+	key.ID = keyID
+
+	if err := h.repo.UpdateSSHKey(c.Request.Context(), &key); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	key.PrivateKey = ""
+	c.JSON(http.StatusOK, key)
+}
+
 func (h *Handler) DeleteSSHKey(c *gin.Context) {
 	keyID, err := strconv.Atoi(c.Param("id"))
 	if err != nil || keyID <= 0 {

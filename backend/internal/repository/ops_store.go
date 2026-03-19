@@ -74,6 +74,64 @@ func (r *sqlRepository) CreateSSHKey(ctx context.Context, key *models.SSHKey) er
 	return nil
 }
 
+func (r *sqlRepository) UpdateSSHKey(ctx context.Context, key *models.SSHKey) error {
+	if key == nil {
+		return apperrors.New(apperrors.ErrInvalidInput, "ssh key is required")
+	}
+	if key.ID <= 0 {
+		return apperrors.New(apperrors.ErrInvalidInput, "ssh key id is required")
+	}
+	key.Name = strings.TrimSpace(key.Name)
+	key.PrivateKey = strings.TrimSpace(key.PrivateKey)
+	key.PublicKey = strings.TrimSpace(key.PublicKey)
+	if key.Name == "" {
+		return apperrors.New(apperrors.ErrInvalidInput, "ssh key name is required")
+	}
+
+	if key.PrivateKey == "" {
+		result, err := r.execContext(ctx, `
+			UPDATE ssh_keys
+			SET name = ?, public_key = ?, updated_at = CURRENT_TIMESTAMP
+			WHERE id = ?
+		`, key.Name, key.PublicKey, key.ID)
+		if err != nil {
+			if isUniqueConstraintError(err) {
+				return apperrors.Wrap(apperrors.ErrConflict, "ssh key name already exists", err)
+			}
+			return apperrors.Wrap(apperrors.ErrDatabase, "failed to update ssh key", err)
+		}
+		rows, _ := result.RowsAffected()
+		if rows == 0 {
+			return apperrors.New(apperrors.ErrNotFound, "ssh key not found")
+		}
+		key.HasPrivateKey = true
+		return nil
+	}
+
+	encrypted, err := encryptSecret(key.PrivateKey, sshKeyEncryptionSecret())
+	if err != nil {
+		return err
+	}
+
+	result, err := r.execContext(ctx, `
+		UPDATE ssh_keys
+		SET name = ?, public_key = ?, encrypted_private_key = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, key.Name, key.PublicKey, encrypted, key.ID)
+	if err != nil {
+		if isUniqueConstraintError(err) {
+			return apperrors.Wrap(apperrors.ErrConflict, "ssh key name already exists", err)
+		}
+		return apperrors.Wrap(apperrors.ErrDatabase, "failed to update ssh key", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return apperrors.New(apperrors.ErrNotFound, "ssh key not found")
+	}
+	key.HasPrivateKey = true
+	return nil
+}
+
 func (r *sqlRepository) DeleteSSHKey(ctx context.Context, id int) error {
 	result, err := r.execContext(ctx, `DELETE FROM ssh_keys WHERE id = ?`, id)
 	if err != nil {

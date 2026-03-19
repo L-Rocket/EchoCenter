@@ -130,6 +130,7 @@ const UserManagement = () => {
   const [newSSHKeyName, setNewSSHKeyName] = useState('');
   const [newSSHPublicKey, setNewSSHPublicKey] = useState('');
   const [newSSHPrivateKey, setNewSSHPrivateKey] = useState('');
+  const [editingSSHKeyID, setEditingSSHKeyID] = useState<number | null>(null);
   const [newNodeName, setNewNodeName] = useState('');
   const [newNodeHost, setNewNodeHost] = useState('');
   const [newNodePort, setNewNodePort] = useState('22');
@@ -496,20 +497,26 @@ const UserManagement = () => {
 
   const handleCreateSSHKey = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSSHKeyName.trim() || !newSSHPrivateKey.trim() || isCreatingSSHKey) return;
+    if (!newSSHKeyName.trim() || isCreatingSSHKey || (!editingSSHKeyID && !newSSHPrivateKey.trim())) return;
     setIsCreatingSSHKey(true);
     try {
-      await userService.createSSHKey({
-        name: newSSHKeyName.trim(),
-        public_key: newSSHPublicKey.trim(),
-        private_key: newSSHPrivateKey,
-      });
-      setNewSSHKeyName('');
-      setNewSSHPublicKey('');
-      setNewSSHPrivateKey('');
+      if (editingSSHKeyID) {
+        await userService.updateSSHKey(editingSSHKeyID, {
+          name: newSSHKeyName.trim(),
+          public_key: newSSHPublicKey.trim(),
+          private_key: newSSHPrivateKey.trim() || undefined,
+        });
+      } else {
+        await userService.createSSHKey({
+          name: newSSHKeyName.trim(),
+          public_key: newSSHPublicKey.trim(),
+          private_key: newSSHPrivateKey,
+        });
+      }
+      resetSSHKeyForm();
       await fetchOpsResources();
     } catch (_err) {
-      setOpsError('Failed to create SSH key.');
+      setOpsError(editingSSHKeyID ? 'Failed to update SSH key.' : 'Failed to create SSH key.');
     } finally {
       setIsCreatingSSHKey(false);
     }
@@ -519,12 +526,30 @@ const UserManagement = () => {
     setDeletingSSHKeyID(id);
     try {
       await userService.deleteSSHKey(id);
+      if (editingSSHKeyID === id) {
+        resetSSHKeyForm();
+      }
       await fetchOpsResources();
     } catch (_err) {
       setOpsError('Failed to delete SSH key.');
     } finally {
       setDeletingSSHKeyID(null);
     }
+  };
+
+  const handleEditSSHKey = (key: SSHKey) => {
+    setEditingSSHKeyID(key.id);
+    setNewSSHKeyName(key.name);
+    setNewSSHPublicKey(key.public_key || '');
+    setNewSSHPrivateKey('');
+    setActivePanel('ssh');
+  };
+
+  const resetSSHKeyForm = () => {
+    setEditingSSHKeyID(null);
+    setNewSSHKeyName('');
+    setNewSSHPublicKey('');
+    setNewSSHPrivateKey('');
   };
 
   const handleCreateNode = async (e: React.FormEvent) => {
@@ -666,6 +691,7 @@ const UserManagement = () => {
       'No agent selected.': '未选择 agent。',
       'Failed to load OpenHands ops resources from backend.': '从后端加载 OpenHands 运维资源失败。',
       'Failed to create SSH key.': '创建 SSH 密钥失败。',
+      'Failed to update SSH key.': '更新 SSH 密钥失败。',
       'Failed to delete SSH key.': '删除 SSH 密钥失败。',
       'Failed to create infra node.': '创建基础设施节点失败。',
       'Failed to update infra node.': '更新基础设施节点失败。',
@@ -910,11 +936,18 @@ const UserManagement = () => {
           <form onSubmit={handleCreateSSHKey} className="space-y-3">
             <Input value={newSSHKeyName} onChange={(e) => setNewSSHKeyName(e.target.value)} placeholder={tx('SSH key name', 'SSH 密钥名称')} className="h-9 text-xs" />
             <Input value={newSSHPublicKey} onChange={(e) => setNewSSHPublicKey(e.target.value)} placeholder={tx('Public key (optional)', '公钥（可选）')} className="h-9 text-xs font-mono" />
-            <textarea value={newSSHPrivateKey} onChange={(e) => setNewSSHPrivateKey(e.target.value)} placeholder={tx('Private key', '私钥')} className="min-h-[120px] w-full rounded-md border bg-background px-3 py-2 text-xs font-mono" />
-            <Button type="submit" className="h-9 text-[10px] uppercase tracking-widest" disabled={isCreatingSSHKey || !newSSHKeyName.trim() || !newSSHPrivateKey.trim()}>
-              {isCreatingSSHKey ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <KeyRound className="mr-1 h-4 w-4" />}
-              {tx('Add SSH Key', '添加 SSH 密钥')}
-            </Button>
+            <textarea value={newSSHPrivateKey} onChange={(e) => setNewSSHPrivateKey(e.target.value)} placeholder={editingSSHKeyID ? tx('Replace private key (optional)', '替换私钥（可选）') : tx('Private key', '私钥')} className="min-h-[120px] w-full rounded-md border bg-background px-3 py-2 text-xs font-mono" />
+            <div className="flex items-center gap-2">
+              <Button type="submit" className="h-9 text-[10px] uppercase tracking-widest" disabled={isCreatingSSHKey || !newSSHKeyName.trim() || (!editingSSHKeyID && !newSSHPrivateKey.trim())}>
+                {isCreatingSSHKey ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <KeyRound className="mr-1 h-4 w-4" />}
+                {editingSSHKeyID ? tx('Update SSH Key', '更新 SSH 密钥') : tx('Add SSH Key', '添加 SSH 密钥')}
+              </Button>
+              {editingSSHKeyID && (
+                <Button type="button" variant="outline" className="h-9 text-[10px] uppercase tracking-widest" onClick={resetSSHKeyForm}>
+                  {tx('Cancel Edit', '取消编辑')}
+                </Button>
+              )}
+            </div>
           </form>
           <div className="space-y-2">
             {sshKeys.map((key) => (
@@ -923,9 +956,14 @@ const UserManagement = () => {
                   <div className="text-sm font-semibold">{key.name}</div>
                   <div className="text-[11px] text-muted-foreground">{key.public_key ? maskToken(key.public_key) : tx('Private key stored securely', '私钥已安全存储')}</div>
                 </div>
-                <Button type="button" variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleDeleteSSHKey(key.id)} disabled={deletingSSHKeyID === key.id}>
-                  {deletingSSHKeyID === key.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleEditSSHKey(key)}>
+                    {tx('Edit', '编辑')}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleDeleteSSHKey(key.id)} disabled={deletingSSHKeyID === key.id}>
+                    {deletingSSHKeyID === key.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
               </div>
             ))}
             {sshKeys.length === 0 && (

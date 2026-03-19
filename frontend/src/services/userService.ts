@@ -79,6 +79,11 @@ export const userService = {
     return response.data;
   },
 
+  updateSSHKey: async (id: number, payload: { name: string; public_key?: string; private_key?: string }) => {
+    const response = await api.patch<SSHKey>(`/api/users/ops/ssh-keys/${id}`, payload);
+    return response.data;
+  },
+
   deleteSSHKey: async (id: number) => {
     const response = await api.delete(`/api/users/ops/ssh-keys/${id}`);
     return response.data;

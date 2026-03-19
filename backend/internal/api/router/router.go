@@ -47,6 +47,7 @@ func Setup(r *gin.Engine, h *handler.Handler, authSvc auth.Service) {
 			admin.GET("/ops/tasks", h.ListOpenHandsTasks)
 			admin.GET("/ops/ssh-keys", h.ListSSHKeys)
 			admin.POST("/ops/ssh-keys", h.CreateSSHKey)
+			admin.PATCH("/ops/ssh-keys/:id", h.UpdateSSHKey)
 			admin.DELETE("/ops/ssh-keys/:id", h.DeleteSSHKey)
 			admin.GET("/ops/nodes", h.ListInfraNodes)
 			admin.POST("/ops/nodes", h.CreateInfraNode)
