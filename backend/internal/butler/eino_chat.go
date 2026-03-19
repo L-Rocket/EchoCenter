@@ -16,6 +16,7 @@ type ChatStreamResult struct {
 	HasCommand bool           // Deprecated: always false with ReAct Agent.
 	SessionID  string         // Session ID for continuation.
 	CreatedAt  time.Time      // When this result was created.
+	PromptInfo PromptTrace    // Summary of the assembled prompt sent to the model.
 }
 
 // ChatStream streams the response using ReAct Agent (with automatic tool execution).
@@ -31,6 +32,7 @@ func (b *EinoBrain) ChatStream(ctx context.Context, sessionID, input, systemStat
 	}
 
 	msgs := b.prepareConversation(ctx, sessionID, input, systemState)
+	promptInfo := summarizePreparedMessages(msgs)
 
 	decision, err := b.orch.StreamAssistantForDecision(ctx, msgs, onChunk)
 	if err != nil {
@@ -43,6 +45,7 @@ func (b *EinoBrain) ChatStream(ctx context.Context, sessionID, input, systemStat
 			HasCommand: false,
 			SessionID:  sessionID,
 			CreatedAt:  time.Now(),
+			PromptInfo: promptInfo,
 		}, err
 	}
 
@@ -55,5 +58,6 @@ func (b *EinoBrain) ChatStream(ctx context.Context, sessionID, input, systemStat
 		HasCommand: false,
 		SessionID:  sessionID,
 		CreatedAt:  time.Now(),
+		PromptInfo: promptInfo,
 	}, nil
 }

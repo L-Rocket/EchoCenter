@@ -23,13 +23,14 @@ func (s *ButlerService) handleUserMessageFlow(ctx context.Context, senderID int,
 	ctx, span := observability.StartSpan(ctx, "butler.user_message", "agent")
 	defer span.Finish(ctx)
 	span.SetThreadID(ctx, sessionID)
-	span.SetInput(ctx, map[string]any{
+	spanInput := map[string]any{
 		"sender_id":      senderID,
 		"payload":        payload,
 		"stream_id":      streamID,
 		"system_state":   systemState,
 		"payload_length": len(payload),
-	})
+	}
+	span.SetInput(ctx, spanInput)
 	span.SetTags(ctx, map[string]any{
 		"stream_id": streamID,
 		"sender_id": senderID,
@@ -39,6 +40,16 @@ func (s *ButlerService) handleUserMessageFlow(ctx context.Context, senderID int,
 		s.broadcastStreamChunk(senderID, streamID, chunk)
 		return nil
 	})
+	if result != nil && result.PromptInfo.TotalMessages > 0 {
+		spanInput["prompt_summary"] = result.PromptInfo
+		span.SetInput(ctx, spanInput)
+		span.SetTags(ctx, map[string]any{
+			"prompt_messages":       result.PromptInfo.TotalMessages,
+			"prompt_chars":          result.PromptInfo.TotalChars,
+			"prompt_recent_window":  result.PromptInfo.RecentMessages,
+			"prompt_summary_injected": result.PromptInfo.SummaryInjected,
+		})
+	}
 	if err != nil {
 		span.SetStatusCode(ctx, 1)
 		span.SetError(ctx, err)
