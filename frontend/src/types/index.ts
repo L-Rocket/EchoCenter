@@ -15,6 +15,31 @@ export interface Agent extends User {
   last_seen_at?: string;
   token_hint?: string;
   token_updated_at?: string;
+  agent_kind?: string;
+  runtime_kind?: string;
+  description?: string;
+}
+
+export interface SSHKey {
+  id: number;
+  name: string;
+  public_key?: string;
+  private_key?: string;
+  has_private_key?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface InfraNode {
+  id: number;
+  name: string;
+  host: string;
+  port: number;
+  ssh_user: string;
+  ssh_key_id: number;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ChatMessage {

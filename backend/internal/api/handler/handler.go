@@ -13,6 +13,7 @@ import (
 	"github.com/lea/echocenter/backend/internal/butler"
 	"github.com/lea/echocenter/backend/internal/config"
 	"github.com/lea/echocenter/backend/internal/models"
+	"github.com/lea/echocenter/backend/internal/ops"
 	"github.com/lea/echocenter/backend/internal/repository"
 	apperrors "github.com/lea/echocenter/backend/pkg/errors"
 )
@@ -409,19 +410,117 @@ func (h *Handler) CreateUser(c *gin.Context) {
 }
 
 func (h *Handler) RegisterAgent(c *gin.Context) {
-	var agent models.User
-	if err := c.ShouldBindJSON(&agent); err != nil {
+	var req struct {
+		Username    string `json:"username"`
+		APIToken    string `json:"api_token"`
+		AgentKind   string `json:"agent_kind"`
+		RuntimeKind string `json:"runtime_kind"`
+		Description string `json:"description"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
 		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid request body", err))
 		return
 	}
 
-	agent.Role = "AGENT"
+	agent := models.User{
+		Username:    strings.TrimSpace(req.Username),
+		APIToken:    strings.TrimSpace(req.APIToken),
+		Role:        "AGENT",
+		AgentKind:   strings.TrimSpace(req.AgentKind),
+		RuntimeKind: strings.TrimSpace(req.RuntimeKind),
+		Description: strings.TrimSpace(req.Description),
+	}
+	if agent.Username == "" {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "username is required"))
+		return
+	}
+	if agent.AgentKind == "" {
+		agent.AgentKind = "generic"
+	}
+	if agent.RuntimeKind == "" {
+		agent.RuntimeKind = "websocket"
+	}
+	if strings.EqualFold(agent.AgentKind, ops.ManagedAgentKind()) || strings.EqualFold(agent.RuntimeKind, ops.ManagedRuntimeKind()) {
+		agent.AgentKind = ops.ManagedAgentKind()
+		agent.RuntimeKind = ops.ManagedRuntimeKind()
+	}
 	if err := h.repo.CreateUser(c.Request.Context(), &agent); err != nil {
 		h.respondWithError(c, http.StatusInternalServerError, err)
 		return
 	}
 
 	c.JSON(http.StatusCreated, agent)
+}
+
+func (h *Handler) ListSSHKeys(c *gin.Context) {
+	keys, err := h.repo.ListSSHKeys(c.Request.Context())
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, keys)
+}
+
+func (h *Handler) CreateSSHKey(c *gin.Context) {
+	var key models.SSHKey
+	if err := c.ShouldBindJSON(&key); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid request body", err))
+		return
+	}
+	if err := h.repo.CreateSSHKey(c.Request.Context(), &key); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	key.PrivateKey = ""
+	c.JSON(http.StatusCreated, key)
+}
+
+func (h *Handler) DeleteSSHKey(c *gin.Context) {
+	keyID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || keyID <= 0 {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid ssh key id"))
+		return
+	}
+	if err := h.repo.DeleteSSHKey(c.Request.Context(), keyID); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *Handler) ListInfraNodes(c *gin.Context) {
+	nodes, err := h.repo.ListInfraNodes(c.Request.Context())
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, nodes)
+}
+
+func (h *Handler) CreateInfraNode(c *gin.Context) {
+	var node models.InfraNode
+	if err := c.ShouldBindJSON(&node); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid request body", err))
+		return
+	}
+	if err := h.repo.CreateInfraNode(c.Request.Context(), &node); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusCreated, node)
+}
+
+func (h *Handler) DeleteInfraNode(c *gin.Context) {
+	nodeID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || nodeID <= 0 {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid infra node id"))
+		return
+	}
+	if err := h.repo.DeleteInfraNode(c.Request.Context(), nodeID); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 func (h *Handler) TestAgentConnection(c *gin.Context) {
@@ -489,6 +588,19 @@ func (h *Handler) UpdateAgentToken(c *gin.Context) {
 }
 
 func (h *Handler) withPresence(user models.User) models.User {
+	if executor := ops.GetExecutor(); executor != nil && executor.IsManagedAgent(user) {
+		online, report := executor.Status(user)
+		user.Online = online
+		if online {
+			user.Status = "ONLINE"
+			now := time.Now().UTC()
+			user.LastSeenAt = &now
+		} else {
+			user.Status = "OFFLINE"
+		}
+		user.LastReport = report
+		return user
+	}
 	if h.hub == nil {
 		user.Status = "OFFLINE"
 		user.Online = false

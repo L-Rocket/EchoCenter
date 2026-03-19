@@ -23,6 +23,13 @@ type UserRepository interface {
 	GetAgents(ctx context.Context) ([]models.User, error)
 	CreateAgent(ctx context.Context, username, token string) error
 	UpdateAgentToken(ctx context.Context, agentID int, token string) error
+	ListSSHKeys(ctx context.Context) ([]models.SSHKey, error)
+	CreateSSHKey(ctx context.Context, key *models.SSHKey) error
+	DeleteSSHKey(ctx context.Context, id int) error
+	GetSSHKeyMaterial(ctx context.Context, id int) (*models.SSHKey, error)
+	ListInfraNodes(ctx context.Context) ([]models.InfraNode, error)
+	CreateInfraNode(ctx context.Context, node *models.InfraNode) error
+	DeleteInfraNode(ctx context.Context, id int) error
 }
 
 // ChatRepository manages direct chat persistence.

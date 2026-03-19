@@ -198,6 +198,47 @@ func TestUpdateAgentTokenReplacesLookupToken(t *testing.T) {
 	assert.Equal(t, agent.ID, newAgent.ID)
 }
 
+func TestSSHKeyAndInfraNodeCRUD(t *testing.T) {
+	t.Setenv("OPENHANDS_SSH_KEY_ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef")
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	key := &models.SSHKey{
+		Name:       "prod-root",
+		PublicKey:  "ssh-ed25519 AAAA...",
+		PrivateKey: "-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----",
+	}
+	require.NoError(t, repo.CreateSSHKey(ctx, key))
+	require.NotZero(t, key.ID)
+
+	keys, err := repo.ListSSHKeys(ctx)
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+	assert.Empty(t, keys[0].PrivateKey)
+	assert.True(t, keys[0].HasPrivateKey)
+
+	material, err := repo.GetSSHKeyMaterial(ctx, key.ID)
+	require.NoError(t, err)
+	require.NotNil(t, material)
+	assert.Equal(t, key.PrivateKey, material.PrivateKey)
+
+	node := &models.InfraNode{
+		Name:        "prod-web-1",
+		Host:        "10.0.0.5",
+		Port:        22,
+		SSHUser:     "ubuntu",
+		SSHKeyID:    key.ID,
+		Description: "Primary web node",
+	}
+	require.NoError(t, repo.CreateInfraNode(ctx, node))
+	require.NotZero(t, node.ID)
+
+	nodes, err := repo.ListInfraNodes(ctx)
+	require.NoError(t, err)
+	require.Len(t, nodes, 1)
+	assert.Equal(t, key.ID, nodes[0].SSHKeyID)
+}
+
 func TestTokenHintHandlesSingleCharacterToken(t *testing.T) {
 	assert.NotPanics(t, func() {
 		assert.Equal(t, "a****", tokenHint("a"))

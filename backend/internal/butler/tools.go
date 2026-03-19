@@ -13,6 +13,7 @@ import (
 	"github.com/cloudwego/eino/schema"
 	"github.com/google/uuid"
 	"github.com/lea/echocenter/backend/internal/models"
+	"github.com/lea/echocenter/backend/internal/ops"
 	"github.com/lea/echocenter/backend/internal/repository"
 )
 
@@ -63,14 +64,14 @@ func (t *DelegateResearchTool) InvokableRun(ctx context.Context, argumentsInJSON
 		return "", err
 	}
 
-	b := GetButler()
-	if b == nil {
-		return "Runtime research unavailable because Butler service is not initialized.", nil
-	}
-
 	question := strings.TrimSpace(input.Question)
 	if question == "" {
 		return "Runtime research skipped because no question was provided.", nil
+	}
+
+	b := GetButler()
+	if b == nil {
+		return "Runtime research unavailable because Butler service is not initialized.", nil
 	}
 
 	briefing := b.buildRuntimeRouterBriefing(ctx, question)
@@ -104,7 +105,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 
 	// Early check: if target agent is offline, return immediately without waiting
 	b := GetButler()
-	if b != nil && b.hub != nil && !b.hub.HasClient(input.TargetAgentID) {
+	if !canReachTargetAgent(ctx, input.TargetAgentID, b) {
 		log.Printf("[Butler Tool] Target Agent %d is OFFLINE, skipping approval request and returning immediately", input.TargetAgentID)
 		return fmt.Sprintf("Target agent %d is offline (not connected). Command not sent.", input.TargetAgentID), nil
 	}
@@ -148,7 +149,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 	}
 
 	// Re-check agent is still online after approval
-	if b != nil && b.hub != nil && !b.hub.HasClient(input.TargetAgentID) {
+	if !canReachTargetAgent(ctx, input.TargetAgentID, b) {
 		log.Printf("[Butler Tool] Target Agent %d went OFFLINE after approval, returning immediately without waiting", input.TargetAgentID)
 		return fmt.Sprintf("Target agent %d is now offline. Command not executed.", input.TargetAgentID), nil
 	}
@@ -167,6 +168,13 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 
 	// 5. Execute actual command
 	log.Printf("[Butler Tool] Action %s APPROVED. Executing command to Agent %d...", actionID, input.TargetAgentID)
+
+	if managedResult, managed, err := executeManagedAgentCommand(ctx, b, input.TargetAgentID, input.Command, input.Reasoning); managed {
+		if err != nil {
+			return "", err
+		}
+		return managedResult, nil
+	}
 
 	// Prepare to receive response
 	respChan := make(chan string, 1)
@@ -295,6 +303,78 @@ func removePendingResponse(agentID int, target chan string) {
 		}
 		return
 	}
+}
+
+func canReachTargetAgent(ctx context.Context, agentID int, b *ButlerService) bool {
+	if executor := ops.GetExecutor(); executor != nil && repoInstance != nil {
+		user, err := repoInstance.GetUserByID(ctx, agentID)
+		if err == nil && user != nil && executor.IsManagedAgent(*user) {
+			return executor.IsAvailable()
+		}
+	}
+	return b != nil && b.hub != nil && b.hub.HasClient(agentID)
+}
+
+func executeManagedAgentCommand(ctx context.Context, b *ButlerService, agentID int, command, reasoning string) (string, bool, error) {
+	executor := ops.GetExecutor()
+	if executor == nil || repoInstance == nil {
+		return "", false, nil
+	}
+	user, err := repoInstance.GetUserByID(ctx, agentID)
+	if err != nil || user == nil || !executor.IsManagedAgent(*user) {
+		return "", false, err
+	}
+
+	if b != nil {
+		outbound := &models.ChatMessage{
+			SenderID:   b.butlerID,
+			ReceiverID: agentID,
+			Payload:    fmt.Sprintf("[DIRECTIVE] %s", command),
+		}
+		if repoInstance != nil {
+			_ = repoInstance.SaveChatMessage(ctx, outbound)
+		}
+		b.broadcast(map[string]any{
+			"id":          outbound.ID,
+			"type":        "CHAT",
+			"sender_id":   b.butlerID,
+			"sender_name": b.butlerName,
+			"sender_role": "BUTLER",
+			"target_id":   agentID,
+			"payload":     outbound.Payload,
+			"timestamp":   outbound.Timestamp.Format(time.RFC3339Nano),
+		})
+	}
+
+	runCtx, cancel := context.WithTimeout(ctx, ops.RunTimeout())
+	defer cancel()
+	result, err := executor.ExecuteAgentCommand(runCtx, command, reasoning)
+	if err != nil {
+		return "", true, err
+	}
+
+	if b != nil {
+		inbound := &models.ChatMessage{
+			SenderID:   agentID,
+			ReceiverID: b.butlerID,
+			Payload:    result,
+		}
+		if repoInstance != nil {
+			_ = repoInstance.SaveChatMessage(ctx, inbound)
+		}
+		b.broadcast(map[string]any{
+			"id":          inbound.ID,
+			"type":        "CHAT",
+			"sender_id":   agentID,
+			"sender_name": user.Username,
+			"sender_role": "AGENT",
+			"target_id":   b.butlerID,
+			"payload":     result,
+			"timestamp":   inbound.Timestamp.Format(time.RFC3339Nano),
+		})
+	}
+
+	return result, true, nil
 }
 
 // ResolveAction resumes a pending tool execution or command

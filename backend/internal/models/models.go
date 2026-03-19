@@ -17,6 +17,9 @@ type User struct {
 	APIToken       string     `json:"api_token,omitempty" db:"api_token"`
 	Role           string     `json:"role" db:"role"`
 	ActorType      string     `json:"actor_type" db:"actor_type"`
+	AgentKind      string     `json:"agent_kind,omitempty" db:"agent_kind"`
+	RuntimeKind    string     `json:"runtime_kind,omitempty" db:"runtime_kind"`
+	Description    string     `json:"description,omitempty" db:"description"`
 	TokenHint      string     `json:"token_hint,omitempty"`
 	TokenUpdatedAt *time.Time `json:"token_updated_at,omitempty"`
 	Status         string     `json:"status,omitempty"`
@@ -54,6 +57,28 @@ type ButlerAuthorization struct {
 	Status          string     `json:"status" db:"status"`
 	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
 	RespondedAt     *time.Time `json:"responded_at,omitempty" db:"responded_at"`
+}
+
+type SSHKey struct {
+	ID            int       `json:"id" db:"id"`
+	Name          string    `json:"name" db:"name"`
+	PublicKey     string    `json:"public_key,omitempty" db:"public_key"`
+	PrivateKey    string    `json:"private_key,omitempty"`
+	HasPrivateKey bool      `json:"has_private_key"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+}
+
+type InfraNode struct {
+	ID          int       `json:"id" db:"id"`
+	Name        string    `json:"name" db:"name"`
+	Host        string    `json:"host" db:"host"`
+	Port        int       `json:"port" db:"port"`
+	SSHUser     string    `json:"ssh_user" db:"ssh_user"`
+	SSHKeyID    int       `json:"ssh_key_id" db:"ssh_key_id"`
+	Description string    `json:"description,omitempty" db:"description"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type FeishuConnector struct {

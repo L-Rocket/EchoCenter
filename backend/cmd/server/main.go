@@ -19,6 +19,7 @@ import (
 	"github.com/lea/echocenter/backend/internal/butler"
 	"github.com/lea/echocenter/backend/internal/config"
 	"github.com/lea/echocenter/backend/internal/observability"
+	"github.com/lea/echocenter/backend/internal/ops"
 	"github.com/lea/echocenter/backend/internal/repository"
 )
 
@@ -41,6 +42,10 @@ func main() {
 		log.Fatalf("Failed to initialize repository: %v", err)
 	}
 	defer repo.Close()
+
+	if err := ops.Init(repo, cfg.OpenHands); err != nil {
+		log.Fatalf("Failed to initialize OpenHands ops executor: %v", err)
+	}
 
 	// Initialize admin user
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

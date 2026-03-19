@@ -203,6 +203,38 @@ func (r *sqlRepository) getMigrations() []schemaMigration {
 					`CREATE INDEX IF NOT EXISTS idx_feishu_events_connector_time ON feishu_inbound_events (connector_id, id DESC)`,
 				},
 			},
+			{
+				name: "009_add_agent_runtime_columns",
+				statements: []string{
+					`ALTER TABLE users ADD COLUMN IF NOT EXISTS agent_kind TEXT NOT NULL DEFAULT 'generic'`,
+					`ALTER TABLE users ADD COLUMN IF NOT EXISTS runtime_kind TEXT NOT NULL DEFAULT 'websocket'`,
+					`ALTER TABLE users ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''`,
+				},
+			},
+			{
+				name: "010_create_ops_tables",
+				statements: []string{
+					`CREATE TABLE IF NOT EXISTS ssh_keys (
+						id BIGSERIAL PRIMARY KEY,
+						name TEXT NOT NULL UNIQUE,
+						public_key TEXT NOT NULL DEFAULT '',
+						encrypted_private_key TEXT NOT NULL,
+						created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+						updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+					)`,
+					`CREATE TABLE IF NOT EXISTS infra_nodes (
+						id BIGSERIAL PRIMARY KEY,
+						name TEXT NOT NULL UNIQUE,
+						host TEXT NOT NULL,
+						port INTEGER NOT NULL DEFAULT 22,
+						ssh_user TEXT NOT NULL,
+						ssh_key_id BIGINT NOT NULL REFERENCES ssh_keys(id) ON DELETE RESTRICT,
+						description TEXT NOT NULL DEFAULT '',
+						created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+						updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+					)`,
+				},
+			},
 		}
 	}
 
@@ -353,6 +385,39 @@ func (r *sqlRepository) getMigrations() []schemaMigration {
 				)`,
 				`CREATE INDEX IF NOT EXISTS idx_feishu_logs_connector_time ON feishu_integration_logs (connector_id, id DESC)`,
 				`CREATE INDEX IF NOT EXISTS idx_feishu_events_connector_time ON feishu_inbound_events (connector_id, id DESC)`,
+			},
+		},
+		{
+			name: "009_add_agent_runtime_columns",
+			statements: []string{
+				`ALTER TABLE users ADD COLUMN agent_kind TEXT NOT NULL DEFAULT 'generic'`,
+				`ALTER TABLE users ADD COLUMN runtime_kind TEXT NOT NULL DEFAULT 'websocket'`,
+				`ALTER TABLE users ADD COLUMN description TEXT NOT NULL DEFAULT ''`,
+			},
+		},
+		{
+			name: "010_create_ops_tables",
+			statements: []string{
+				`CREATE TABLE IF NOT EXISTS ssh_keys (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					name TEXT NOT NULL UNIQUE,
+					public_key TEXT NOT NULL DEFAULT '',
+					encrypted_private_key TEXT NOT NULL,
+					created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+					updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+				)`,
+				`CREATE TABLE IF NOT EXISTS infra_nodes (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					name TEXT NOT NULL UNIQUE,
+					host TEXT NOT NULL,
+					port INTEGER NOT NULL DEFAULT 22,
+					ssh_user TEXT NOT NULL,
+					ssh_key_id INTEGER NOT NULL,
+					description TEXT NOT NULL DEFAULT '',
+					created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+					updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+					FOREIGN KEY(ssh_key_id) REFERENCES ssh_keys(id)
+				)`,
 			},
 		},
 	}

@@ -35,6 +35,16 @@ func (r *sqlRepository) CreateUser(ctx context.Context, user *models.User) error
 		actorType = actorTypeSystem
 	}
 
+	agentKind := strings.ToLower(strings.TrimSpace(user.AgentKind))
+	if agentKind == "" {
+		agentKind = "generic"
+	}
+	runtimeKind := strings.ToLower(strings.TrimSpace(user.RuntimeKind))
+	if runtimeKind == "" {
+		runtimeKind = "websocket"
+	}
+	description := strings.TrimSpace(user.Description)
+
 	passwordHash := user.PasswordHash
 	apiToken := strings.TrimSpace(user.APIToken)
 
@@ -55,8 +65,8 @@ func (r *sqlRepository) CreateUser(ctx context.Context, user *models.User) error
 		return apperrors.Wrap(apperrors.ErrDatabase, "failed to start create-user transaction", err)
 	}
 
-	query := `INSERT INTO users (username, password_hash, api_token, role, actor_type) VALUES (?, ?, ?, ?, ?)`
-	userID, err := r.txInsertAndReturnID(tx, query, user.Username, passwordHash, nullableString(apiToken), role, actorType)
+	query := `INSERT INTO users (username, password_hash, api_token, role, actor_type, agent_kind, runtime_kind, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+	userID, err := r.txInsertAndReturnID(tx, query, user.Username, passwordHash, nullableString(apiToken), role, actorType, agentKind, runtimeKind, description)
 	if err != nil {
 		_ = tx.Rollback()
 		if isUniqueConstraintError(err) {
@@ -86,6 +96,9 @@ func (r *sqlRepository) CreateUser(ctx context.Context, user *models.User) error
 	user.ID = int(userID)
 	user.Role = role
 	user.ActorType = actorType
+	user.AgentKind = agentKind
+	user.RuntimeKind = runtimeKind
+	user.Description = description
 	user.PasswordHash = passwordHash
 	user.APIToken = apiToken
 	return nil
@@ -107,6 +120,9 @@ func (r *sqlRepository) GetUserByUsername(ctx context.Context, username string) 
 			COALESCE(mc.api_token, u.api_token) AS api_token,
 			u.role,
 			u.actor_type,
+			u.agent_kind,
+			u.runtime_kind,
+			u.description,
 			u.created_at
 		FROM users u
 		LEFT JOIN human_credentials h ON h.user_id = u.id
@@ -120,6 +136,9 @@ func (r *sqlRepository) GetUserByUsername(ctx context.Context, username string) 
 		&apiToken,
 		&user.Role,
 		&actorType,
+		&user.AgentKind,
+		&user.RuntimeKind,
+		&user.Description,
 		&user.CreatedAt,
 	)
 
@@ -158,6 +177,9 @@ func (r *sqlRepository) GetUserByID(ctx context.Context, id int) (*models.User, 
 			COALESCE(mc.api_token, u.api_token) AS api_token,
 			u.role,
 			u.actor_type,
+			u.agent_kind,
+			u.runtime_kind,
+			u.description,
 			u.created_at
 		FROM users u
 		LEFT JOIN human_credentials h ON h.user_id = u.id
@@ -171,6 +193,9 @@ func (r *sqlRepository) GetUserByID(ctx context.Context, id int) (*models.User, 
 		&apiToken,
 		&user.Role,
 		&actorType,
+		&user.AgentKind,
+		&user.RuntimeKind,
+		&user.Description,
 		&user.CreatedAt,
 	)
 
@@ -207,6 +232,9 @@ func (r *sqlRepository) GetAgentByToken(ctx context.Context, token string) (*mod
 			u.username,
 			u.role,
 			u.actor_type,
+			u.agent_kind,
+			u.runtime_kind,
+			u.description,
 			u.created_at,
 			COALESCE(mc.api_token, u.api_token) AS api_token
 		FROM users u
@@ -219,6 +247,9 @@ func (r *sqlRepository) GetAgentByToken(ctx context.Context, token string) (*mod
 		&user.Username,
 		&user.Role,
 		&actorType,
+		&user.AgentKind,
+		&user.RuntimeKind,
+		&user.Description,
 		&user.CreatedAt,
 		&apiToken,
 	)
@@ -249,6 +280,9 @@ func (r *sqlRepository) GetAgents(ctx context.Context) ([]models.User, error) {
 			u.username,
 			u.role,
 			u.actor_type,
+			u.agent_kind,
+			u.runtime_kind,
+			u.description,
 			u.created_at,
 			COALESCE(mc.api_token, u.api_token) AS api_token,
 			mc.updated_at
@@ -270,7 +304,7 @@ func (r *sqlRepository) GetAgents(ctx context.Context) ([]models.User, error) {
 			apiToken     sql.NullString
 			tokenUpdated sql.NullTime
 		)
-		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &actorType, &u.CreatedAt, &apiToken, &tokenUpdated); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &actorType, &u.AgentKind, &u.RuntimeKind, &u.Description, &u.CreatedAt, &apiToken, &tokenUpdated); err != nil {
 			return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to scan agent", err)
 		}
 		if actorType.Valid {
@@ -304,6 +338,9 @@ func (r *sqlRepository) GetUsers(ctx context.Context) ([]models.User, error) {
 			u.username,
 			u.role,
 			u.actor_type,
+			u.agent_kind,
+			u.runtime_kind,
+			u.description,
 			u.created_at,
 			COALESCE(mc.api_token, u.api_token) AS api_token,
 			mc.updated_at
@@ -324,7 +361,7 @@ func (r *sqlRepository) GetUsers(ctx context.Context) ([]models.User, error) {
 			apiToken     sql.NullString
 			tokenUpdated sql.NullTime
 		)
-		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &actorType, &u.CreatedAt, &apiToken, &tokenUpdated); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &actorType, &u.AgentKind, &u.RuntimeKind, &u.Description, &u.CreatedAt, &apiToken, &tokenUpdated); err != nil {
 			return nil, apperrors.Wrap(apperrors.ErrDatabase, "failed to scan user", err)
 		}
 		if actorType.Valid {

@@ -43,6 +43,12 @@ func Setup(r *gin.Engine, h *handler.Handler, authSvc auth.Service) {
 			admin.POST("/agents", h.RegisterAgent)
 			admin.POST("/agents/test-connection", h.TestAgentConnection)
 			admin.PATCH("/agents/:id/token", h.UpdateAgentToken)
+			admin.GET("/ops/ssh-keys", h.ListSSHKeys)
+			admin.POST("/ops/ssh-keys", h.CreateSSHKey)
+			admin.DELETE("/ops/ssh-keys/:id", h.DeleteSSHKey)
+			admin.GET("/ops/nodes", h.ListInfraNodes)
+			admin.POST("/ops/nodes", h.CreateInfraNode)
+			admin.DELETE("/ops/nodes/:id", h.DeleteInfraNode)
 		}
 
 		integrations := protected.Group("/integrations")
