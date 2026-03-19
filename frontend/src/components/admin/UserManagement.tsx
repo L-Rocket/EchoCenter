@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Braces,
   Bot,
   ChevronDown,
   ChevronLeft,
@@ -9,6 +10,7 @@ import {
   Copy,
   Eye,
   EyeOff,
+  FileCode2,
   KeyRound,
   ListTodo,
   Loader2,
@@ -18,6 +20,7 @@ import {
   Search,
   Server,
   ShieldEllipsis,
+  Terminal,
   Trash2,
   UserPlus,
 } from 'lucide-react';
@@ -43,6 +46,12 @@ interface RuntimeStatusBadge {
   variant: 'success' | 'info' | 'muted' | 'warning';
   label: string;
   pulse: boolean;
+}
+
+interface TaskWorkflowStep {
+  kind: 'code' | 'command' | 'stdout' | 'stderr' | 'result' | 'note';
+  title: string;
+  body: string;
 }
 
 type OperationsPanel = 'overview' | 'executors' | 'agents' | 'ssh' | 'nodes' | 'openhands' | 'tasks';
@@ -108,6 +117,80 @@ const getRuntimeStatusBadge = (agent?: Agent | null): RuntimeStatusBadge => {
   return { variant: 'warning', label: 'Unknown', pulse: false };
 };
 
+const normalizeTaskText = (text?: string) => (text || '').replace(/\r\n/g, '\n').trim();
+
+const extractMarkdownSections = (source: string, pattern: RegExp): Array<{ title: string; body: string }> => {
+  const matches = Array.from(source.matchAll(pattern));
+  return matches
+    .map((match) => ({
+      title: String(match[1] || '').trim(),
+      body: String(match[2] || '').trim(),
+    }))
+    .filter((section) => section.title && section.body);
+};
+
+const parseOpenHandsWorkflow = (task: OpenHandsTaskRecord): TaskWorkflowStep[] => {
+  const source = normalizeTaskText(task.success ? task.summary : task.error);
+  if (!source) return [];
+
+  const steps: TaskWorkflowStep[] = [];
+  const resultSections = extractMarkdownSections(source, /^##\s+(Code|Output|Final Result)\s*\n([\s\S]*?)(?=^##\s+|\Z)/gm);
+  resultSections.forEach((section) => {
+    const lowered = section.title.toLowerCase();
+    steps.push({
+      kind: lowered === 'code' ? 'code' : lowered === 'output' ? 'stdout' : 'result',
+      title: section.title,
+      body: section.body.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n```$/, '').trim(),
+    });
+  });
+
+  const commandBlocks = extractMarkdownSections(source, /^##\s+(Command[^\n]*)\s*\n([\s\S]*?)(?=^##\s+|\Z)/gm);
+  commandBlocks.forEach((section) => {
+    const body = section.body.trim();
+    const commandLine = body
+      .replace(/^```[a-zA-Z]*\n?/, '')
+      .replace(/\n```[\s\S]*$/, '')
+      .split('\n')
+      .map((line) => line.trim())
+      .find(Boolean);
+    if (commandLine) {
+      steps.push({ kind: 'command', title: section.title, body: commandLine });
+    }
+
+    const stdoutMatch = body.match(/###\s+stdout\s*\n```text\n([\s\S]*?)\n```/m);
+    if (stdoutMatch?.[1]?.trim()) {
+      steps.push({ kind: 'stdout', title: `${section.title} stdout`, body: stdoutMatch[1].trim() });
+    }
+
+    const stderrMatch = body.match(/###\s+stderr\s*\n```text\n([\s\S]*?)\n```/m);
+    if (stderrMatch?.[1]?.trim()) {
+      steps.push({ kind: 'stderr', title: `${section.title} stderr`, body: stderrMatch[1].trim() });
+    }
+  });
+
+  if (steps.length === 0) {
+    steps.push({
+      kind: task.success ? 'note' : 'stderr',
+      title: task.success ? 'Summary' : 'Failure',
+      body: source,
+    });
+  }
+
+  return steps;
+};
+
+const taskPreview = (task: OpenHandsTaskRecord) => {
+  const steps = parseOpenHandsWorkflow(task);
+  const preferred = steps.find((step) => step.kind === 'result')
+    || steps.find((step) => step.kind === 'stdout')
+    || steps.find((step) => step.kind === 'command')
+    || steps[0];
+
+  return preferred?.body
+    ? preferred.body.split('\n').map((line) => line.trim()).find(Boolean) || ''
+    : '';
+};
+
 const UserManagement = ({ mode = 'operations', forcedPanel }: UserManagementProps) => {
   const { tx, isZh } = useI18n();
   const isSettingsMode = mode === 'settings';
@@ -160,6 +243,7 @@ const UserManagement = ({ mode = 'operations', forcedPanel }: UserManagementProp
   const [activePanel, setActivePanel] = useState<OperationsPanel>('overview');
   const [openhandsStatus, setOpenhandsStatus] = useState<OpenHandsStatus | null>(null);
   const [openhandsTasks, setOpenhandsTasks] = useState<OpenHandsTaskRecord[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const wsUrl = getWsUrl();
 
@@ -313,6 +397,16 @@ const UserManagement = ({ mode = 'operations', forcedPanel }: UserManagementProp
       setActivePanel(allowedPanels[0]);
     }
   }, [activePanel, forcedPanel, isSettingsMode]);
+
+  useEffect(() => {
+    if (openhandsTasks.length === 0) {
+      setSelectedTaskId(null);
+      return;
+    }
+    if (!selectedTaskId || !openhandsTasks.some((task) => task.id === selectedTaskId)) {
+      setSelectedTaskId(openhandsTasks[0].id);
+    }
+  }, [openhandsTasks, selectedTaskId]);
 
   const filteredAgents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -804,6 +898,14 @@ const UserManagement = ({ mode = 'operations', forcedPanel }: UserManagementProp
   const activePanelMeta = visiblePanelMeta.find((panel) => panel.key === activePanel) ?? visiblePanelMeta[0];
   const recentTaskPreview = openhandsTasks.slice(0, 3);
   const hasHealthyExecutor = Boolean(openhandsStatus?.enabled && openhandsStatus?.worker_reachable);
+  const selectedTask = useMemo(
+    () => openhandsTasks.find((task) => task.id === selectedTaskId) ?? openhandsTasks[0] ?? null,
+    [openhandsTasks, selectedTaskId]
+  );
+  const selectedTaskWorkflow = useMemo(
+    () => (selectedTask ? parseOpenHandsWorkflow(selectedTask) : []),
+    [selectedTask]
+  );
 
   const renderPanelIcon = (icon: typeof panelMeta[number]['icon']) => {
     switch (icon) {
@@ -1594,66 +1696,247 @@ const UserManagement = ({ mode = 'operations', forcedPanel }: UserManagementProp
             )}
           </CardContent>
         </Card>
+
+        <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm xl:col-span-2">
+          <CardHeader className="pb-4 gap-2">
+            <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
+              <Terminal className="h-4 w-4 text-primary" />
+              {tx('Workflow Playback', '工作流回放')}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {tx('Inspect the latest delegated run as a sequence of code, commands, and outputs.', '按代码、命令和输出的顺序查看最近一次委派执行。')}
+            </p>
+          </CardHeader>
+          <CardContent>
+            {!selectedTask ? (
+              <div className="rounded-lg border bg-muted/20 p-4 text-xs text-muted-foreground">
+                {tx('Dispatch a task from Butler to see the OpenHands workflow appear here.', '先让 Butler 下发一次任务，OpenHands 的执行流程就会出现在这里。')}
+              </div>
+            ) : (
+              <div className="grid gap-4 xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
+                <div className="space-y-3">
+                  {openhandsTasks.slice(0, 6).map((task) => (
+                    <button
+                      key={task.id}
+                      type="button"
+                      className={`w-full rounded-2xl border px-4 py-3 text-left transition-all ${
+                        selectedTask?.id === task.id
+                          ? 'border-primary bg-primary/10 shadow-[0_18px_50px_-38px_rgba(255,255,255,0.55)]'
+                          : 'border-border/70 bg-background/60 hover:border-border'
+                      }`}
+                      onClick={() => setSelectedTaskId(task.id)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="line-clamp-2 text-sm font-semibold">{task.task}</div>
+                          <div className="mt-1 text-[11px] text-muted-foreground">
+                            {taskPreview(task) || tx('No condensed summary yet.', '暂时还没有提炼后的摘要。')}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="h-6 shrink-0 text-[10px] uppercase tracking-wider">
+                          {task.success ? tx('Success', '成功') : tx('Failed', '失败')}
+                        </Badge>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <span>{task.worker_mode || '--'}</span>
+                        <span>{formatCreatedAt(task.finished_at)}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="rounded-[24px] border border-border/70 bg-background/55 p-4 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.8)]">
+                  <div className="flex flex-col gap-3 border-b border-border/60 pb-4 md:flex-row md:items-start md:justify-between">
+                    <div className="space-y-1">
+                      <div className="text-[10px] font-black uppercase tracking-[0.24em] text-primary/80">
+                        {tx('Execution Trace', '执行轨迹')}
+                      </div>
+                      <div className="text-base font-black leading-tight">{selectedTask.task}</div>
+                      {selectedTask.reasoning && (
+                        <div className="text-xs text-muted-foreground">{selectedTask.reasoning}</div>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+                      <Badge variant="outline">{selectedTask.worker_mode || '--'}</Badge>
+                      <Badge variant="outline">{selectedTask.duration_ms}ms</Badge>
+                      <Badge variant="outline">{selectedTask.success ? tx('Success', '成功') : tx('Failed', '失败')}</Badge>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 space-y-4">
+                    {selectedTaskWorkflow.map((step, index) => (
+                      <div key={`${selectedTask.id}-${step.title}-${index}`} className="grid gap-3 md:grid-cols-[28px_minmax(0,1fr)]">
+                        <div className="flex flex-col items-center">
+                          <div className={`flex h-7 w-7 items-center justify-center rounded-full border ${
+                            step.kind === 'stderr'
+                              ? 'border-amber-300 bg-amber-500/10 text-amber-600'
+                              : step.kind === 'command'
+                                ? 'border-sky-300 bg-sky-500/10 text-sky-600'
+                                : step.kind === 'code'
+                                  ? 'border-violet-300 bg-violet-500/10 text-violet-600'
+                                  : step.kind === 'result'
+                                    ? 'border-emerald-300 bg-emerald-500/10 text-emerald-600'
+                                    : 'border-border bg-muted/40 text-muted-foreground'
+                          }`}>
+                            {step.kind === 'command' && <Terminal className="h-3.5 w-3.5" />}
+                            {step.kind === 'code' && <FileCode2 className="h-3.5 w-3.5" />}
+                            {step.kind === 'stdout' && <Braces className="h-3.5 w-3.5" />}
+                            {step.kind === 'stderr' && <PlugZap className="h-3.5 w-3.5" />}
+                            {step.kind === 'result' && <Check className="h-3.5 w-3.5" />}
+                            {step.kind === 'note' && <ListTodo className="h-3.5 w-3.5" />}
+                          </div>
+                          {index < selectedTaskWorkflow.length - 1 && (
+                            <div className="mt-2 h-full min-h-8 w-px bg-border/80" />
+                          )}
+                        </div>
+                        <div className="rounded-2xl border border-border/70 bg-card/70 p-4">
+                          <div className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">{step.title}</div>
+                          <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words rounded-xl bg-muted/25 p-3 text-xs text-foreground/90">
+                            {step.body}
+                          </pre>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
       )}
 
       {activePanel === 'tasks' && (
-      <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm">
-        <CardHeader className="pb-4 gap-2">
-          <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
-            <ListTodo className="h-4 w-4 text-primary" />
-            {tx('Task History', '任务历史')}
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            {tx('Browse the latest operations Butler delegated through the managed runtime.', '查看 Butler 最近通过托管运行时委派出去的运维任务。')}
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {openhandsTasks.length === 0 ? (
-            <div className="rounded-md border bg-muted/20 p-4 text-xs text-muted-foreground">
-              {tx('No OpenHands task has been executed yet.', '暂时还没有执行过 OpenHands 任务。')}
-            </div>
-          ) : (
-            openhandsTasks.map((task) => (
-              <div key={task.id} className="rounded-2xl border border-border/70 bg-background/70 p-4">
-                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold break-words">{task.task}</div>
-                    {task.reasoning && (
-                      <div className="mt-1 text-[11px] text-muted-foreground break-words">{task.reasoning}</div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <StatusIndicator variant={task.success ? 'success' : 'warning'} pulse={false} />
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                      {task.success ? tx('Success', '成功') : tx('Failed', '失败')}
-                    </span>
-                  </div>
-                </div>
-                <div className="mt-3 grid gap-3 md:grid-cols-3 text-[11px] text-muted-foreground">
-                  <div>
-                    <div className="uppercase tracking-wider">{tx('Duration', '耗时')}</div>
-                    <div className="mt-1 text-foreground">{task.duration_ms}ms</div>
-                  </div>
-                  <div>
-                    <div className="uppercase tracking-wider">{tx('Mode', '模式')}</div>
-                    <div className="mt-1 text-foreground">{task.worker_mode || tx('Unknown', '未知')}</div>
-                  </div>
-                  <div>
-                    <div className="uppercase tracking-wider">{tx('Finished', '完成时间')}</div>
-                    <div className="mt-1 text-foreground">{formatCreatedAt(task.finished_at)}</div>
-                  </div>
-                </div>
-                {(task.summary || task.error) && (
-                  <div className={`mt-3 rounded-md border px-3 py-2 text-xs ${task.success ? 'bg-emerald-50/50 text-emerald-700 border-emerald-200' : 'bg-amber-50/50 text-amber-700 border-amber-200'}`}>
-                    {task.success ? task.summary : task.error}
-                  </div>
-                )}
+      <div className="grid gap-6 xl:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
+        <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm">
+          <CardHeader className="pb-4 gap-2">
+            <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
+              <ListTodo className="h-4 w-4 text-primary" />
+              {tx('Task History', '任务历史')}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {tx('Browse the latest operations Butler delegated through the managed runtime.', '查看 Butler 最近通过托管运行时委派出去的运维任务。')}
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {openhandsTasks.length === 0 ? (
+              <div className="rounded-md border bg-muted/20 p-4 text-xs text-muted-foreground">
+                {tx('No OpenHands task has been executed yet.', '暂时还没有执行过 OpenHands 任务。')}
               </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
+            ) : (
+              openhandsTasks.map((task) => (
+                <button
+                  key={task.id}
+                  type="button"
+                  className={`w-full rounded-2xl border p-4 text-left transition-all ${
+                    selectedTask?.id === task.id
+                      ? 'border-primary bg-primary/10 shadow-[0_18px_50px_-35px_rgba(255,255,255,0.55)]'
+                      : 'border-border/70 bg-background/70 hover:border-border'
+                  }`}
+                  onClick={() => setSelectedTaskId(task.id)}
+                >
+                  <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold break-words">{task.task}</div>
+                      {task.reasoning && (
+                        <div className="mt-1 text-[11px] text-muted-foreground break-words">{task.reasoning}</div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <StatusIndicator variant={task.success ? 'success' : 'warning'} pulse={false} />
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                        {task.success ? tx('Success', '成功') : tx('Failed', '失败')}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-3 md:grid-cols-3 text-[11px] text-muted-foreground">
+                    <div>
+                      <div className="uppercase tracking-wider">{tx('Duration', '耗时')}</div>
+                      <div className="mt-1 text-foreground">{task.duration_ms}ms</div>
+                    </div>
+                    <div>
+                      <div className="uppercase tracking-wider">{tx('Mode', '模式')}</div>
+                      <div className="mt-1 text-foreground">{task.worker_mode || tx('Unknown', '未知')}</div>
+                    </div>
+                    <div>
+                      <div className="uppercase tracking-wider">{tx('Finished', '完成时间')}</div>
+                      <div className="mt-1 text-foreground">{formatCreatedAt(task.finished_at)}</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    {taskPreview(task) || tx('Open the task to inspect the execution trace.', '点开任务查看完整执行轨迹。')}
+                  </div>
+                </button>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm">
+          <CardHeader className="pb-4 gap-2">
+            <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
+              <Terminal className="h-4 w-4 text-primary" />
+              {tx('OpenHands Execution Flow', 'OpenHands 执行流程')}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {tx('See how Butler delegated the task and what OpenHands actually ran.', '查看 Butler 如何委派任务，以及 OpenHands 实际执行了什么。')}
+            </p>
+          </CardHeader>
+          <CardContent>
+            {!selectedTask ? (
+              <div className="rounded-md border bg-muted/20 p-4 text-xs text-muted-foreground">
+                {tx('Choose a task on the left to inspect the execution flow.', '从左侧选择一个任务查看执行过程。')}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-border/70 bg-background/60 p-4">
+                  <div className="text-[10px] font-black uppercase tracking-[0.24em] text-primary/80">
+                    {tx('Delegated Objective', '委派目标')}
+                  </div>
+                  <div className="mt-2 text-base font-black leading-tight">{selectedTask.task}</div>
+                  {selectedTask.reasoning && (
+                    <div className="mt-2 text-xs text-muted-foreground">{selectedTask.reasoning}</div>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  {selectedTaskWorkflow.map((step, index) => (
+                    <div key={`${selectedTask.id}-${step.title}-${index}`} className="grid gap-3 md:grid-cols-[28px_minmax(0,1fr)]">
+                      <div className="flex flex-col items-center">
+                        <div className={`flex h-7 w-7 items-center justify-center rounded-full border ${
+                          step.kind === 'stderr'
+                            ? 'border-amber-300 bg-amber-500/10 text-amber-600'
+                            : step.kind === 'command'
+                              ? 'border-sky-300 bg-sky-500/10 text-sky-600'
+                              : step.kind === 'code'
+                                ? 'border-violet-300 bg-violet-500/10 text-violet-600'
+                                : step.kind === 'result'
+                                  ? 'border-emerald-300 bg-emerald-500/10 text-emerald-600'
+                                  : 'border-border bg-muted/40 text-muted-foreground'
+                        }`}>
+                          {step.kind === 'command' && <Terminal className="h-3.5 w-3.5" />}
+                          {step.kind === 'code' && <FileCode2 className="h-3.5 w-3.5" />}
+                          {step.kind === 'stdout' && <Braces className="h-3.5 w-3.5" />}
+                          {step.kind === 'stderr' && <PlugZap className="h-3.5 w-3.5" />}
+                          {step.kind === 'result' && <Check className="h-3.5 w-3.5" />}
+                          {step.kind === 'note' && <ListTodo className="h-3.5 w-3.5" />}
+                        </div>
+                        {index < selectedTaskWorkflow.length - 1 && <div className="mt-2 h-full min-h-8 w-px bg-border/80" />}
+                      </div>
+                      <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                        <div className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">{step.title}</div>
+                        <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words rounded-xl bg-muted/25 p-3 text-xs text-foreground/90">
+                          {step.body}
+                        </pre>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
       )}
 
         </section>
