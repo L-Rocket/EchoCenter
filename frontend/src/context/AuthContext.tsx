@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useRef, useCallback } from 'react';
 import { jwtDecode } from 'jwt-decode';
-import { useChatStore } from '@/store/useChatStore';
+import { buildChatScope, useChatStore } from '@/store/useChatStore';
 import { getWsUrl } from '@/lib/config';
 import type { User, JWTPayload, ChatMessage } from '@/types';
 import { userService } from '@/services/userService';
@@ -14,8 +14,8 @@ interface AuthContextType {
   isAdmin: boolean;
   isLoading: boolean;
   isWsConnected: boolean;
-  sendMessage: (targetId: number, payload: string) => void;
-  sendAuthResponse: (actionId: string, approved: boolean) => void;
+  sendMessage: (targetId: number, payload: string, conversationId?: number) => void;
+  sendAuthResponse: (actionId: string, approved: boolean, conversationId?: number) => void;
   wsLogs: Record<string, unknown>[];
 }
 
@@ -34,8 +34,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addChatMessage = useChatStore((state) => state.addMessage);
   const appendStreamChunk = useChatStore((state) => state.appendStreamChunk);
   const setThinking = useChatStore((state) => state.setThinking);
-  const setPeerPending = useChatStore((state) => state.setPeerPending);
-  const clearPeerPending = useChatStore((state) => state.clearPeerPending);
+  const setPending = useChatStore((state) => state.setPending);
+  const clearPending = useChatStore((state) => state.clearPending);
 
   useEffect(() => {
     userRef.current = user;
@@ -73,10 +73,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else if (msg.type === 'CHAT') {
           const peerId = msg.sender_id === currentUser?.id ? msg.target_id : msg.sender_id;
           if (peerId) {
-            addChatMessage(peerId, msg);
-            useChatStore.getState().removeProcessMessages(peerId);
+            const scope = buildChatScope(peerId, msg.conversation_id);
+            addChatMessage(scope, msg);
+            useChatStore.getState().removeProcessMessages(scope);
             if (msg.sender_id !== currentUser?.id) {
-              clearPeerPending(peerId);
+              clearPending(scope);
             }
           }
           if (msg.sender_id !== currentUser?.id) {
@@ -84,7 +85,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } else if (msg.type === 'CHAT_STREAM') {
           if (msg.sender_name === 'Butler' && typeof msg.payload === 'string' && msg.payload.includes('Execution started')) {
-            addChatMessage(msg.sender_id, {
+            const scope = buildChatScope(msg.sender_id, msg.conversation_id);
+            addChatMessage(scope, {
               type: 'SYSTEM',
               sender_id: msg.sender_id,
               sender_name: msg.sender_name,
@@ -94,33 +96,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 stream_id: msg.stream_id
               },
               timestamp: msg.timestamp || new Date().toISOString(),
+              conversation_id: msg.conversation_id,
             });
           } else {
             const peerId = msg.sender_id === currentUser?.id ? msg.target_id : msg.sender_id;
             if (peerId) {
-              useChatStore.getState().removeProcessMessages(peerId);
-              appendStreamChunk(peerId, {
+              const scope = buildChatScope(peerId, msg.conversation_id);
+              useChatStore.getState().removeProcessMessages(scope);
+              appendStreamChunk(scope, {
                 stream_id: msg.stream_id || 'unknown',
                 payload: msg.payload as string,
                 sender_id: msg.sender_id,
                 sender_name: msg.sender_name,
-                timestamp: msg.timestamp || new Date().toISOString()
+                timestamp: msg.timestamp || new Date().toISOString(),
+                conversation_id: msg.conversation_id,
               });
             }
           }
         } else if (msg.type === 'CHAT_STREAM_END') {
           const peerId = msg.sender_id === currentUser?.id ? msg.target_id : msg.sender_id;
           if (peerId && msg.sender_id !== currentUser?.id) {
-            clearPeerPending(peerId);
+            clearPending(buildChatScope(peerId, msg.conversation_id));
           }
           if (msg.sender_id !== currentUser?.id) {
             setThinking(false);
           }
         } else if (msg.type === 'AUTH_REQUEST') {
           const peerId = msg.sender_id;
-          clearPeerPending(peerId);
+          clearPending(buildChatScope(peerId, msg.conversation_id));
           setThinking(false); 
-          addChatMessage(msg.sender_id, {
+          addChatMessage(buildChatScope(peerId, msg.conversation_id), {
             ...msg,
             type: 'AUTH_REQUEST',
             payload: msg.payload, 
@@ -129,23 +134,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const payload = (typeof msg.payload === 'string' ? JSON.parse(msg.payload) : msg.payload) as Record<string, unknown>;
           const actionId = payload.action_id as string;
           const status = payload.status as string;
-          
-          const butlerId = 2;
-          const currentMessages = useChatStore.getState().messages[butlerId] || [];
-          const updatedMessages = currentMessages.map(m => {
-            if (m.type === 'AUTH_REQUEST' || m.type === 'SYSTEM') {
-              try {
-                const p = (typeof m.payload === 'string' ? JSON.parse(m.payload) : m.payload) as Record<string, unknown>;
-                if (p.action_id === actionId) {
-                  return { ...m, payload: { ...p, status } };
+
+          const { messagesByScope } = useChatStore.getState();
+          Object.entries(messagesByScope).forEach(([scope, history]) => {
+            const updatedMessages = history.map((message) => {
+              if (message.type === 'AUTH_REQUEST' || message.type === 'SYSTEM') {
+                try {
+                  const parsed = (typeof message.payload === 'string' ? JSON.parse(message.payload) : message.payload) as Record<string, unknown>;
+                  if (parsed.action_id === actionId) {
+                    return { ...message, payload: { ...parsed, status } };
+                  }
+                } catch (_e) {
+                  // ignore
                 }
-              } catch (_e) {
-                // Ignore
               }
-            }
-            return m;
+              return message;
+            });
+            useChatStore.getState().setHistory(scope, updatedMessages);
           });
-          useChatStore.getState().setHistory(butlerId, updatedMessages);
         }
       } catch (_err) {
         console.error('WS parse error:', _err);
@@ -158,7 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socketRef.current = null;
       }
     };
-  }, [addChatMessage, appendStreamChunk, clearPeerPending, setThinking]);
+  }, [addChatMessage, appendStreamChunk, clearPending, setThinking]);
 
   useEffect(() => {
     const initAuth = () => {
@@ -193,15 +199,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     connectWs(newToken);
   };
 
-  const sendMessage = (targetId: number, payload: string) => {
+  const sendMessage = (targetId: number, payload: string, conversationId?: number) => {
     if (socketRef.current?.readyState === WebSocket.OPEN && user) {
       setThinking(true);
-      setPeerPending(targetId, true);
+      const scope = buildChatScope(targetId, conversationId);
+      setPending(scope, true);
 
       const now = new Date();
       const localId = crypto.randomUUID();
 
-      addChatMessage(targetId, {
+      addChatMessage(scope, {
         local_id: localId,
         type: 'CHAT',
         sender_id: user.id,
@@ -209,10 +216,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         target_id: targetId,
         payload: payload,
         timestamp: now.toISOString(),
+        conversation_id: conversationId,
       });
 
       socketRef.current.send(JSON.stringify({
         local_id: localId,
+        conversation_id: conversationId,
         type: 'CHAT',
         sender_id: user.id,
         sender_name: user.username,
@@ -223,14 +232,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
 
-  const sendAuthResponse = (actionId: string, approved: boolean) => {
+  const sendAuthResponse = (actionId: string, approved: boolean, conversationId?: number) => {
     if (approved) setThinking(true);
-    
+
     const butlerId = 2;
+    const scope = buildChatScope(butlerId, conversationId);
     if (approved) {
-      setPeerPending(butlerId, true);
+      setPending(scope, true);
     }
-    const currentMessages = useChatStore.getState().messages[butlerId] || [];
+    const currentMessages = useChatStore.getState().messagesByScope[scope] || [];
     
     const updatedMessages = currentMessages.map(msg => {
       if (msg.type === 'AUTH_REQUEST' || msg.type === 'SYSTEM') {
@@ -246,11 +256,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return msg;
     });
-    useChatStore.getState().setHistory(butlerId, updatedMessages);
+    useChatStore.getState().setHistory(scope, updatedMessages);
     
     userService.sendAuthResponse(actionId, approved).catch(_err => {
       console.error('[AuthContext] Failed to send auth response:', _err);
-      useChatStore.getState().clearPeerPending(butlerId);
+      useChatStore.getState().clearPending(scope);
       const revertMessages = currentMessages.map(msg => {
         if (msg.type === 'AUTH_REQUEST' || msg.type === 'SYSTEM') {
           try {
@@ -265,7 +275,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         return msg;
       });
-      useChatStore.getState().setHistory(butlerId, revertMessages);
+      useChatStore.getState().setHistory(scope, revertMessages);
     });
   };
 

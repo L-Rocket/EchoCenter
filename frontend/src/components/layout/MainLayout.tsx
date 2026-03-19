@@ -28,18 +28,9 @@ export const MainLayout: React.FC = () => {
                </div>
             </div>
           </header>
-          <main className="flex-1 overflow-auto">
-            <div className="container max-w-5xl mx-auto py-8 px-4">
-              <Outlet />
-            </div>
+          <main className="flex-1 overflow-auto px-4 py-4 md:px-5 md:py-5">
+            <Outlet />
           </main>
-          <footer className="border-t bg-card py-3">
-            <div className="container max-w-5xl mx-auto px-4 text-center">
-              <p className="text-[11px] text-muted-foreground">
-                &copy; {new Date().getFullYear()} EchoCenter &bull; {tx('Intelligence Monitoring Hub', '智能监控中枢')}
-              </p>
-            </div>
-          </footer>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>

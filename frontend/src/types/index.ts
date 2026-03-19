@@ -74,9 +74,25 @@ export interface OpenHandsTaskRecord {
   duration_ms: number;
 }
 
+export interface ConversationThread {
+  id: number;
+  owner_user_id: number;
+  peer_user_id: number;
+  channel_kind: 'butler_direct' | 'agent_direct' | 'butler_agent_monitor' | string;
+  title: string;
+  summary?: string;
+  is_pinned: boolean;
+  is_default: boolean;
+  archived_at?: string | null;
+  last_message_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ChatMessage {
   id?: number;
   local_id?: string;
+  conversation_id?: number;
   type: 'CHAT' | 'SYSTEM' | 'SYSTEM_LOG' | 'AUTH_REQUEST' | 'AUTH_RESPONSE' | 'CHAT_STREAM' | 'CHAT_STREAM_END' | 'AUTH_STATUS_UPDATE';
   sender_id: number;
   sender_name: string;

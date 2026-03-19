@@ -6,16 +6,17 @@ import { cn } from '@/lib/utils';
 
 interface AuthRequestCardProps {
   actionId: string;
+  conversationId?: number;
   targetAgentName: string;
   command: string;
   reason: string;
-  onApprove: (id: string) => void;
-  onReject: (id: string) => void;
+  onApprove: (id: string, conversationId?: number) => void;
+  onReject: (id: string, conversationId?: number) => void;
   status?: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 const AuthRequestCard: React.FC<AuthRequestCardProps> = ({ 
-  actionId, targetAgentName, command, reason, onApprove, onReject, status = 'PENDING' 
+  actionId, conversationId, targetAgentName, command, reason, onApprove, onReject, status = 'PENDING' 
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
@@ -23,8 +24,8 @@ const AuthRequestCard: React.FC<AuthRequestCardProps> = ({
   const handleAction = (type: 'approve' | 'reject') => {
     setIsProcessing(true);
     setIsExpanded(false);
-    if (type === 'approve') onApprove(actionId);
-    else onReject(actionId);
+    if (type === 'approve') onApprove(actionId, conversationId);
+    else onReject(actionId, conversationId);
     
     setTimeout(() => setIsProcessing(false), 5000);
   };

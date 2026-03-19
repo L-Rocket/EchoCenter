@@ -1,5 +1,5 @@
 import api from './api';
-import type { User, Agent, ChatMessage, SSHKey, InfraNode, InfraNodeTestResult, OpenHandsStatus, OpenHandsTaskRecord } from '@/types';
+import type { User, Agent, ChatMessage, ConversationThread, SSHKey, InfraNode, InfraNodeTestResult, OpenHandsStatus, OpenHandsTaskRecord } from '@/types';
 
 export const userService = {
   getUsers: async () => {
@@ -43,6 +43,26 @@ export const userService = {
   
   getChatHistory: async (agentId: number) => {
     const response = await api.get<ChatMessage[]>(`/api/chat/history/${agentId}`);
+    return response.data;
+  },
+
+  listConversationThreads: async (peerId: number, channelKind: string) => {
+    const response = await api.get<ConversationThread[]>(`/api/chat/threads?peer_id=${peerId}&channel_kind=${encodeURIComponent(channelKind)}`);
+    return response.data;
+  },
+
+  createConversationThread: async (payload: { peer_id: number; channel_kind: string; title?: string }) => {
+    const response = await api.post<ConversationThread>('/api/chat/threads', payload);
+    return response.data;
+  },
+
+  updateConversationThread: async (threadId: number, payload: { title?: string; summary?: string; is_pinned?: boolean; is_archived?: boolean }) => {
+    const response = await api.patch<ConversationThread>(`/api/chat/threads/${threadId}`, payload);
+    return response.data;
+  },
+
+  getConversationMessages: async (threadId: number) => {
+    const response = await api.get<ChatMessage[]>(`/api/chat/threads/${threadId}/messages`);
     return response.data;
   },
 

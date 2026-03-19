@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useChatStore } from '../store/useChatStore';
+import { buildChatScope, useChatStore } from '../store/useChatStore';
 import type { ChatMessage } from '@/types';
 import { getWsUrl } from '@/lib/config';
 
@@ -29,7 +29,7 @@ export const useWebSocket = (token: string | null, onLogReceived?: (log: Record<
       try {
         const msg: ChatMessage = JSON.parse(event.data);
         if (msg.type === 'CHAT') {
-           addMessage(msg.sender_id, msg);
+           addMessage(buildChatScope(msg.sender_id, msg.conversation_id), msg);
         } else if (msg.type === 'SYSTEM_LOG' && onLogReceived) {
            const logPayload = typeof msg.payload === 'string' ? JSON.parse(msg.payload) : msg.payload;
            onLogReceived(logPayload as Record<string, unknown>);
