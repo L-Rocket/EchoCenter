@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Bot,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Check,
@@ -150,6 +151,8 @@ const UserManagement = ({ mode = 'operations', forcedPanel }: UserManagementProp
   const [opsError, setOpsError] = useState('');
   const [isCreatingSSHKey, setIsCreatingSSHKey] = useState(false);
   const [isCreatingNode, setIsCreatingNode] = useState(false);
+  const [isSSHFormOpen, setIsSSHFormOpen] = useState(false);
+  const [isNodeFormOpen, setIsNodeFormOpen] = useState(false);
   const [deletingSSHKeyID, setDeletingSSHKeyID] = useState<number | null>(null);
   const [deletingNodeID, setDeletingNodeID] = useState<number | null>(null);
   const [testingNodeID, setTestingNodeID] = useState<number | null>(null);
@@ -283,6 +286,18 @@ const UserManagement = ({ mode = 'operations', forcedPanel }: UserManagementProp
       window.clearInterval(interval);
     };
   }, [fetchAgents, fetchOpsResources]);
+
+  useEffect(() => {
+    if (sshKeys.length === 0 && !editingSSHKeyID) {
+      setIsSSHFormOpen(true);
+    }
+  }, [editingSSHKeyID, sshKeys.length]);
+
+  useEffect(() => {
+    if (infraNodes.length === 0 && !editingNodeID) {
+      setIsNodeFormOpen(true);
+    }
+  }, [editingNodeID, infraNodes.length]);
 
   useEffect(() => {
     const allowedPanels: OperationsPanel[] = isSettingsMode
@@ -538,6 +553,7 @@ const UserManagement = ({ mode = 'operations', forcedPanel }: UserManagementProp
         });
       }
       resetSSHKeyForm();
+      setIsSSHFormOpen(false);
       await fetchOpsResources();
     } catch (_err) {
       setOpsError(editingSSHKeyID ? 'Failed to update SSH key.' : 'Failed to create SSH key.');
@@ -566,6 +582,7 @@ const UserManagement = ({ mode = 'operations', forcedPanel }: UserManagementProp
     setNewSSHKeyName(key.name);
     setNewSSHPublicKey(key.public_key || '');
     setNewSSHPrivateKey('');
+    setIsSSHFormOpen(true);
     setActivePanel('ssh');
   };
 
@@ -602,6 +619,7 @@ const UserManagement = ({ mode = 'operations', forcedPanel }: UserManagementProp
       setNewNodeSSHKeyID('');
       setNewNodeDescription('');
       setEditingNodeID(null);
+      setIsNodeFormOpen(false);
       await fetchOpsResources();
     } catch (_err) {
       setOpsError(editingNodeID ? 'Failed to update infra node.' : 'Failed to create infra node.');
@@ -638,6 +656,7 @@ const UserManagement = ({ mode = 'operations', forcedPanel }: UserManagementProp
     setNewNodeSSHUser(node.ssh_user || 'root');
     setNewNodeSSHKeyID(String(node.ssh_key_id));
     setNewNodeDescription(node.description || '');
+    setIsNodeFormOpen(true);
     setActivePanel('nodes');
   };
 
@@ -1251,31 +1270,80 @@ const UserManagement = ({ mode = 'operations', forcedPanel }: UserManagementProp
       {activePanel === 'ssh' && (
       <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm">
         <CardHeader className="pb-4 gap-2">
-          <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
-            <ShieldEllipsis className="h-4 w-4 text-primary" />
-            {tx('SSH Key Vault', 'SSH 密钥库')}
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            {tx('Private keys are encrypted in the backend and only decrypted for OpenHands runtime execution.', '私钥会在后端加密保存，仅在 OpenHands 运行时短暂解密使用。')}
-          </p>
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="space-y-2">
+              <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                <ShieldEllipsis className="h-4 w-4 text-primary" />
+                {tx('SSH Key Vault', 'SSH 密钥库')}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {tx('Private keys are encrypted in the backend and only decrypted for OpenHands runtime execution.', '私钥会在后端加密保存，仅在 OpenHands 运行时短暂解密使用。')}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant={isSSHFormOpen ? 'outline' : 'default'}
+              className="h-9 rounded-xl text-[10px] uppercase tracking-[0.18em]"
+              onClick={() => {
+                if (editingSSHKeyID) {
+                  resetSSHKeyForm();
+                }
+                setIsSSHFormOpen((prev) => !prev);
+              }}
+            >
+              <ChevronDown className={`mr-1 h-3.5 w-3.5 transition-transform ${isSSHFormOpen ? 'rotate-180' : ''}`} />
+              {isSSHFormOpen
+                ? tx('Collapse Editor', '收起编辑器')
+                : editingSSHKeyID
+                  ? tx('Resume Edit', '继续编辑')
+                  : tx('Add SSH Key', '添加 SSH 密钥')}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form onSubmit={handleCreateSSHKey} className="space-y-3">
-            <Input value={newSSHKeyName} onChange={(e) => setNewSSHKeyName(e.target.value)} placeholder={tx('SSH key name', 'SSH 密钥名称')} className="h-9 text-xs" />
-            <Input value={newSSHPublicKey} onChange={(e) => setNewSSHPublicKey(e.target.value)} placeholder={tx('Public key (optional)', '公钥（可选）')} className="h-9 text-xs font-mono" />
-            <textarea value={newSSHPrivateKey} onChange={(e) => setNewSSHPrivateKey(e.target.value)} placeholder={editingSSHKeyID ? tx('Replace private key (optional)', '替换私钥（可选）') : tx('Private key', '私钥')} className="min-h-[120px] w-full rounded-md border bg-background px-3 py-2 text-xs font-mono" />
-            <div className="flex items-center gap-2">
-              <Button type="submit" className="h-9 text-[10px] uppercase tracking-widest" disabled={isCreatingSSHKey || !newSSHKeyName.trim() || (!editingSSHKeyID && !newSSHPrivateKey.trim())}>
-                {isCreatingSSHKey ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <KeyRound className="mr-1 h-4 w-4" />}
-                {editingSSHKeyID ? tx('Update SSH Key', '更新 SSH 密钥') : tx('Add SSH Key', '添加 SSH 密钥')}
-              </Button>
-              {editingSSHKeyID && (
-                <Button type="button" variant="outline" className="h-9 text-[10px] uppercase tracking-widest" onClick={resetSSHKeyForm}>
-                  {tx('Cancel Edit', '取消编辑')}
-                </Button>
-              )}
+          {isSSHFormOpen && (
+            <div className="rounded-2xl border border-border/70 bg-background/65 p-4 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.8)]">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.24em] text-primary/80">
+                    {editingSSHKeyID ? tx('Edit Asset', '编辑资产') : tx('New Secret Material', '新增凭据')}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {editingSSHKeyID
+                      ? tx('Update metadata or rotate the private key material.', '更新密钥元数据，或轮换这份私钥材料。')
+                      : tx('Add a new SSH identity for OpenHands and other managed executors.', '为 OpenHands 和其他托管执行器录入新的 SSH 身份。')}
+                  </div>
+                </div>
+                {editingSSHKeyID && (
+                  <Badge variant="outline" className="h-6 text-[10px] uppercase tracking-wider">
+                    {tx('Editing', '编辑中')}
+                  </Badge>
+                )}
+              </div>
+              <form onSubmit={handleCreateSSHKey} className="space-y-3">
+                <Input value={newSSHKeyName} onChange={(e) => setNewSSHKeyName(e.target.value)} placeholder={tx('SSH key name', 'SSH 密钥名称')} className="h-9 text-xs" />
+                <Input value={newSSHPublicKey} onChange={(e) => setNewSSHPublicKey(e.target.value)} placeholder={tx('Public key (optional)', '公钥（可选）')} className="h-9 text-xs font-mono" />
+                <textarea value={newSSHPrivateKey} onChange={(e) => setNewSSHPrivateKey(e.target.value)} placeholder={editingSSHKeyID ? tx('Replace private key (optional)', '替换私钥（可选）') : tx('Private key', '私钥')} className="min-h-[120px] w-full rounded-md border bg-background px-3 py-2 text-xs font-mono" />
+                <div className="flex items-center gap-2">
+                  <Button type="submit" className="h-9 text-[10px] uppercase tracking-widest" disabled={isCreatingSSHKey || !newSSHKeyName.trim() || (!editingSSHKeyID && !newSSHPrivateKey.trim())}>
+                    {isCreatingSSHKey ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <KeyRound className="mr-1 h-4 w-4" />}
+                    {editingSSHKeyID ? tx('Update SSH Key', '更新 SSH 密钥') : tx('Add SSH Key', '添加 SSH 密钥')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-9 text-[10px] uppercase tracking-widest"
+                    onClick={() => {
+                      resetSSHKeyForm();
+                      setIsSSHFormOpen(false);
+                    }}
+                  >
+                    {editingSSHKeyID ? tx('Cancel Edit', '取消编辑') : tx('Collapse', '收起')}
+                  </Button>
+                </div>
+              </form>
             </div>
-          </form>
+          )}
           <div className="space-y-2">
             {sshKeys.map((key) => (
               <div key={key.id} className="flex items-center justify-between rounded-md border p-3">
@@ -1306,41 +1374,90 @@ const UserManagement = ({ mode = 'operations', forcedPanel }: UserManagementProp
       {activePanel === 'nodes' && (
       <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm">
         <CardHeader className="pb-4 gap-2">
-          <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
-            <Server className="h-4 w-4 text-primary" />
-            {tx('Infrastructure Nodes', '基础设施节点')}
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            {tx('These SSH nodes are made available to the backend-managed OpenHands Ops Agent.', '这些 SSH 节点会提供给后端托管的 OpenHands 运维 Agent。')}
-          </p>
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="space-y-2">
+              <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                <Server className="h-4 w-4 text-primary" />
+                {tx('Infrastructure Nodes', '基础设施节点')}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {tx('These SSH nodes are made available to the backend-managed OpenHands Ops Agent.', '这些 SSH 节点会提供给后端托管的 OpenHands 运维 Agent。')}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant={isNodeFormOpen ? 'outline' : 'default'}
+              className="h-9 rounded-xl text-[10px] uppercase tracking-[0.18em]"
+              onClick={() => {
+                if (editingNodeID) {
+                  resetNodeForm();
+                }
+                setIsNodeFormOpen((prev) => !prev);
+              }}
+            >
+              <ChevronDown className={`mr-1 h-3.5 w-3.5 transition-transform ${isNodeFormOpen ? 'rotate-180' : ''}`} />
+              {isNodeFormOpen
+                ? tx('Collapse Editor', '收起编辑器')
+                : editingNodeID
+                  ? tx('Resume Edit', '继续编辑')
+                  : tx('Add Node', '添加节点')}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form onSubmit={handleCreateNode} className="grid gap-3 md:grid-cols-2">
-            <Input value={newNodeName} onChange={(e) => setNewNodeName(e.target.value)} placeholder={tx('Node name', '节点名称')} className="h-9 text-xs" />
-            <Input value={newNodeHost} onChange={(e) => setNewNodeHost(e.target.value)} placeholder={tx('Host', '主机地址')} className="h-9 text-xs" />
-            <Input value={newNodeSSHUser} onChange={(e) => setNewNodeSSHUser(e.target.value)} placeholder={tx('SSH user', 'SSH 用户')} className="h-9 text-xs" />
-            <Input value={newNodePort} onChange={(e) => setNewNodePort(e.target.value)} placeholder={tx('Port', '端口')} className="h-9 text-xs" />
-            <select value={newNodeSSHKeyID} onChange={(e) => setNewNodeSSHKeyID(e.target.value)} className="h-9 rounded-md border bg-background px-3 text-xs md:col-span-2">
-              <option value="">{tx('Select SSH key', '选择 SSH 密钥')}</option>
-              {sshKeys.map((key) => (
-                <option key={key.id} value={String(key.id)}>{key.name}</option>
-              ))}
-            </select>
-            <Input value={newNodeDescription} onChange={(e) => setNewNodeDescription(e.target.value)} placeholder={tx('Description (optional)', '描述（可选）')} className="h-9 text-xs md:col-span-2" />
-            <div className="md:col-span-2">
-              <div className="flex items-center gap-2">
-                <Button type="submit" className="h-9 text-[10px] uppercase tracking-widest" disabled={isCreatingNode || !newNodeName.trim() || !newNodeHost.trim() || !newNodeSSHUser.trim() || !newNodeSSHKeyID}>
-                  {isCreatingNode ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Server className="mr-1 h-4 w-4" />}
-                  {editingNodeID ? tx('Update Node', '更新节点') : tx('Add Node', '添加节点')}
-                </Button>
+          {isNodeFormOpen && (
+            <div className="rounded-2xl border border-border/70 bg-background/65 p-4 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.8)]">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.24em] text-primary/80">
+                    {editingNodeID ? tx('Edit Node Profile', '编辑节点档案') : tx('Attach Node', '接入节点')}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {editingNodeID
+                      ? tx('Adjust host, identity, or SSH binding before the next delegation run.', '在下一次委派执行前调整主机、身份或 SSH 绑定。')
+                      : tx('Register a non-agent machine so OpenHands can reach it through SSH.', '登记一台非 Agent 机器，让 OpenHands 通过 SSH 访问它。')}
+                  </div>
+                </div>
                 {editingNodeID && (
-                  <Button type="button" variant="outline" className="h-9 text-[10px] uppercase tracking-widest" onClick={resetNodeForm}>
-                    {tx('Cancel Edit', '取消编辑')}
-                  </Button>
+                  <Badge variant="outline" className="h-6 text-[10px] uppercase tracking-wider">
+                    {tx('Editing', '编辑中')}
+                  </Badge>
                 )}
               </div>
+              <form onSubmit={handleCreateNode} className="grid gap-3 md:grid-cols-2">
+                <Input value={newNodeName} onChange={(e) => setNewNodeName(e.target.value)} placeholder={tx('Node name', '节点名称')} className="h-9 text-xs" />
+                <Input value={newNodeHost} onChange={(e) => setNewNodeHost(e.target.value)} placeholder={tx('Host', '主机地址')} className="h-9 text-xs" />
+                <Input value={newNodeSSHUser} onChange={(e) => setNewNodeSSHUser(e.target.value)} placeholder={tx('SSH user', 'SSH 用户')} className="h-9 text-xs" />
+                <Input value={newNodePort} onChange={(e) => setNewNodePort(e.target.value)} placeholder={tx('Port', '端口')} className="h-9 text-xs" />
+                <select value={newNodeSSHKeyID} onChange={(e) => setNewNodeSSHKeyID(e.target.value)} className="h-9 rounded-md border bg-background px-3 text-xs md:col-span-2">
+                  <option value="">{tx('Select SSH key', '选择 SSH 密钥')}</option>
+                  {sshKeys.map((key) => (
+                    <option key={key.id} value={String(key.id)}>{key.name}</option>
+                  ))}
+                </select>
+                <Input value={newNodeDescription} onChange={(e) => setNewNodeDescription(e.target.value)} placeholder={tx('Description (optional)', '描述（可选）')} className="h-9 text-xs md:col-span-2" />
+                <div className="md:col-span-2">
+                  <div className="flex items-center gap-2">
+                    <Button type="submit" className="h-9 text-[10px] uppercase tracking-widest" disabled={isCreatingNode || !newNodeName.trim() || !newNodeHost.trim() || !newNodeSSHUser.trim() || !newNodeSSHKeyID}>
+                      {isCreatingNode ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Server className="mr-1 h-4 w-4" />}
+                      {editingNodeID ? tx('Update Node', '更新节点') : tx('Add Node', '添加节点')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9 text-[10px] uppercase tracking-widest"
+                      onClick={() => {
+                        resetNodeForm();
+                        setIsNodeFormOpen(false);
+                      }}
+                    >
+                      {editingNodeID ? tx('Cancel Edit', '取消编辑') : tx('Collapse', '收起')}
+                    </Button>
+                  </div>
+                </div>
+              </form>
             </div>
-          </form>
+          )}
           <div className="space-y-2">
             {infraNodes.map((node) => {
               const keyName = sshKeys.find((key) => key.id === node.ssh_key_id)?.name || `#${node.ssh_key_id}`;
