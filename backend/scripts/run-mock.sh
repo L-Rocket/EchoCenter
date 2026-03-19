@@ -38,10 +38,19 @@ if [ -n "$DB_DRIVER_OVERRIDE" ]; then
     DB_DRIVER="$(echo "$DB_DRIVER_OVERRIDE" | tr '[:upper:]' '[:lower:]')"
 fi
 RESET="${RESET:-1}"
-OPENHANDS_ENABLED="$(echo "${OPENHANDS_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')"
+OPENHANDS_ENABLED_RAW="${OPENHANDS_ENABLED:-}"
+if [ -z "$OPENHANDS_ENABLED_RAW" ]; then
+    OPENHANDS_ENABLED="true"
+else
+    OPENHANDS_ENABLED="$(echo "$OPENHANDS_ENABLED_RAW" | tr '[:upper:]' '[:lower:]')"
+fi
 OPENHANDS_SERVICE_URL="${OPENHANDS_SERVICE_URL:-}"
 OPENHANDS_PYTHON_BIN="${OPENHANDS_PYTHON_BIN:-python3}"
 OPENHANDS_WORKER_PID=""
+
+if [ "$OPENHANDS_ENABLED" = "true" ] && [ -z "$OPENHANDS_SERVICE_URL" ]; then
+    OPENHANDS_SERVICE_URL="http://127.0.0.1:8000"
+fi
 
 should_start_openhands_worker() {
     if [ "$OPENHANDS_ENABLED" != "true" ]; then
@@ -73,7 +82,7 @@ echo "Database driver: $DB_DRIVER"
 echo "RESET mode: $RESET"
 echo "Backend log file: $BACKEND_LOG_FILE"
 if should_start_openhands_worker; then
-    echo "OpenHands worker: local"
+    echo "OpenHands worker: local ($OPENHANDS_SERVICE_URL)"
 else
     echo "OpenHands worker: external/disabled"
 fi
@@ -120,6 +129,14 @@ if should_start_openhands_worker; then
         > >(tee -a "$OPENHANDS_LOG_FILE") 2>&1 &
     OPENHANDS_WORKER_PID=$!
     echo -e "${GREEN}  OpenHands worker started (PID: $OPENHANDS_WORKER_PID, log: $OPENHANDS_LOG_FILE)${NC}"
+    echo "  Waiting OpenHands health check..."
+    for _ in $(seq 1 20); do
+        if curl -fsS "${OPENHANDS_SERVICE_URL%/}/healthz" >/dev/null 2>&1; then
+            echo -e "${GREEN}  OpenHands worker is healthy${NC}"
+            break
+        fi
+        sleep 0.5
+    done
 fi
 
 echo "  Waiting backend initialization..."
