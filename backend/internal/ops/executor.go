@@ -451,3 +451,30 @@ func ManagedRuntimeKind() string {
 func RunTimeout() time.Duration {
 	return 5 * time.Minute
 }
+
+func (e *Executor) SeedTask(record models.OpenHandsTaskRecord) {
+	if e == nil {
+		return
+	}
+	now := time.Now().UTC()
+	if strings.TrimSpace(record.ID) == "" {
+		record.ID = fmt.Sprintf("mock-openhands-%d", now.UnixNano())
+	}
+	if record.StartedAt.IsZero() {
+		record.StartedAt = now
+	}
+	if record.FinishedAt.IsZero() {
+		record.FinishedAt = record.StartedAt
+	}
+	if record.DurationMS == 0 && !record.FinishedAt.IsZero() && !record.StartedAt.IsZero() {
+		record.DurationMS = record.FinishedAt.Sub(record.StartedAt).Milliseconds()
+	}
+	if strings.TrimSpace(record.WorkerMode) == "" {
+		if strings.TrimSpace(e.cfg.ServiceURL) != "" {
+			record.WorkerMode = "service"
+		} else {
+			record.WorkerMode = "local_runner"
+		}
+	}
+	e.appendTaskRecord(record)
+}

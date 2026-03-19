@@ -78,6 +78,8 @@ func Setup(r *gin.Engine, h *handler.Handler, authSvc auth.Service) {
 		{
 			dev.POST("/reset", h.DevMockReset)
 			dev.POST("/chat", h.DevMockInsertChat)
+			dev.POST("/ops-task", h.DevMockSeedOpenHandsTask)
+			dev.POST("/feishu-log", h.DevMockAppendFeishuLog)
 			dev.GET("/agent-token/:username", h.DevGetAgentToken)
 		}
 	}
