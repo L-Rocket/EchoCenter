@@ -1,12 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Bot,
   ChevronLeft,
   ChevronRight,
   Check,
+  Cpu,
   Copy,
   Eye,
   EyeOff,
   KeyRound,
+  ListTodo,
   Loader2,
   PlugZap,
   RefreshCw,
@@ -41,7 +44,7 @@ interface RuntimeStatusBadge {
   pulse: boolean;
 }
 
-type OperationsPanel = 'agents' | 'ssh' | 'nodes' | 'openhands';
+type OperationsPanel = 'overview' | 'executors' | 'agents' | 'ssh' | 'nodes' | 'openhands' | 'tasks';
 
 const PAGE_SIZE = 5;
 const TOKEN_CACHE_KEY = 'echocenter_agent_token_cache_v1';
@@ -145,7 +148,7 @@ const UserManagement = () => {
   const [deletingNodeID, setDeletingNodeID] = useState<number | null>(null);
   const [testingNodeID, setTestingNodeID] = useState<number | null>(null);
   const [nodeTestResults, setNodeTestResults] = useState<Record<number, InfraNodeTestResult>>({});
-  const [activePanel, setActivePanel] = useState<OperationsPanel>('agents');
+  const [activePanel, setActivePanel] = useState<OperationsPanel>('overview');
   const [openhandsStatus, setOpenhandsStatus] = useState<OpenHandsStatus | null>(null);
   const [openhandsTasks, setOpenhandsTasks] = useState<OpenHandsTaskRecord[]>([]);
 
@@ -742,12 +745,42 @@ const UserManagement = () => {
     },
   ];
 
-  const panelMeta: Array<{ key: OperationsPanel; label: string; zh: string; count?: number | string }> = [
-    { key: 'agents', label: 'Agents', zh: 'Agents', count: agents.length },
-    { key: 'ssh', label: 'SSH Vault', zh: 'SSH 密钥库', count: sshKeys.length },
-    { key: 'nodes', label: 'Nodes', zh: '基础设施节点', count: infraNodes.length },
-    { key: 'openhands', label: 'OpenHands', zh: 'OpenHands', count: openhandsStatus?.enabled ? openhandsTasks.length : 'off' },
+  const panelMeta: Array<{ key: OperationsPanel; label: string; zh: string; count?: number | string; desc: string; icon: 'overview' | 'executors' | 'agents' | 'ssh' | 'nodes' | 'openhands' | 'tasks' }> = [
+    { key: 'overview', label: 'Overview', zh: '总览', count: 'live', desc: tx('Runtime pulse, recent activity, and delegation posture.', '运行态脉搏、近期活动与委派态势。'), icon: 'overview' },
+    { key: 'executors', label: 'Executors', zh: '执行器', count: openhandsStatus?.enabled ? 3 : 2, desc: tx('Track the engines Butler can delegate into.', '查看 Butler 可委派进入的执行器。'), icon: 'executors' },
+    { key: 'agents', label: 'Agents', zh: 'Agents', count: agents.length, desc: '', icon: 'agents' },
+    { key: 'ssh', label: 'SSH Vault', zh: 'SSH 密钥库', count: sshKeys.length, desc: tx('Store and rotate encrypted SSH keys.', '保存并轮换加密 SSH 密钥。'), icon: 'ssh' },
+    { key: 'nodes', label: 'Nodes', zh: '基础设施节点', count: infraNodes.length, desc: tx('Attach non-agent infrastructure targets.', '接入非 Agent 基础设施节点。'), icon: 'nodes' },
+    { key: 'openhands', label: 'OpenHands', zh: 'OpenHands', count: openhandsStatus?.enabled ? 'on' : 'off', desc: tx('Inspect the managed OpenHands runtime.', '查看托管 OpenHands 运行时。'), icon: 'openhands' },
+    { key: 'tasks', label: 'Tasks', zh: '任务', count: openhandsTasks.length, desc: tx('Browse recent delegated operations.', '查看近期委派任务。'), icon: 'tasks' },
   ];
+
+  panelMeta[2].desc = tx('Manage registered agent runtimes.', '管理已注册的 agent 运行时。');
+
+  const activePanelMeta = panelMeta.find((panel) => panel.key === activePanel) ?? panelMeta[0];
+  const recentTaskPreview = openhandsTasks.slice(0, 3);
+  const hasHealthyExecutor = Boolean(openhandsStatus?.enabled && openhandsStatus?.worker_reachable);
+
+  const renderPanelIcon = (icon: typeof panelMeta[number]['icon']) => {
+    switch (icon) {
+      case 'overview':
+        return <RefreshCw className="h-4 w-4" />;
+      case 'executors':
+        return <Cpu className="h-4 w-4" />;
+      case 'agents':
+        return <Bot className="h-4 w-4" />;
+      case 'ssh':
+        return <ShieldEllipsis className="h-4 w-4" />;
+      case 'nodes':
+        return <Server className="h-4 w-4" />;
+      case 'openhands':
+        return <PlugZap className="h-4 w-4" />;
+      case 'tasks':
+        return <ListTodo className="h-4 w-4" />;
+      default:
+        return <RefreshCw className="h-4 w-4" />;
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
@@ -800,36 +833,228 @@ const UserManagement = () => {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {panelMeta.map((panel) => (
-            <button
-              key={panel.key}
-              type="button"
-              className={`rounded-2xl border px-4 py-4 text-left transition-all ${
-                activePanel === panel.key
-                  ? 'border-primary bg-primary/10 shadow-[0_18px_50px_-35px_rgba(255,255,255,0.55)]'
-                  : 'border-border/70 bg-background/60 hover:border-border'
-              }`}
-              onClick={() => setActivePanel(panel.key)}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">
-                  {tx(panel.label, panel.zh)}
-                </div>
-                <Badge variant="outline" className="h-6 rounded-full px-2.5 text-[10px] uppercase tracking-wider">
-                  {panel.count}
-                </Badge>
-              </div>
-              <div className="mt-3 text-sm font-semibold">
-                {panel.key === 'agents' && tx('Manage registered agent runtimes.', '管理已注册的 agent 运行时。')}
-                {panel.key === 'ssh' && tx('Store and rotate encrypted SSH keys.', '保存并轮换加密 SSH 密钥。')}
-                {panel.key === 'nodes' && tx('Attach non-agent infrastructure targets.', '接入非 Agent 基础设施节点。')}
-                {panel.key === 'openhands' && tx('Monitor delegation health and task history.', '监控委派健康状态与任务历史。')}
-              </div>
-            </button>
-          ))}
-        </div>
       </div>
+
+      <div className="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)]">
+        <aside className="xl:sticky xl:top-24 h-fit">
+          <div className="rounded-[28px] border border-border/70 bg-card/60 p-3 shadow-[0_24px_80px_-48px_rgba(0,0,0,0.75)] backdrop-blur-sm">
+            <div className="px-3 pb-3 pt-2">
+              <div className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/80">
+                {tx('Runtime Views', '运行视图')}
+              </div>
+              <div className="mt-2 text-sm text-muted-foreground">
+                {tx('Move between the control layers Butler relies on during delegated operations.', '在 Butler 委派运维时依赖的各层控制面之间切换。')}
+              </div>
+            </div>
+            <div className="space-y-2">
+              {panelMeta.map((panel) => (
+                <button
+                  key={panel.key}
+                  type="button"
+                  className={`w-full rounded-2xl border px-3 py-3 text-left transition-all ${
+                    activePanel === panel.key
+                      ? 'border-primary bg-primary/10 shadow-[0_18px_50px_-35px_rgba(255,255,255,0.55)]'
+                      : 'border-border/70 bg-background/50 hover:border-border'
+                  }`}
+                  onClick={() => setActivePanel(panel.key)}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className={`mt-0.5 rounded-xl border p-2 ${activePanel === panel.key ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border/70 text-muted-foreground'}`}>
+                        {renderPanelIcon(panel.icon)}
+                      </div>
+                      <div>
+                        <div className="text-[11px] font-black uppercase tracking-[0.24em]">{tx(panel.label, panel.zh)}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">{panel.desc}</div>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="h-6 rounded-full px-2.5 text-[10px] uppercase tracking-wider">
+                      {panel.count}
+                    </Badge>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-3 rounded-2xl border border-border/70 bg-background/60 px-4 py-3">
+              <div className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">{tx('Executor Pulse', '执行器脉搏')}</div>
+              <div className="mt-2 flex items-center gap-2">
+                <StatusIndicator variant={hasHealthyExecutor ? 'success' : 'warning'} pulse={hasHealthyExecutor} />
+                <div className="text-sm font-semibold">
+                  {hasHealthyExecutor ? tx('OpenHands reachable', 'OpenHands 可连接') : tx('Executor attention needed', '执行器需要关注')}
+                </div>
+              </div>
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                {openhandsStatus?.service_url || tx('Local runner fallback active.', '本地 runner 回退路径已启用。')}
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <section className="space-y-6">
+          <div className="rounded-[28px] border border-border/70 bg-card/40 p-5 backdrop-blur-sm">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.28em] text-primary/80">{tx('Current View', '当前视图')}</div>
+                <h3 className="mt-2 text-2xl font-black tracking-tight">{tx(activePanelMeta.label, activePanelMeta.zh)}</h3>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{activePanelMeta.desc}</p>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <StatusIndicator variant={hasHealthyExecutor ? 'success' : 'warning'} pulse={hasHealthyExecutor} />
+                <span>{tx('Butler delegation plane is live.', 'Butler 委派平面已联通。')}</span>
+              </div>
+            </div>
+          </div>
+
+          {activePanel === 'overview' && (
+            <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+              <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm">
+                <CardHeader className="pb-4 gap-2">
+                  <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4 text-primary" />
+                    {tx('Runtime Pulse', '运行态脉搏')}
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {tx('A live overview of runtimes, delegation readiness, and infrastructure reach.', '运行时、委派准备度与基础设施可达性的实时总览。')}
+                  </p>
+                </CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-2">
+                  {summaryCards.map((card) => (
+                    <div key={card.key} className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                      <div className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">{card.label}</div>
+                      <div className="mt-3 text-3xl font-black tracking-tight">{card.value}</div>
+                      <div className="mt-1 text-[11px] text-muted-foreground">{card.sublabel}</div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm">
+                <CardHeader className="pb-4 gap-2">
+                  <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                    <Cpu className="h-4 w-4 text-primary" />
+                    {tx('Executor Snapshot', '执行器快照')}
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {tx('What powers runtime operations right now.', '当前支撑运行态运维的执行器概览。')}
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold">{tx('OpenHands Worker', 'OpenHands 执行器')}</div>
+                        <div className="text-[11px] text-muted-foreground">{openhandsStatus?.worker_mode || tx('Runtime unknown', '运行时未知')}</div>
+                      </div>
+                      <Badge variant="outline">{openhandsStatus?.enabled ? tx('Enabled', '启用') : tx('Disabled', '关闭')}</Badge>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                    <div className="text-sm font-semibold">{tx('SSH Transport', 'SSH 传输层')}</div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">{tx('Backs non-agent nodes and task delegation targets.', '承载非 Agent 节点以及委派任务目标。')}</div>
+                  </div>
+                  <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                    <div className="text-sm font-semibold">{tx('Approval Gate', '审批闸门')}</div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">{tx('Butler-approved actions are routed into the runtime executor plane.', 'Butler 批准后的动作会被路由到运行时执行平面。')}</div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm xl:col-span-2">
+                <CardHeader className="pb-4 gap-2">
+                  <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                    <ListTodo className="h-4 w-4 text-primary" />
+                    {tx('Recent Delegations', '近期委派')}
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {tx('A condensed trail of the most recent operations Butler pushed into the runtime plane.', 'Butler 最近推入运行时平面的操作摘要。')}
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {recentTaskPreview.length === 0 ? (
+                    <div className="rounded-md border bg-muted/20 p-4 text-xs text-muted-foreground">
+                      {tx('No delegated operations yet.', '暂时还没有委派运维操作。')}
+                    </div>
+                  ) : (
+                    recentTaskPreview.map((task) => (
+                      <div key={task.id} className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-semibold">{task.task}</div>
+                            <div className="mt-1 text-[11px] text-muted-foreground">{formatCreatedAt(task.finished_at)}</div>
+                          </div>
+                          <Badge variant="outline">{task.success ? tx('Success', '成功') : tx('Failed', '失败')}</Badge>
+                        </div>
+                        {(task.summary || task.error) && (
+                          <div className="mt-3 text-xs text-muted-foreground">{task.success ? task.summary : task.error}</div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {activePanel === 'executors' && (
+            <div className="grid gap-6 xl:grid-cols-3">
+              <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm xl:col-span-2">
+                <CardHeader className="pb-4 gap-2">
+                  <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                    <Cpu className="h-4 w-4 text-primary" />
+                    {tx('Executor Fleet', '执行器舰队')}
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {tx('A structured view of the execution surfaces available to Butler.', 'Butler 当前可用执行面的结构化视图。')}
+                  </p>
+                </CardHeader>
+                <CardContent className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-semibold">{tx('OpenHands Primary', 'OpenHands 主执行器')}</div>
+                      <Badge variant="outline">{openhandsStatus?.worker_mode || '--'}</Badge>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2">
+                      <StatusIndicator variant={hasHealthyExecutor ? 'success' : 'warning'} pulse={hasHealthyExecutor} />
+                      <span className="text-sm">{hasHealthyExecutor ? tx('Reachable', '可连接') : tx('Attention required', '需要关注')}</span>
+                    </div>
+                    <div className="mt-3 text-[11px] text-muted-foreground">{openhandsStatus?.service_url || tx('Using local runner fallback for execution.', '当前使用本地 runner 回退执行。')}</div>
+                  </div>
+                  <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                    <div className="text-sm font-semibold">{tx('SSH Transport Layer', 'SSH 传输层')}</div>
+                    <div className="mt-3 text-3xl font-black tracking-tight">{infraNodes.length}</div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">{tx('connected infrastructure targets', '个已接入基础设施目标')}</div>
+                  </div>
+                  <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                    <div className="text-sm font-semibold">{tx('Credential Vault', '凭据保险库')}</div>
+                    <div className="mt-3 text-3xl font-black tracking-tight">{sshKeys.length}</div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">{tx('encrypted SSH materials available to runtime', '份可供运行时使用的加密 SSH 凭据')}</div>
+                  </div>
+                  <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                    <div className="text-sm font-semibold">{tx('Delegation Trail', '委派轨迹')}</div>
+                    <div className="mt-3 text-3xl font-black tracking-tight">{openhandsTasks.length}</div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">{tx('recent operations recorded in memory', '条近期内存态任务记录')}</div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm">
+                <CardHeader className="pb-4 gap-2">
+                  <CardTitle className="text-sm font-black uppercase tracking-[0.2em]">
+                    {tx('Routing Notes', '路由说明')}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-muted-foreground">
+                  <div className="rounded-xl border border-border/70 bg-background/60 p-3">
+                    {tx('Butler remains the decision maker and only delegates concrete operations into executors.', 'Butler 仍是决策者，只把具体运维动作委派给执行器。')}
+                  </div>
+                  <div className="rounded-xl border border-border/70 bg-background/60 p-3">
+                    {tx('OpenHands handles execution, SSH handles non-agent nodes, and approvals remain in the business loop.', 'OpenHands 负责执行，SSH 负责非 Agent 节点接入，审批仍留在业务回路中。')}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
       {activePanel === 'agents' && (
       <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm">
@@ -1219,65 +1444,70 @@ const UserManagement = () => {
             )}
           </CardContent>
         </Card>
-
-        <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm xl:col-span-2">
-          <CardHeader className="pb-4 gap-2">
-            <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
-              <RefreshCw className="h-4 w-4 text-primary" />
-              {tx('Recent Tasks', '最近任务')}
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              {tx('Shows the latest OpenHands operations Butler delegated through the managed runtime.', '展示 Butler 最近通过托管运行时委派给 OpenHands 的运维任务。')}
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {openhandsTasks.length === 0 ? (
-              <div className="rounded-md border bg-muted/20 p-4 text-xs text-muted-foreground">
-                {tx('No OpenHands task has been executed yet.', '暂时还没有执行过 OpenHands 任务。')}
-              </div>
-            ) : (
-              openhandsTasks.map((task) => (
-                <div key={task.id} className="rounded-lg border p-4">
-                  <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold break-words">{task.task}</div>
-                      {task.reasoning && (
-                        <div className="mt-1 text-[11px] text-muted-foreground break-words">{task.reasoning}</div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <StatusIndicator variant={task.success ? 'success' : 'warning'} pulse={false} />
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                        {task.success ? tx('Success', '成功') : tx('Failed', '失败')}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid gap-3 md:grid-cols-3 text-[11px] text-muted-foreground">
-                    <div>
-                      <div className="uppercase tracking-wider">{tx('Duration', '耗时')}</div>
-                      <div className="mt-1 text-foreground">{task.duration_ms}ms</div>
-                    </div>
-                    <div>
-                      <div className="uppercase tracking-wider">{tx('Mode', '模式')}</div>
-                      <div className="mt-1 text-foreground">{task.worker_mode || tx('Unknown', '未知')}</div>
-                    </div>
-                    <div>
-                      <div className="uppercase tracking-wider">{tx('Finished', '完成时间')}</div>
-                      <div className="mt-1 text-foreground">{formatCreatedAt(task.finished_at)}</div>
-                    </div>
-                  </div>
-                  {(task.summary || task.error) && (
-                    <div className={`mt-3 rounded-md border px-3 py-2 text-xs ${task.success ? 'bg-emerald-50/50 text-emerald-700 border-emerald-200' : 'bg-amber-50/50 text-amber-700 border-amber-200'}`}>
-                      {task.success ? task.summary : task.error}
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
       </div>
       )}
+
+      {activePanel === 'tasks' && (
+      <Card className="border-2 shadow-xl bg-card/50 backdrop-blur-sm">
+        <CardHeader className="pb-4 gap-2">
+          <CardTitle className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
+            <ListTodo className="h-4 w-4 text-primary" />
+            {tx('Task History', '任务历史')}
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            {tx('Browse the latest operations Butler delegated through the managed runtime.', '查看 Butler 最近通过托管运行时委派出去的运维任务。')}
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {openhandsTasks.length === 0 ? (
+            <div className="rounded-md border bg-muted/20 p-4 text-xs text-muted-foreground">
+              {tx('No OpenHands task has been executed yet.', '暂时还没有执行过 OpenHands 任务。')}
+            </div>
+          ) : (
+            openhandsTasks.map((task) => (
+              <div key={task.id} className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold break-words">{task.task}</div>
+                    {task.reasoning && (
+                      <div className="mt-1 text-[11px] text-muted-foreground break-words">{task.reasoning}</div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <StatusIndicator variant={task.success ? 'success' : 'warning'} pulse={false} />
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                      {task.success ? tx('Success', '成功') : tx('Failed', '失败')}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-3 text-[11px] text-muted-foreground">
+                  <div>
+                    <div className="uppercase tracking-wider">{tx('Duration', '耗时')}</div>
+                    <div className="mt-1 text-foreground">{task.duration_ms}ms</div>
+                  </div>
+                  <div>
+                    <div className="uppercase tracking-wider">{tx('Mode', '模式')}</div>
+                    <div className="mt-1 text-foreground">{task.worker_mode || tx('Unknown', '未知')}</div>
+                  </div>
+                  <div>
+                    <div className="uppercase tracking-wider">{tx('Finished', '完成时间')}</div>
+                    <div className="mt-1 text-foreground">{formatCreatedAt(task.finished_at)}</div>
+                  </div>
+                </div>
+                {(task.summary || task.error) && (
+                  <div className={`mt-3 rounded-md border px-3 py-2 text-xs ${task.success ? 'bg-emerald-50/50 text-emerald-700 border-emerald-200' : 'bg-amber-50/50 text-amber-700 border-amber-200'}`}>
+                    {task.success ? task.summary : task.error}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+      )}
+
+        </section>
+      </div>
 
       {opsError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive font-semibold">
