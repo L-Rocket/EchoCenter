@@ -56,6 +56,17 @@ type runnerResponse struct {
 	Error   string `json:"error"`
 }
 
+type StatusSummary struct {
+	Enabled         bool   `json:"enabled"`
+	ServiceURL      string `json:"service_url"`
+	WorkerReachable bool   `json:"worker_reachable"`
+	WorkerMode      string `json:"worker_mode"`
+	ManagedAgentID  int    `json:"managed_agent_id"`
+	ManagedAgent    string `json:"managed_agent_name"`
+	NodeCount       int    `json:"node_count"`
+	SSHKeyCount     int    `json:"ssh_key_count"`
+}
+
 var (
 	instance *Executor
 	mu       sync.RWMutex
@@ -106,6 +117,39 @@ func (e *Executor) ExecuteAgentCommand(ctx context.Context, task, reasoning stri
 		return "", err
 	}
 	return e.run(ctx, payload)
+}
+
+func (e *Executor) StatusSummary(ctx context.Context) StatusSummary {
+	summary := StatusSummary{
+		Enabled:    e != nil && e.cfg.Enabled,
+		ServiceURL: strings.TrimSpace(e.cfg.ServiceURL),
+	}
+	if e == nil {
+		return summary
+	}
+
+	if summary.ServiceURL != "" {
+		summary.WorkerMode = "service"
+		summary.WorkerReachable = e.serviceHealthy(ctx)
+	} else if strings.TrimSpace(e.cfg.RunnerScript) != "" {
+		summary.WorkerMode = "local_runner"
+		summary.WorkerReachable = e.cfg.Enabled
+	}
+
+	if e.repo != nil {
+		if keys, err := e.repo.ListSSHKeys(ctx); err == nil {
+			summary.SSHKeyCount = len(keys)
+		}
+		if nodes, err := e.repo.ListInfraNodes(ctx); err == nil {
+			summary.NodeCount = len(nodes)
+		}
+		if user, err := e.repo.GetUserByUsername(ctx, defaultOpenHandsAgentName); err == nil && user != nil {
+			summary.ManagedAgentID = user.ID
+			summary.ManagedAgent = user.Username
+		}
+	}
+
+	return summary
 }
 
 func (e *Executor) buildPayload(ctx context.Context, task, reasoning string) (*runnerPayload, error) {
@@ -222,6 +266,22 @@ func (e *Executor) runViaService(ctx context.Context, payload *runnerPayload) (s
 		return "", errors.New(result.Error)
 	}
 	return strings.TrimSpace(result.Summary), nil
+}
+
+func (e *Executor) serviceHealthy(ctx context.Context) bool {
+	if strings.TrimSpace(e.cfg.ServiceURL) == "" {
+		return false
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(e.cfg.ServiceURL, "/")+"/healthz", nil)
+	if err != nil {
+		return false
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }
 
 func ensureManagedAgent(ctx context.Context, repo repository.Repository) (*models.User, error) {

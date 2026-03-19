@@ -461,6 +461,26 @@ func (h *Handler) ListSSHKeys(c *gin.Context) {
 	c.JSON(http.StatusOK, keys)
 }
 
+func (h *Handler) GetOpsStatus(c *gin.Context) {
+	executor := ops.GetExecutor()
+	if executor == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"enabled":            false,
+			"worker_reachable":   false,
+			"worker_mode":        "",
+			"service_url":        "",
+			"managed_agent_id":   0,
+			"managed_agent_name": "",
+			"node_count":         0,
+			"ssh_key_count":      0,
+		})
+		return
+	}
+
+	status := executor.StatusSummary(c.Request.Context())
+	c.JSON(http.StatusOK, status)
+}
+
 func (h *Handler) CreateSSHKey(c *gin.Context) {
 	var key models.SSHKey
 	if err := c.ShouldBindJSON(&key); err != nil {
