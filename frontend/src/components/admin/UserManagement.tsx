@@ -701,65 +701,134 @@ const UserManagement = () => {
     return map[message] ?? message;
   };
 
-  const panelButtonClass = (panel: OperationsPanel) =>
-    `h-9 rounded-full border-2 px-4 text-[10px] uppercase tracking-widest font-black ${
-      activePanel === panel ? 'bg-primary text-primary-foreground border-primary' : 'border-border bg-background'
-    }`;
-
   const managedOpenHandsAgent = useMemo(
     () => agents.find((agent) => agent.agent_kind === 'openhands_ops') ?? null,
     [agents]
   );
 
+  const onlineAgents = useMemo(
+    () => agents.filter((agent) => agent.online || String(agent.status || '').toUpperCase() === 'ONLINE').length,
+    [agents]
+  );
+
+  const summaryCards = [
+    {
+      key: 'agents',
+      label: tx('Agent Runtimes', 'Agent 运行时'),
+      value: String(agents.length),
+      sublabel: tx(`${onlineAgents} online`, `${onlineAgents} 个在线`),
+    },
+    {
+      key: 'ssh',
+      label: tx('SSH Assets', 'SSH 资产'),
+      value: String(sshKeys.length),
+      sublabel: tx('Encrypted at rest', '静态加密保存'),
+    },
+    {
+      key: 'nodes',
+      label: tx('Reachable Nodes', '可达节点'),
+      value: String(infraNodes.length),
+      sublabel: tx('Backed by SSH keys', '通过 SSH 密钥接入'),
+    },
+    {
+      key: 'openhands',
+      label: tx('OpenHands Runtime', 'OpenHands 运行时'),
+      value: openhandsStatus?.enabled
+        ? openhandsStatus.worker_reachable
+          ? tx('Healthy', '健康')
+          : tx('Booting', '启动中')
+        : tx('Disabled', '已关闭'),
+      sublabel: openhandsStatus?.worker_mode || tx('No runtime wired', '尚未接入运行时'),
+    },
+  ];
+
+  const panelMeta: Array<{ key: OperationsPanel; label: string; zh: string; count?: number | string }> = [
+    { key: 'agents', label: 'Agents', zh: 'Agents', count: agents.length },
+    { key: 'ssh', label: 'SSH Vault', zh: 'SSH 密钥库', count: sshKeys.length },
+    { key: 'nodes', label: 'Nodes', zh: '基础设施节点', count: infraNodes.length },
+    { key: 'openhands', label: 'OpenHands', zh: 'OpenHands', count: openhandsStatus?.enabled ? openhandsTasks.length : 'off' },
+  ];
+
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-black tracking-tighter italic">
-            {tx('Operations', '运维')} <span className="text-primary">{tx('Control Center', '控制中心')}</span>
-          </h2>
-          <p className="text-sm text-muted-foreground font-medium">
-            {tx('Operate agents, SSH assets, infrastructure nodes, and OpenHands runtime from one place.', '在一个页面统一管理 agent、SSH 资产、基础设施节点与 OpenHands 运行时。')}
-          </p>
+      <div className="rounded-[28px] border border-border/70 bg-gradient-to-br from-background via-background to-muted/20 p-6 shadow-[0_24px_80px_-48px_rgba(0,0,0,0.75)]">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div className="space-y-3">
+            <div className="text-[11px] font-black uppercase tracking-[0.32em] text-primary/80">
+              {tx('Operations Fabric', '运维织网')}
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-3xl font-black tracking-tight">
+                {tx('Operations Control Center', '运维控制中心')}
+              </h2>
+              <p className="max-w-3xl text-sm text-muted-foreground font-medium">
+                {tx('Operate agents, SSH assets, infrastructure nodes, and OpenHands runtime from one place.', '在一个页面统一管理 agent、SSH 资产、基础设施节点与 OpenHands 运行时。')}
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {summaryCards.map((card) => (
+                <div key={card.key} className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
+                  <div className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">{card.label}</div>
+                  <div className="mt-2 text-2xl font-black tracking-tight">{card.value}</div>
+                  <div className="mt-1 text-[11px] text-muted-foreground">{card.sublabel}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-start">
+            <Button
+              size="sm"
+              onClick={openCreateSheet}
+              className="h-11 gap-2 rounded-2xl border-2 uppercase font-black tracking-[0.18em] text-[10px] shadow-[0_16px_40px_-24px_rgba(255,255,255,0.95)]"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              {tx('New Agent', '新建 agent')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void fetchAgents();
+                void fetchOpsResources();
+              }}
+              disabled={isLoading}
+              className="h-11 gap-2 rounded-2xl border-2 uppercase font-black tracking-[0.18em] text-[10px]"
+            >
+              <RefreshCw className={isLoading ? 'h-3 w-3 animate-spin' : 'h-3 w-3'} />
+              {tx('Refresh', '刷新')}
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            onClick={openCreateSheet}
-            className="h-9 gap-2 border-2 uppercase font-black tracking-widest text-[10px]"
-          >
-            <UserPlus className="h-3.5 w-3.5" />
-            {tx('New Agent', '新建 agent')}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              void fetchAgents();
-              void fetchOpsResources();
-            }}
-            disabled={isLoading}
-            className="h-9 gap-2 border-2 uppercase font-black tracking-widest text-[10px]"
-          >
-            <RefreshCw className={isLoading ? 'h-3 w-3 animate-spin' : 'h-3 w-3'} />
-            {tx('Refresh', '刷新')}
-          </Button>
-        </div>
-      </div>
 
-      <div className="flex flex-wrap gap-2">
-        <button type="button" className={panelButtonClass('agents')} onClick={() => setActivePanel('agents')}>
-          {tx('Agents', 'Agents')}
-        </button>
-        <button type="button" className={panelButtonClass('ssh')} onClick={() => setActivePanel('ssh')}>
-          {tx('SSH Vault', 'SSH 密钥库')}
-        </button>
-        <button type="button" className={panelButtonClass('nodes')} onClick={() => setActivePanel('nodes')}>
-          {tx('Nodes', '基础设施节点')}
-        </button>
-        <button type="button" className={panelButtonClass('openhands')} onClick={() => setActivePanel('openhands')}>
-          {tx('OpenHands', 'OpenHands')}
-        </button>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {panelMeta.map((panel) => (
+            <button
+              key={panel.key}
+              type="button"
+              className={`rounded-2xl border px-4 py-4 text-left transition-all ${
+                activePanel === panel.key
+                  ? 'border-primary bg-primary/10 shadow-[0_18px_50px_-35px_rgba(255,255,255,0.55)]'
+                  : 'border-border/70 bg-background/60 hover:border-border'
+              }`}
+              onClick={() => setActivePanel(panel.key)}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">
+                  {tx(panel.label, panel.zh)}
+                </div>
+                <Badge variant="outline" className="h-6 rounded-full px-2.5 text-[10px] uppercase tracking-wider">
+                  {panel.count}
+                </Badge>
+              </div>
+              <div className="mt-3 text-sm font-semibold">
+                {panel.key === 'agents' && tx('Manage registered agent runtimes.', '管理已注册的 agent 运行时。')}
+                {panel.key === 'ssh' && tx('Store and rotate encrypted SSH keys.', '保存并轮换加密 SSH 密钥。')}
+                {panel.key === 'nodes' && tx('Attach non-agent infrastructure targets.', '接入非 Agent 基础设施节点。')}
+                {panel.key === 'openhands' && tx('Monitor delegation health and task history.', '监控委派健康状态与任务历史。')}
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {activePanel === 'agents' && (
