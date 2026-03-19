@@ -32,6 +32,7 @@ class EchoShellObservation(Observation):
 class EchoShellExecutor(ToolExecutor[EchoShellAction, EchoShellObservation]):
     def __init__(self, working_dir: Path):
         self.working_dir = working_dir
+        self.log_file = working_dir / "EXECUTION_LOG.md"
 
     def __call__(self, action: EchoShellAction, conversation=None) -> EchoShellObservation:
         result = subprocess.run(
@@ -46,11 +47,27 @@ class EchoShellExecutor(ToolExecutor[EchoShellAction, EchoShellObservation]):
                 "PYTHONUNBUFFERED": "1",
             },
         )
-        return EchoShellObservation(
+        observation = EchoShellObservation(
             exit_code=result.returncode,
             stdout=result.stdout[-12000:],
             stderr=result.stderr[-12000:],
         )
+        with self.log_file.open("a", encoding="utf-8") as handle:
+            handle.write("## Command\n")
+            handle.write("```sh\n")
+            handle.write(f"{action.command}\n")
+            handle.write("```\n\n")
+            handle.write(f"- exit_code: {observation.exit_code}\n")
+            if observation.stdout.strip():
+                handle.write("\n### stdout\n```text\n")
+                handle.write(f"{observation.stdout.strip()}\n")
+                handle.write("```\n")
+            if observation.stderr.strip():
+                handle.write("\n### stderr\n```text\n")
+                handle.write(f"{observation.stderr.strip()}\n")
+                handle.write("```\n")
+            handle.write("\n")
+        return observation
 
 
 class EchoShellToolDefinition(ToolDefinition[EchoShellAction, EchoShellObservation]):

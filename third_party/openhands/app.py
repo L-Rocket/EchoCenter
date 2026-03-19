@@ -70,6 +70,8 @@ def build_task(payload: RunnerPayload, workspace: Path, nodes: list[dict[str, An
     lines.append(f"Workspace path: {workspace}")
     lines.append("You can write files and execute shell commands inside the workspace.")
     lines.append("When you need to produce code, create a file, run it, and report the output.")
+    lines.append("Always overwrite stale files instead of appending to them.")
+    lines.append("Before finishing, create RESULT.md with these sections: Code, Output, Final Result.")
     return "\n".join(lines).strip()
 
 
@@ -134,6 +136,9 @@ def run_openhands(payload: RunnerPayload, workspace: Path, nodes: list[dict[str,
     result_file = workspace / "RESULT.md"
     if result_file.exists():
         return result_file.read_text(encoding="utf-8").strip()
+    execution_log = workspace / "EXECUTION_LOG.md"
+    if execution_log.exists():
+        return execution_log.read_text(encoding="utf-8").strip()
     if isinstance(response, str) and response.strip():
         return response.strip()
     return "OpenHands completed the task, but no RESULT.md was produced."
