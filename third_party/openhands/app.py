@@ -81,6 +81,8 @@ def build_task(payload: RunnerPayload, workspace: Path, nodes: list[dict[str, An
     lines.append("Always overwrite stale files instead of appending to them.")
     lines.append("Use python3 for Python scripts.")
     lines.append("Do not use inline commands like python -c or python3 -c for multi-line code.")
+    lines.append("A command that only echoes source code to stdout does NOT count as file creation.")
+    lines.append("For Python tasks, your first successful code-writing step must create a real .py file in the workspace.")
     lines.append("Do not print the source code from inside Python. Put the code into RESULT.md instead.")
     lines.append("Before finishing, create RESULT.md with these sections exactly: Code, Output, Final Result.")
     lines.append("After RESULT.md is written, stop immediately and return a short completion message.")
@@ -91,6 +93,7 @@ def build_task(payload: RunnerPayload, workspace: Path, nodes: list[dict[str, An
     lines.append("3. Run: python3 script.py")
     lines.append("4. Create RESULT.md separately with the code and stdout")
     lines.append("5. Finish without additional shell experiments")
+    lines.append("If file execution fails because the script file is missing, fix it by creating the file with a heredoc. Do not fall back to python -c.")
     return "\n".join(lines).strip()
 
 
