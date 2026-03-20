@@ -65,6 +65,9 @@ export interface OpenHandsTaskRecord {
   id: string;
   task: string;
   reasoning?: string;
+  status?: string;
+  current_step?: string;
+  live_output?: string;
   success: boolean;
   summary?: string;
   error?: string;
@@ -72,6 +75,7 @@ export interface OpenHandsTaskRecord {
   started_at: string;
   finished_at: string;
   duration_ms: number;
+  updated_at?: string;
 }
 
 export interface ConversationThread {

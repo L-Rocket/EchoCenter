@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { useI18n } from '@/hooks/useI18n';
 import type { Agent, ChatMessage, ConversationThread } from '@/types';
 import AuthRequestCard from './AuthRequestCard';
-import OpenHandsExecutionPanel from './OpenHandsExecutionPanel';
+import OpenHandsLiveRunCard from './OpenHandsLiveRunCard';
 import ProcessMessage from './ProcessMessage';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 
@@ -17,7 +17,6 @@ interface ChatViewProps {
   agent: Agent;
   thread?: ConversationThread | null;
   renderAssistantAsMarkdown?: boolean;
-  showRuntimePanel?: boolean;
 }
 
 const EMPTY_ARRAY: ChatMessage[] = [];
@@ -26,13 +25,13 @@ const ChatView: React.FC<ChatViewProps> = ({
   agent,
   thread = null,
   renderAssistantAsMarkdown = true,
-  showRuntimePanel = false,
 }) => {
   const [input, setInput] = useState('');
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const { user, sendMessage, sendAuthResponse } = useAuth();
   const { tx } = useI18n();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isOpenHandsOperator = agent.agent_kind === 'openhands_ops' || agent.runtime_kind === 'openhands';
 
   const scope = buildChatScope(agent.id, thread?.id);
   const messages = useChatStore((state) => state.messagesByScope[scope] || EMPTY_ARRAY);
@@ -81,21 +80,19 @@ const ChatView: React.FC<ChatViewProps> = ({
     setInput('');
   };
 
-  const isButlerChannel = (agent.role || '').toUpperCase() === 'BUTLER' || /butler/i.test(agent.username || '');
-
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 pb-8 pt-10">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 pb-8 pt-8">
           {thread && (
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-primary/80">
+            <div className="space-y-3 border-b border-border/50 pb-5">
+              <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/20 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">
                 <Sparkles className="h-3 w-3" />
                 {thread.channel_kind === 'butler_direct' ? tx('Butler Thread', 'Butler 会话') : tx('Agent Thread', 'Agent 会话')}
               </div>
-              <h1 className="text-3xl font-black tracking-tight">{thread.title || tx('Untitled Conversation', '未命名会话')}</h1>
+              <h1 className="text-2xl font-black tracking-tight">{thread.title || tx('Untitled Conversation', '未命名会话')}</h1>
               {thread.summary && (
-                <p className="max-w-3xl text-sm text-muted-foreground">{thread.summary}</p>
+                <p className="max-w-3xl text-[13px] leading-6 text-muted-foreground">{thread.summary}</p>
               )}
             </div>
           )}
@@ -121,8 +118,8 @@ const ChatView: React.FC<ChatViewProps> = ({
             </div>
           )}
 
-          {showRuntimePanel && isButlerChannel && (
-            <OpenHandsExecutionPanel messages={messages} isPeerPending={isPending} />
+          {isOpenHandsOperator && (
+            <OpenHandsLiveRunCard active={isPending} />
           )}
 
           {messages.map((message, index) => {
@@ -201,7 +198,7 @@ const ChatView: React.FC<ChatViewProps> = ({
             }
 
             return (
-              <article key={message.id || index} className="space-y-3 border-b border-border/50 pb-8">
+              <article key={message.id || index} className="space-y-3 border-b border-border/40 pb-7">
                 <div className="flex items-center justify-between gap-4">
                   <div className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">
                     {message.sender_name || agent.username}
@@ -245,7 +242,7 @@ const ChatView: React.FC<ChatViewProps> = ({
             placeholder={isPending
               ? tx('Wait for the current reply to finish...', '请等待当前回复完成...')
               : tx(`Message ${agent.username}...`, `向 ${agent.username} 发送消息...`)}
-            className="h-12 rounded-2xl border-2 bg-muted/40 px-4 text-sm focus:bg-background"
+            className="h-12 rounded-2xl border bg-muted/40 px-4 text-sm focus:bg-background"
             value={input}
             onChange={(event) => setInput(event.target.value)}
           />

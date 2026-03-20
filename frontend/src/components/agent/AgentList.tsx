@@ -10,16 +10,20 @@ interface AgentListProps {
   onSelectAgent: (agent: Agent) => void;
   selectedAgentId?: number;
   excludeRoles?: string[];
+  excludeAgentKinds?: string[];
   reloadKey?: number;
   searchQuery?: string;
+  compact?: boolean;
 }
 
 const AgentList: React.FC<AgentListProps> = ({
   onSelectAgent,
   selectedAgentId,
   excludeRoles = [],
+  excludeAgentKinds = [],
   reloadKey = 0,
   searchQuery = '',
+  compact = false,
 }) => {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,9 +57,13 @@ const AgentList: React.FC<AgentListProps> = ({
   }, [reloadKey]);
 
   const normalizedExcludeRoles = excludeRoles.map((role) => role.toUpperCase());
+  const normalizedExcludeKinds = excludeAgentKinds.map((kind) => kind.toLowerCase());
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const filteredAgents = agents.filter((agent) => {
     if (normalizedExcludeRoles.includes((agent.role || '').toUpperCase())) {
+      return false;
+    }
+    if (normalizedExcludeKinds.includes((agent.agent_kind || '').toLowerCase())) {
       return false;
     }
     if (!normalizedSearch) return true;
@@ -97,7 +105,7 @@ const AgentList: React.FC<AgentListProps> = ({
             key={agent.id}
             onClick={() => onSelectAgent(agent)}
             className={cn(
-              "w-full flex items-center gap-3 p-4 text-left transition-all group",
+              `w-full flex items-center ${compact ? 'justify-center px-2 py-4' : 'gap-3 p-4 text-left'} transition-all group`,
               selectedAgentId === agent.id ? "bg-primary/10 border-r-2 border-r-primary" : "hover:bg-accent"
             )}
           >
@@ -107,26 +115,28 @@ const AgentList: React.FC<AgentListProps> = ({
             )}>
               <Terminal className="h-4 w-4" />
             </div>
-            <div className="flex-grow min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <span className={cn(
-                  "text-sm font-semibold truncate",
-                  selectedAgentId === agent.id ? "text-primary" : "text-foreground"
-                )}>
-                  {agent.username}
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <StatusIndicator variant={dialogueStatus.variant} pulse={dialogueStatus.pulse} className="h-1.5 w-1.5" />
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                    {dialogueStatus.label}
+            {!compact && (
+              <div className="flex-grow min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className={cn(
+                    "text-sm font-semibold truncate",
+                    selectedAgentId === agent.id ? "text-primary" : "text-foreground"
+                  )}>
+                    {agent.username}
                   </span>
+                  <div className="flex items-center gap-1.5">
+                    <StatusIndicator variant={dialogueStatus.variant} pulse={dialogueStatus.pulse} className="h-1.5 w-1.5" />
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                      {dialogueStatus.label}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <MessageSquare className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">{agent.role}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-1 mt-0.5">
-                <MessageSquare className="h-3 w-3 text-muted-foreground" />
-                <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">{agent.role}</span>
-              </div>
-            </div>
+            )}
           </button>
         );
       })}

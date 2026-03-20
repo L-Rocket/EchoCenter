@@ -38,6 +38,7 @@ type Executor struct {
 }
 
 type runnerPayload struct {
+	TaskID       string       `json:"task_id,omitempty"`
 	Task         string       `json:"task"`
 	Reasoning    string       `json:"reasoning,omitempty"`
 	Model        string       `json:"model,omitempty"`
@@ -60,6 +61,16 @@ type runnerResponse struct {
 	OK      bool   `json:"ok"`
 	Summary string `json:"summary"`
 	Error   string `json:"error"`
+}
+
+type runnerTaskStatus struct {
+	OK          bool   `json:"ok"`
+	TaskID      string `json:"task_id"`
+	Status      string `json:"status"`
+	CurrentStep string `json:"current_step"`
+	LiveOutput  string `json:"live_output"`
+	Summary     string `json:"summary"`
+	Error       string `json:"error"`
 }
 
 type StatusSummary struct {
@@ -119,11 +130,14 @@ func (e *Executor) ExecuteAgentCommand(ctx context.Context, task, reasoning stri
 		return "", fmt.Errorf("OpenHands executor is disabled")
 	}
 	record := models.OpenHandsTaskRecord{
-		ID:         fmt.Sprintf("openhands-%d", time.Now().UnixNano()),
-		Task:       strings.TrimSpace(task),
-		Reasoning:  strings.TrimSpace(reasoning),
-		StartedAt:  time.Now().UTC(),
-		WorkerMode: "local_runner",
+		ID:          fmt.Sprintf("openhands-%d", time.Now().UnixNano()),
+		Task:        strings.TrimSpace(task),
+		Reasoning:   strings.TrimSpace(reasoning),
+		StartedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
+		Status:      "running",
+		CurrentStep: "Queued for execution",
+		WorkerMode:  "local_runner",
 	}
 	if strings.TrimSpace(e.cfg.ServiceURL) != "" {
 		record.WorkerMode = "service"
@@ -133,20 +147,29 @@ func (e *Executor) ExecuteAgentCommand(ctx context.Context, task, reasoning stri
 		record.FinishedAt = time.Now().UTC()
 		record.DurationMS = record.FinishedAt.Sub(record.StartedAt).Milliseconds()
 		record.Error = err.Error()
+		record.Status = "failed"
+		record.UpdatedAt = record.FinishedAt
 		e.appendTaskRecord(record)
 		return "", err
 	}
+	payload.TaskID = record.ID
+	e.appendTaskRecord(record)
 	summary, err := e.run(ctx, payload)
 	record.FinishedAt = time.Now().UTC()
 	record.DurationMS = record.FinishedAt.Sub(record.StartedAt).Milliseconds()
 	if err != nil {
 		record.Error = err.Error()
-		e.appendTaskRecord(record)
+		record.Status = "failed"
+		record.UpdatedAt = record.FinishedAt
+		e.updateTaskRecord(record)
 		return "", err
 	}
 	record.Success = true
+	record.Status = "completed"
 	record.Summary = strings.TrimSpace(summary)
-	e.appendTaskRecord(record)
+	record.LiveOutput = ""
+	record.UpdatedAt = record.FinishedAt
+	e.updateTaskRecord(record)
 	return summary, nil
 }
 
@@ -351,6 +374,12 @@ func (e *Executor) runViaService(ctx context.Context, payload *runnerPayload) (s
 		return "", err
 	}
 
+	stopPolling := make(chan struct{})
+	defer close(stopPolling)
+	if strings.TrimSpace(payload.TaskID) != "" {
+		go e.pollTaskStatus(ctx, payload.TaskID, stopPolling)
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(e.cfg.ServiceURL, "/")+"/run", bytes.NewReader(data))
 	if err != nil {
 		return "", err
@@ -394,6 +423,104 @@ func (e *Executor) appendTaskRecord(record models.OpenHandsTaskRecord) {
 	if len(e.jobs) > 20 {
 		e.jobs = append([]models.OpenHandsTaskRecord(nil), e.jobs[len(e.jobs)-20:]...)
 	}
+}
+
+func (e *Executor) updateTaskRecord(record models.OpenHandsTaskRecord) {
+	if e == nil {
+		return
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for index := range e.jobs {
+		if e.jobs[index].ID == record.ID {
+			e.jobs[index] = record
+			return
+		}
+	}
+	e.jobs = append(e.jobs, record)
+	if len(e.jobs) > 20 {
+		e.jobs = append([]models.OpenHandsTaskRecord(nil), e.jobs[len(e.jobs)-20:]...)
+	}
+}
+
+func (e *Executor) updateTaskStatus(taskID string, status runnerTaskStatus) {
+	if e == nil || strings.TrimSpace(taskID) == "" {
+		return
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for index := range e.jobs {
+		if e.jobs[index].ID != taskID {
+			continue
+		}
+		e.jobs[index].UpdatedAt = time.Now().UTC()
+		if strings.TrimSpace(status.Status) != "" {
+			e.jobs[index].Status = strings.TrimSpace(status.Status)
+		}
+		if strings.TrimSpace(status.CurrentStep) != "" {
+			e.jobs[index].CurrentStep = strings.TrimSpace(status.CurrentStep)
+		}
+		if strings.TrimSpace(status.LiveOutput) != "" {
+			e.jobs[index].LiveOutput = strings.TrimSpace(status.LiveOutput)
+		}
+		if strings.TrimSpace(status.Summary) != "" {
+			e.jobs[index].Summary = strings.TrimSpace(status.Summary)
+		}
+		if strings.TrimSpace(status.Error) != "" {
+			e.jobs[index].Error = strings.TrimSpace(status.Error)
+		}
+		return
+	}
+}
+
+func (e *Executor) pollTaskStatus(ctx context.Context, taskID string, stop <-chan struct{}) {
+	if e == nil || strings.TrimSpace(e.cfg.ServiceURL) == "" || strings.TrimSpace(taskID) == "" {
+		return
+	}
+	ticker := time.NewTicker(750 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-stop:
+			return
+		case <-ticker.C:
+			status, err := e.fetchTaskStatus(ctx, taskID)
+			if err != nil {
+				continue
+			}
+			e.updateTaskStatus(taskID, *status)
+			normalized := strings.ToLower(strings.TrimSpace(status.Status))
+			if normalized == "completed" || normalized == "failed" {
+				return
+			}
+		}
+	}
+}
+
+func (e *Executor) fetchTaskStatus(ctx context.Context, taskID string) (*runnerTaskStatus, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(e.cfg.ServiceURL, "/")+"/tasks/"+taskID, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("task status returned HTTP %d", resp.StatusCode)
+	}
+	var result runnerTaskStatus
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
 
 func (e *Executor) serviceHealthy(ctx context.Context) bool {
@@ -460,6 +587,13 @@ func (e *Executor) SeedTask(record models.OpenHandsTaskRecord) {
 	if strings.TrimSpace(record.ID) == "" {
 		record.ID = fmt.Sprintf("mock-openhands-%d", now.UnixNano())
 	}
+	if strings.TrimSpace(record.Status) == "" {
+		if record.Success {
+			record.Status = "completed"
+		} else {
+			record.Status = "failed"
+		}
+	}
 	if record.StartedAt.IsZero() {
 		record.StartedAt = now
 	}
@@ -476,5 +610,6 @@ func (e *Executor) SeedTask(record models.OpenHandsTaskRecord) {
 			record.WorkerMode = "local_runner"
 		}
 	}
+	record.UpdatedAt = now
 	e.appendTaskRecord(record)
 }

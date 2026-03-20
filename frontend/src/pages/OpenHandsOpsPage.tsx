@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Bot, ChevronLeft, ChevronRight, Loader2, Plus, ShieldAlert, Sparkles } from 'lucide-react';
+import { Bot, ChevronLeft, ChevronRight, Loader2, Plus, ShieldAlert, Wrench } from 'lucide-react';
 import ChatView from '@/components/agent/ChatView';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -8,71 +8,71 @@ import { cn } from '@/lib/utils';
 import { userService } from '@/services/userService';
 import type { Agent, ConversationThread } from '@/types';
 
-const ButlerPage = () => {
+const OpenHandsOpsPage = () => {
   const { tx } = useI18n();
-  const [butler, setButler] = useState<Agent | null>(null);
+  const [agent, setAgent] = useState<Agent | null>(null);
   const [threads, setThreads] = useState<ConversationThread[]>([]);
   const [selectedThreadId, setSelectedThreadId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
-  const fetchAgents = useCallback(async () => {
+  const fetchAgent = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
       const data = await userService.getAgents();
       const agentList = Array.isArray(data) ? data : [];
-      const butlerAgent =
-        agentList.find((agent) => (agent.role || '').toUpperCase() === 'BUTLER') ||
-        agentList.find((agent) => (agent.username || '').toLowerCase() === 'butler');
+      const opsAgent =
+        agentList.find((item) => item.agent_kind === 'openhands_ops') ||
+        agentList.find((item) => (item.username || '').toLowerCase() === 'openhands-ops');
 
-      setButler(butlerAgent ?? null);
-      if (butlerAgent?.id) {
-        const nextThreads = await userService.listConversationThreads(butlerAgent.id, 'butler_direct');
+      setAgent(opsAgent ?? null);
+      if (opsAgent?.id) {
+        const nextThreads = await userService.listConversationThreads(opsAgent.id, 'agent_direct');
         setThreads(Array.isArray(nextThreads) ? nextThreads : []);
       } else {
         setThreads([]);
       }
-      if (!butlerAgent) {
-        setError(tx('Butler is not available yet.', 'Butler 暂不可用。'));
+      if (!opsAgent) {
+        setError(tx('OpenHands Ops is not available yet.', 'OpenHands Ops 暂不可用。'));
       }
     } catch (_err) {
-      setError(tx('Failed to load Butler channel.', '加载 Butler 通道失败。'));
-      setButler(null);
+      setError(tx('Failed to load OpenHands Ops workspace.', '加载 OpenHands Ops 工作区失败。'));
+      setAgent(null);
     } finally {
       setLoading(false);
     }
   }, [tx]);
 
   useEffect(() => {
-    fetchAgents();
-  }, [fetchAgents]);
+    fetchAgent();
+  }, [fetchAgent]);
 
   useEffect(() => {
     if (threads.length === 0) {
       setSelectedThreadId(null);
-      return
+      return;
     }
     if (!selectedThreadId || !threads.some((thread) => thread.id === selectedThreadId)) {
-      setSelectedThreadId(threads[0].id)
+      setSelectedThreadId(threads[0].id);
     }
-  }, [selectedThreadId, threads])
+  }, [selectedThreadId, threads]);
 
-  const selectedThread = threads.find((thread) => thread.id === selectedThreadId) ?? null
+  const selectedThread = threads.find((thread) => thread.id === selectedThreadId) ?? null;
 
   const createThread = async () => {
-    if (!butler?.id) return
+    if (!agent?.id) return;
     const created = await userService.createConversationThread({
-      peer_id: butler.id,
-      channel_kind: 'butler_direct',
-      title: tx('New Butler Conversation', '新的 Butler 会话'),
-    })
-    const nextThreads = await userService.listConversationThreads(butler.id, 'butler_direct')
-    setThreads(Array.isArray(nextThreads) ? nextThreads : [])
-    setSelectedThreadId(created.id)
-  }
+      peer_id: agent.id,
+      channel_kind: 'agent_direct',
+      title: tx('New Operator Conversation', '新的运维官会话'),
+    });
+    const nextThreads = await userService.listConversationThreads(agent.id, 'agent_direct');
+    setThreads(Array.isArray(nextThreads) ? nextThreads : []);
+    setSelectedThreadId(created.id);
+  };
 
   return (
     <div className="h-[calc(100dvh-110px)] min-h-[680px]">
@@ -80,33 +80,35 @@ const ButlerPage = () => {
         <Card className="flex h-full items-center justify-center">
           <div className="flex flex-col items-center gap-3 text-center">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{tx('Loading Butler Channel...', '加载 Butler 通道中...')}</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              {tx('Loading Operator Workspace...', '加载运维官工作区中...')}
+            </span>
           </div>
         </Card>
-      ) : !butler || error ? (
+      ) : !agent || error ? (
         <Card className="flex h-full items-center justify-center p-8">
           <div className="max-w-sm text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border bg-muted text-muted-foreground">
               <ShieldAlert className="h-7 w-7" />
             </div>
-            <h2 className="text-lg font-bold">{tx('Butler Unavailable', 'Butler 不可用')}</h2>
+            <h2 className="text-lg font-bold">{tx('Operator Unavailable', '运维官不可用')}</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              {error || tx('No Butler instance was found in current agents.', '当前 agent 列表中未找到 Butler 实例。')}
+              {error || tx('No OpenHands Ops runtime was found in current agents.', '当前 agent 列表中未找到 OpenHands Ops 运行时。')}
             </p>
-            <Button onClick={fetchAgents} variant="outline" className="mt-6">
+            <Button onClick={fetchAgent} variant="outline" className="mt-6">
               {tx('Retry', '重试')}
             </Button>
           </div>
         </Card>
       ) : (
-        <div className={`grid h-full min-h-0 gap-4 ${sidebarCollapsed ? 'xl:grid-cols-[84px_minmax(0,1fr)]' : 'xl:grid-cols-[280px_minmax(0,1fr)]'}`}>
+        <div className={`grid h-full min-h-0 gap-4 ${sidebarCollapsed ? 'xl:grid-cols-[82px_minmax(0,1fr)]' : 'xl:grid-cols-[280px_minmax(0,1fr)]'}`}>
           <Card className="flex min-h-0 flex-col overflow-hidden border-border/70 bg-card/60">
             <div className="border-b px-5 py-4">
               <div className="flex items-center justify-between gap-3">
                 {!sidebarCollapsed && (
                   <div className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-primary/85">
-                    <Sparkles className="h-3 w-3" />
-                    {tx('Butler Workspace', 'Butler 工作区')}
+                    <Wrench className="h-3 w-3" />
+                    {tx('Operator Workspace', '运维官工作区')}
                   </div>
                 )}
                 <button
@@ -119,17 +121,17 @@ const ButlerPage = () => {
               </div>
               <div className={`mt-4 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} gap-3`}>
                 <div className="flex items-center gap-3">
-                    <div className="rounded-2xl border bg-primary/10 p-2 text-primary">
-                      <Bot className="h-4 w-4" />
-                    </div>
-                    {!sidebarCollapsed && (
-                      <div>
-                        <div className="text-sm font-bold">{butler.username}</div>
-                        <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                          {tx('Chief Butler', '首席管家')}
-                        </div>
+                  <div className="rounded-2xl border bg-primary/10 p-2 text-primary">
+                    <Bot className="h-4 w-4" />
+                  </div>
+                  {!sidebarCollapsed && (
+                    <div>
+                      <div className="text-sm font-bold">{tx('Operator', '运维官')}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                        {agent.username}
                       </div>
-                    )}
+                    </div>
+                  )}
                 </div>
                 {!sidebarCollapsed && (
                   <Button onClick={createThread} size="sm" className="h-9 rounded-xl text-[10px] uppercase tracking-[0.18em]">
@@ -156,7 +158,7 @@ const ButlerPage = () => {
                     {sidebarCollapsed ? (
                       <div className="space-y-2">
                         <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl border bg-background text-xs font-black text-foreground">
-                          {(thread.title || 'B').slice(0, 1).toUpperCase()}
+                          {(thread.title || 'T').slice(0, 1).toUpperCase()}
                         </div>
                         <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
                           #{thread.id}
@@ -166,7 +168,7 @@ const ButlerPage = () => {
                       <>
                         <div className="line-clamp-1 text-sm font-semibold">{thread.title}</div>
                         <div className="mt-1 line-clamp-2 text-[11px] leading-5 text-muted-foreground">
-                          {thread.summary || tx('Direct conversation with Butler.', '与你的 Butler 直接对话。')}
+                          {thread.summary || tx('Direct workstream with the OpenHands operator.', '与 OpenHands 运维官的直接工作流。')}
                         </div>
                         <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                           {thread.last_message_at ? new Date(thread.last_message_at).toLocaleString() : tx('Fresh thread', '新会话')}
@@ -182,7 +184,7 @@ const ButlerPage = () => {
                     </div>
                   ) : (
                     <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
-                      {tx('No Butler conversation yet. Create one to get started.', '还没有 Butler 会话，先创建一个开始吧。')}
+                      {tx('No operator conversation yet. Create one to get started.', '还没有运维官会话，先创建一个开始吧。')}
                     </div>
                   )
                 )}
@@ -199,23 +201,22 @@ const ButlerPage = () => {
 
           <Card className="min-h-0 overflow-hidden border-border/70 bg-background">
             {selectedThread ? (
-              <ChatView agent={butler} thread={selectedThread} renderAssistantAsMarkdown />
+              <ChatView agent={agent} thread={selectedThread} renderAssistantAsMarkdown />
             ) : (
               <div className="flex h-full items-center justify-center text-center">
                 <div className="max-w-sm space-y-3 px-8">
-                  <div className="text-lg font-bold">{tx('Pick a Butler thread', '选择一个 Butler 会话')}</div>
+                  <div className="text-lg font-bold">{tx('Pick an operator thread', '选择一个运维官会话')}</div>
                   <p className="text-sm text-muted-foreground">
-                    {tx('Use the left rail to resume an existing conversation or create a new one.', '使用左侧会话栏恢复已有对话，或创建一个新的会话。')}
+                    {tx('Use the left rail to resume an existing operator session or create a new one.', '使用左侧会话栏恢复已有运维官会话，或创建一个新的会话。')}
                   </p>
                 </div>
               </div>
             )}
           </Card>
-
         </div>
       )}
     </div>
   );
 };
 
-export default ButlerPage;
+export default OpenHandsOpsPage;

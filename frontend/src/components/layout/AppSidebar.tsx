@@ -8,6 +8,7 @@ import {
   UserCircle2,
   Radar,
   MessagesSquare,
+  Wrench,
 } from "lucide-react"
 import { useNavigate, NavLink } from "react-router-dom"
 
@@ -41,6 +42,12 @@ const navItems = [
     key: "agents",
     path: "/agents",
     icon: Bot,
+  },
+  {
+    key: "operator",
+    path: "/operator",
+    icon: Wrench,
+    adminOnly: true,
   },
   {
     key: "operations",
@@ -105,6 +112,8 @@ export function AppSidebar() {
                       ? tx('Butler', '管家')
                       : item.key === 'agents'
                         ? tx('Agents', 'agent')
+                        : item.key === 'operator'
+                          ? tx('Operator', '运维官')
                         : item.key === 'operations'
                           ? tx('Operations', '运维')
                           : item.key === 'dialogue-monitor'

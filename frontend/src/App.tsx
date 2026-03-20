@@ -9,6 +9,7 @@ import RequireAuth from './components/layout/RequireAuth'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import ButlerPage from './pages/ButlerPage'
+import OpenHandsOpsPage from './pages/OpenHandsOpsPage'
 import AgentsPage from './pages/AgentsPage'
 import OperationsPage from './pages/OperationsPage'
 import SettingsPage from './pages/SettingsPage'
@@ -30,6 +31,9 @@ function App() {
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/butler" element={<ButlerPage />} />
                   <Route path="/agents" element={<AgentsPage />} />
+                  <Route element={<RequireAuth adminOnly />}>
+                    <Route path="/operator" element={<OpenHandsOpsPage />} />
+                  </Route>
                   <Route element={<RequireAuth adminOnly />}>
                     <Route path="/dialogue-monitor" element={<DialogueMonitorPage />} />
                   </Route>

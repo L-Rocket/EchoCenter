@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import stat
 import tempfile
+import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -23,6 +26,7 @@ class RunnerNode(BaseModel):
 
 
 class RunnerPayload(BaseModel):
+    task_id: str = ""
     task: str
     reasoning: str = ""
     model: str = ""
@@ -36,6 +40,10 @@ class RunnerResponse(BaseModel):
     ok: bool
     summary: str = ""
     error: str = ""
+
+
+task_lock = threading.Lock()
+task_registry: dict[str, dict[str, str]] = {}
 
 
 def write_key_file(base_dir: Path, node: RunnerNode) -> Path:
@@ -114,6 +122,46 @@ def normalize_model_name(model: str, base_url: str) -> str:
     return model
 
 
+def set_task_state(task_id: str, **updates: str) -> None:
+    if not task_id:
+        return
+    with task_lock:
+        current = task_registry.setdefault(
+            task_id,
+            {
+                "task_id": task_id,
+                "status": "queued",
+                "current_step": "",
+                "live_output": "",
+                "summary": "",
+                "error": "",
+            },
+        )
+        for key, value in updates.items():
+            current[key] = value
+
+
+def read_task_output(workspace: Path) -> tuple[str, str]:
+    execution_log = workspace / "EXECUTION_LOG.md"
+    result_file = workspace / "RESULT.md"
+
+    if result_file.exists():
+        return "Writing final result", result_file.read_text(encoding="utf-8").strip()[-12000:]
+    if execution_log.exists():
+        text = execution_log.read_text(encoding="utf-8").strip()
+        if not text:
+            return "Preparing execution", ""
+        command_count = text.count("## Command")
+        return f"Execution step {max(command_count, 1)}", text[-12000:]
+    return "Preparing execution", ""
+
+
+def track_workspace(task_id: str, workspace: Path, stop_event: threading.Event) -> None:
+    while not stop_event.wait(0.5):
+        step, live_output = read_task_output(workspace)
+        set_task_state(task_id, status="running", current_step=step, live_output=live_output)
+
+
 def run_openhands(payload: RunnerPayload, workspace: Path, nodes: list[dict[str, Any]]) -> str:
     try:
         from openhands.sdk import Agent, Conversation, LLM
@@ -159,9 +207,21 @@ async def healthz(_: Request) -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
 
+async def get_task(request: Request) -> JSONResponse:
+    task_id = request.path_params.get("task_id", "")
+    with task_lock:
+        task = task_registry.get(task_id)
+    if not task:
+        return JSONResponse(status_code=404, content={"ok": False, "error": "task not found"})
+    return JSONResponse({"ok": True, **task})
+
+
 async def run(request: Request) -> JSONResponse:
+    tracker_stop: threading.Event | None = None
     try:
         payload = RunnerPayload.model_validate(await request.json())
+        task_id = payload.task_id.strip() or f"openhands-{uuid.uuid4().hex[:12]}"
+        set_task_state(task_id, status="running", current_step="Booting OpenHands runtime", live_output="", summary="", error="")
         with tempfile.TemporaryDirectory(prefix="echocenter-openhands-") as tmpdir:
             base_workspace = Path(payload.workspace_dir or tmpdir)
             base_workspace.mkdir(parents=True, exist_ok=True)
@@ -174,9 +234,19 @@ async def run(request: Request) -> JSONResponse:
                 node_data["key_path"] = str(write_key_file(workspace, node))
                 nodes.append(node_data)
 
-            summary = run_openhands(payload, workspace, nodes)
+            tracker_stop = threading.Event()
+            tracker = threading.Thread(target=track_workspace, args=(task_id, workspace, tracker_stop), daemon=True)
+            tracker.start()
+            summary = await asyncio.to_thread(run_openhands, payload, workspace, nodes)
+            tracker_stop.set()
+            step, live_output = read_task_output(workspace)
+            set_task_state(task_id, status="completed", current_step=step, live_output=live_output, summary=summary, error="")
             return JSONResponse(RunnerResponse(ok=True, summary=summary).model_dump())
     except Exception as exc:
+        task_id = locals().get("task_id", "")
+        if tracker_stop is not None:
+            tracker_stop.set()
+        set_task_state(task_id, status="failed", current_step="Execution failed", error=str(exc))
         return JSONResponse(
             status_code=500,
             content={"ok": False, "summary": "", "error": str(exc)},
@@ -187,6 +257,7 @@ app = Starlette(
     debug=False,
     routes=[
         Route("/healthz", healthz, methods=["GET"]),
+        Route("/tasks/{task_id}", get_task, methods=["GET"]),
         Route("/run", run, methods=["POST"]),
     ],
 )
