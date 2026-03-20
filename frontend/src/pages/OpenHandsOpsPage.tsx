@@ -36,10 +36,10 @@ const OpenHandsOpsPage = () => {
         setThreads([]);
       }
       if (!opsAgent) {
-        setError(tx('OpenHands Ops is not available yet.', 'OpenHands Ops 暂不可用。'));
+        setError(tx('op-excutor is not available yet.', '执行官暂不可用。'));
       }
     } catch (_err) {
-      setError(tx('Failed to load OpenHands Ops workspace.', '加载 OpenHands Ops 工作区失败。'));
+      setError(tx('Failed to load op-excutor workspace.', '加载执行官工作区失败。'));
       setAgent(null);
     } finally {
       setLoading(false);
@@ -67,7 +67,7 @@ const OpenHandsOpsPage = () => {
     const created = await userService.createConversationThread({
       peer_id: agent.id,
       channel_kind: 'agent_direct',
-      title: tx('New Operator Conversation', '新的运维官会话'),
+      title: tx('New op-excutor Conversation', '新的执行官会话'),
     });
     const nextThreads = await userService.listConversationThreads(agent.id, 'agent_direct');
     setThreads(Array.isArray(nextThreads) ? nextThreads : []);
@@ -81,7 +81,7 @@ const OpenHandsOpsPage = () => {
           <div className="flex flex-col items-center gap-3 text-center">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              {tx('Loading Operator Workspace...', '加载运维官工作区中...')}
+              {tx('Loading op-excutor Workspace...', '加载执行官工作区中...')}
             </span>
           </div>
         </Card>
@@ -91,9 +91,9 @@ const OpenHandsOpsPage = () => {
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border bg-muted text-muted-foreground">
               <ShieldAlert className="h-7 w-7" />
             </div>
-            <h2 className="text-lg font-bold">{tx('Operator Unavailable', '运维官不可用')}</h2>
+            <h2 className="text-lg font-bold">{tx('op-excutor Unavailable', '执行官不可用')}</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              {error || tx('No OpenHands Ops runtime was found in current agents.', '当前 agent 列表中未找到 OpenHands Ops 运行时。')}
+              {error || tx('No op-excutor runtime was found in current agents.', '当前 agent 列表中未找到执行官运行时。')}
             </p>
             <Button onClick={fetchAgent} variant="outline" className="mt-6">
               {tx('Retry', '重试')}
@@ -108,7 +108,7 @@ const OpenHandsOpsPage = () => {
                 {!sidebarCollapsed && (
                   <div className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-primary/85">
                     <Wrench className="h-3 w-3" />
-                    {tx('Operator Workspace', '运维官工作区')}
+                    {tx('op-excutor Workspace', '执行官工作区')}
                   </div>
                 )}
                 <button
@@ -126,7 +126,7 @@ const OpenHandsOpsPage = () => {
                   </div>
                   {!sidebarCollapsed && (
                     <div>
-                      <div className="text-sm font-bold">{tx('Operator', '运维官')}</div>
+                      <div className="text-sm font-bold">{tx('op-excutor', '执行官')}</div>
                       <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
                         {agent.username}
                       </div>
@@ -168,7 +168,7 @@ const OpenHandsOpsPage = () => {
                       <>
                         <div className="line-clamp-1 text-sm font-semibold">{thread.title}</div>
                         <div className="mt-1 line-clamp-2 text-[11px] leading-5 text-muted-foreground">
-                          {thread.summary || tx('Direct workstream with the OpenHands operator.', '与 OpenHands 运维官的直接工作流。')}
+                          {thread.summary || tx('Direct workstream with the op-excutor.', '与执行官的直接工作流。')}
                         </div>
                         <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                           {thread.last_message_at ? new Date(thread.last_message_at).toLocaleString() : tx('Fresh thread', '新会话')}
@@ -184,7 +184,7 @@ const OpenHandsOpsPage = () => {
                     </div>
                   ) : (
                     <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
-                      {tx('No operator conversation yet. Create one to get started.', '还没有运维官会话，先创建一个开始吧。')}
+                      {tx('No op-excutor conversation yet. Create one to get started.', '还没有执行官会话，先创建一个开始吧。')}
                     </div>
                   )
                 )}
@@ -205,9 +205,9 @@ const OpenHandsOpsPage = () => {
             ) : (
               <div className="flex h-full items-center justify-center text-center">
                 <div className="max-w-sm space-y-3 px-8">
-                  <div className="text-lg font-bold">{tx('Pick an operator thread', '选择一个运维官会话')}</div>
+                  <div className="text-lg font-bold">{tx('Pick an op-excutor thread', '选择一个执行官会话')}</div>
                   <p className="text-sm text-muted-foreground">
-                    {tx('Use the left rail to resume an existing operator session or create a new one.', '使用左侧会话栏恢复已有运维官会话，或创建一个新的会话。')}
+                    {tx('Use the left rail to resume an existing op-excutor session or create a new one.', '使用左侧会话栏恢复已有执行官会话，或创建一个新的会话。')}
                   </p>
                 </div>
               </div>

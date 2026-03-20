@@ -113,7 +113,7 @@ export function AppSidebar() {
                       : item.key === 'agents'
                         ? tx('Agents', 'agent')
                         : item.key === 'operator'
-                          ? tx('Operator', '运维官')
+                          ? tx('op-excutor', '执行官')
                         : item.key === 'operations'
                           ? tx('Operations', '运维')
                           : item.key === 'dialogue-monitor'

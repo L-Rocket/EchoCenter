@@ -1189,7 +1189,7 @@ const UserManagement = ({ mode = 'operations', forcedPanel }: UserManagementProp
                       <div className="text-sm truncate">{agent.username}</div>
                       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
                         {agent.agent_kind === 'openhands_ops'
-                          ? tx('OpenHands Ops', 'OpenHands 运维')
+                          ? tx('op-excutor', '执行官')
                           : tx('WebSocket Agent', 'WebSocket Agent')}
                       </div>
                     </div>
@@ -1404,7 +1404,7 @@ const UserManagement = ({ mode = 'operations', forcedPanel }: UserManagementProp
                 {tx('Infrastructure Nodes', '基础设施节点')}
               </CardTitle>
               <p className="text-xs text-muted-foreground">
-                {tx('These SSH nodes are made available to the backend-managed OpenHands Ops Agent.', '这些 SSH 节点会提供给后端托管的 OpenHands 运维 Agent。')}
+                {tx('These SSH nodes are made available to the backend-managed op-excutor.', '这些 SSH 节点会提供给后端托管的执行官。')}
               </p>
             </div>
             <Button
@@ -1912,7 +1912,7 @@ const UserManagement = ({ mode = 'operations', forcedPanel }: UserManagementProp
                 disabled={isCreating}
               >
                 <option value="generic">{tx('Generic WebSocket Agent', '通用 WebSocket Agent')}</option>
-                <option value="openhands_ops">{tx('OpenHands Ops Agent', 'OpenHands 运维 Agent')}</option>
+                <option value="openhands_ops">{tx('op-excutor', '执行官')}</option>
               </select>
 
               <Input

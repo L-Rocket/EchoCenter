@@ -9,6 +9,7 @@ import (
 
 	"github.com/lea/echocenter/backend/internal/butler"
 	"github.com/lea/echocenter/backend/internal/models"
+	"github.com/lea/echocenter/backend/internal/ops"
 	"github.com/lea/echocenter/backend/internal/repository"
 )
 
@@ -143,6 +144,84 @@ func (h *ButlerMessageHandler) HandleMessage(ctx context.Context, msg *Message) 
 	butlerService.HandleUserMessageWithConversation(ctx, msg.SenderID, msg.ConversationID, payloadStr)
 }
 
+// ManagedAgentMessageHandler handles direct user messages sent to backend-managed agents.
+type ManagedAgentMessageHandler struct {
+	repo userLookupRepository
+	emit func(any)
+}
+
+// NewManagedAgentMessageHandler creates a handler for backend-managed agent chat.
+func NewManagedAgentMessageHandler(repo userLookupRepository) *ManagedAgentMessageHandler {
+	return &ManagedAgentMessageHandler{repo: repo}
+}
+
+// SetEmitter wires a broadcast sink for managed-agent replies.
+func (h *ManagedAgentMessageHandler) SetEmitter(emit func(any)) {
+	h.emit = emit
+}
+
+// HandleMessage executes backend-managed agent tasks for direct human chat.
+func (h *ManagedAgentMessageHandler) HandleMessage(ctx context.Context, msg *Message) {
+	if msg == nil || msg.Type != MessageTypeChat || h.repo == nil || h.emit == nil {
+		return
+	}
+	if strings.EqualFold(strings.TrimSpace(msg.SenderRole), "AGENT") || strings.EqualFold(strings.TrimSpace(msg.SenderRole), "BUTLER") {
+		return
+	}
+
+	executor := ops.GetExecutor()
+	if executor == nil || !executor.IsAvailable() {
+		return
+	}
+
+	targetUser, err := h.repo.GetUserByID(ctx, msg.TargetID)
+	if err != nil || targetUser == nil || !executor.IsManagedAgent(*targetUser) {
+		return
+	}
+
+	var payloadStr string
+	switch p := msg.Payload.(type) {
+	case string:
+		payloadStr = p
+	default:
+		bytes, _ := json.Marshal(p)
+		payloadStr = string(bytes)
+	}
+	payloadStr = strings.TrimSpace(payloadStr)
+	if payloadStr == "" {
+		return
+	}
+
+	h.emit(map[string]any{
+		"type":            "CHAT_STREAM",
+		"sender_id":       targetUser.ID,
+		"sender_name":     targetUser.Username,
+		"sender_role":     "AGENT",
+		"target_id":       msg.SenderID,
+		"conversation_id": msg.ConversationID,
+		"payload":         "Execution started... The op-excutor is preparing your task.",
+		"stream_id":       "managed_agent_" + time.Now().UTC().Format("20060102150405.000000000"),
+	})
+
+	runCtx, cancel := context.WithTimeout(ctx, ops.RunTimeout())
+	defer cancel()
+	result, execErr := executor.ExecuteAgentCommand(runCtx, payloadStr, "direct user request to op-excutor")
+	if execErr != nil {
+		result = "Execution failed: " + execErr.Error()
+	}
+
+	h.emit(map[string]any{
+		"type":            "CHAT",
+		"sender_id":       targetUser.ID,
+		"sender_name":     targetUser.Username,
+		"sender_role":     "AGENT",
+		"target_id":       msg.SenderID,
+		"conversation_id": msg.ConversationID,
+		"payload":         result,
+		"timestamp":       time.Now().Format(time.RFC3339Nano),
+	})
+}
+
 // PersistingMessageHandler saves CHAT messages to the database
 type PersistingMessageHandler struct {
 	repo repository.Repository
@@ -196,10 +275,10 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 	// Save to database
 	chatMsg := &models.ChatMessage{
 		ConversationID: msg.ConversationID,
-		LocalID:    msg.LocalID,
-		SenderID:   msg.SenderID,
-		ReceiverID: msg.TargetID,
-		Payload:    payloadStr,
+		LocalID:        msg.LocalID,
+		SenderID:       msg.SenderID,
+		ReceiverID:     msg.TargetID,
+		Payload:        payloadStr,
 	}
 
 	if err := h.repo.SaveChatMessage(ctx, chatMsg); err != nil {

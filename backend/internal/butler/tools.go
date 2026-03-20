@@ -53,7 +53,7 @@ type DelegateResearchTool struct{}
 func (t *DelegateResearchTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: "delegate_research",
-		Desc: "Asks relevant online agents for fresh operational facts. Parameters: question (string), reasoning (string). Use this when you need live status or recent system facts before answering the user.",
+		Desc: "Asks relevant online agents for fresh operational facts. Parameters: question (string), reasoning (string). Use this when you need live status or recent system facts before answering the user. Do not use this for action execution by the operations execution role (also called 执行官 / op-excutor / OpenHands-Ops).",
 	}, nil
 }
 
@@ -89,7 +89,7 @@ type CommandAgentTool struct{}
 func (t *CommandAgentTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: "command_agent",
-		Desc: "Sends a command to another agent. Parameters: target_agent_id (int), command (string), reasoning (string).",
+		Desc: "Sends a command to another agent. Parameters: target_agent_id (int), command (string), reasoning (string). Use this for real execution work, including tasks for the backend-managed operations execution role also known as 执行官 / op-excutor / OpenHands-Ops.",
 	}, nil
 }
 

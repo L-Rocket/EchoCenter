@@ -72,6 +72,7 @@ func main() {
 	// Initialize WebSocket hub with Butler and persistence handlers
 	persistHandler := websocket.NewPersistingMessageHandler(repo)
 	monitorHandler := websocket.NewButlerAgentMonitorHandler(repo)
+	managedAgentHandler := websocket.NewManagedAgentMessageHandler(repo)
 	var hub websocket.Hub
 
 	if err == nil && agent != nil {
@@ -82,6 +83,7 @@ func main() {
 		hub = websocket.NewHub(websocket.NewCompositeHandler(
 			persistHandler,
 			monitorHandler,
+			managedAgentHandler,
 			butlerUserHandler,
 			agentResponseHandler,
 			authResponseHandler,
@@ -92,10 +94,11 @@ func main() {
 
 		log.Printf("Butler service initialized for agent: %s (ID: %d)", agent.Username, agent.ID)
 	} else {
-		hub = websocket.NewHub(websocket.NewCompositeHandler(persistHandler, monitorHandler))
+		hub = websocket.NewHub(websocket.NewCompositeHandler(persistHandler, monitorHandler, managedAgentHandler))
 		log.Println("WARNING: 'Butler' not found in database. Run seed script to create Butler.")
 	}
 	monitorHandler.SetEmitter(hub.BroadcastGeneric)
+	managedAgentHandler.SetEmitter(hub.BroadcastGeneric)
 
 	// Create root context for graceful shutdown
 	rootCtx, rootCancel := context.WithCancel(context.Background())
