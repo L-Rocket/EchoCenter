@@ -1,0 +1,15 @@
+- generic [ref=e3]:
+  - generic:
+    - generic:
+      - generic: EchoCenter
+      - generic: Neural Interface Authentication
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - textbox "OPERATOR ID"
+        - generic:
+          - generic:
+            - textbox "ACCESS KEY"
+      - generic:
+        - button "Establish Link"

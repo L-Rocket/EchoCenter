@@ -1,0 +1,203 @@
+- generic [ref=e29]:
+  - generic [ref=e32]:
+    - list [ref=e34]:
+      - listitem [ref=e35]:
+        - generic [ref=e36]:
+          - img [ref=e38]
+          - generic [ref=e40]:
+            - generic [ref=e41]: EchoCenter
+            - generic [ref=e42]: Intelligence Hub
+    - generic [ref=e44]:
+      - generic [ref=e45]: Navigation
+      - list [ref=e47]:
+        - listitem [ref=e48]:
+          - link "Dashboard" [ref=e49] [cursor=pointer]:
+            - /url: /dashboard
+            - img [ref=e50]
+            - generic [ref=e55]: Dashboard
+        - listitem [ref=e56]:
+          - link "Butler" [active] [ref=e57] [cursor=pointer]:
+            - /url: /butler
+            - img [ref=e58]
+            - generic [ref=e60]: Butler
+        - listitem [ref=e61]:
+          - link "Agents" [ref=e62] [cursor=pointer]:
+            - /url: /agents
+            - img [ref=e63]
+            - generic [ref=e66]: Agents
+        - listitem [ref=e67]:
+          - link "Operations" [ref=e68] [cursor=pointer]:
+            - /url: /operations
+            - img [ref=e69]
+            - generic [ref=e76]: Operations
+        - listitem [ref=e77]:
+          - link "Monitor" [ref=e78] [cursor=pointer]:
+            - /url: /dialogue-monitor
+            - img [ref=e79]
+            - generic [ref=e82]: Monitor
+        - listitem [ref=e83]:
+          - link "Settings" [ref=e84] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e85]
+            - generic [ref=e88]: Settings
+    - list [ref=e90]:
+      - listitem [ref=e91]:
+        - generic [ref=e92]:
+          - img [ref=e94]
+          - generic [ref=e98]:
+            - generic [ref=e99]: admin
+            - generic [ref=e100]: ADMIN
+      - listitem [ref=e101]:
+        - button "Logout" [ref=e102]:
+          - img [ref=e103]
+          - generic [ref=e106]: Logout
+  - main [ref=e107]:
+    - generic [ref=e108]:
+      - button "Toggle Sidebar" [ref=e109]:
+        - img
+        - generic [ref=e110]: Toggle Sidebar
+      - generic [ref=e112]:
+        - generic [ref=e113]: Autonomous Swarm Monitor
+        - generic [ref=e114]:
+          - combobox [ref=e115]:
+            - generic:
+              - img
+              - generic: English
+            - img
+          - combobox [ref=e116]:
+            - generic:
+              - img
+              - generic: Dark
+            - img
+    - main [ref=e117]:
+      - generic [ref=e613]:
+        - generic [ref=e614]:
+          - generic [ref=e615]:
+            - generic [ref=e616]:
+              - img [ref=e617]
+              - text: Butler Workspace
+            - generic [ref=e620]:
+              - generic [ref=e621]:
+                - img [ref=e623]
+                - generic [ref=e626]:
+                  - generic [ref=e627]: Butler
+                  - generic [ref=e628]: Chief Butler
+              - button "New" [ref=e629]:
+                - img
+                - text: New
+          - button "Butler Direct conversation with Butler. 3/19/2026, 10:18:26 PM" [ref=e632]:
+            - generic [ref=e633]: Butler
+            - generic [ref=e634]: Direct conversation with Butler.
+            - generic [ref=e635]: 3/19/2026, 10:18:26 PM
+        - generic [ref=e637]:
+          - generic [ref=e639]:
+            - generic [ref=e640]:
+              - generic [ref=e641]:
+                - img [ref=e642]
+                - text: Butler Thread
+              - heading "Butler" [level=1] [ref=e645]
+            - generic [ref=e647]:
+              - generic [ref=e648]:
+                - generic [ref=e649]:
+                  - generic [ref=e650]:
+                    - img [ref=e651]
+                    - generic [ref=e653]: Execution Session
+                  - generic [ref=e654]: Working through OpenHands-Ops
+                  - generic [ref=e655]: write_and_run_code
+                - generic [ref=e656]:
+                  - generic [ref=e657]: Ready
+                  - generic [ref=e658]: Live
+              - generic [ref=e659]:
+                - generic [ref=e660]:
+                  - generic [ref=e661]:
+                    - img [ref=e663]
+                    - generic [ref=e666]: Approval
+                  - generic [ref=e667]: Directive approved and released to runtime.
+                - generic [ref=e668]:
+                  - generic [ref=e669]:
+                    - img [ref=e671]
+                    - generic [ref=e673]: Dispatch
+                  - generic [ref=e674]: Butler handed the task to OpenHands.
+                - generic [ref=e675]:
+                  - generic [ref=e676]:
+                    - img [ref=e678]
+                    - generic [ref=e680]: Execution
+                  - generic [ref=e681]: OpenHands finished at least one execution pass.
+                - generic [ref=e682]:
+                  - generic [ref=e683]:
+                    - img [ref=e685]
+                    - generic [ref=e688]: Butler Reply
+                  - generic [ref=e689]: Final response can be sent back to the chat stream.
+              - generic [ref=e690]:
+                - generic [ref=e691]:
+                  - generic [ref=e692]: Recent Runtime Output
+                  - generic [ref=e693]: service · 22170ms
+                - generic [ref=e695]:
+                  - generic [ref=e697]: Summary
+                  - generic [ref=e698]: "Code: ```py # Compute the sum of squares from 1 to 10 sum = 0 for i in range(1, 11): sum += i ** 2 print(f\"Sum of squares from 1 to 10: {sum}\") Output: ```text Sum of squares from 1 to 10: 385 Final Result: ```text 385"
+            - generic [ref=e700]:
+              - generic [ref=e701]: You
+              - generic [ref=e702]: 请调用 OpenHands Ops Agent，写一段可直接运行的 Python 3 代码，计算从 1 到 10 的平方和，并实际执行它。请把代码、运行输出和最终结果一起返回给我。
+            - 'button "Authorization Request Command: write_and_run_code 10:17 PM" [ref=e704]':
+              - img [ref=e705]
+              - generic [ref=e707]:
+                - img [ref=e708]
+                - generic [ref=e710]: Authorization Request
+              - generic [ref=e711]: "Command: write_and_run_code"
+              - generic [ref=e712]: 10:17 PM
+            - article [ref=e713]:
+              - generic [ref=e714]:
+                - generic [ref=e715]: Butler
+                - generic [ref=e716]: 10:17 PM
+              - paragraph [ref=e718]: "[DIRECTIVE] write_and_run_code"
+            - article [ref=e719]:
+              - generic [ref=e720]:
+                - generic [ref=e721]: admin
+                - generic [ref=e722]: 10:18 PM
+              - generic [ref=e723]:
+                - paragraph [ref=e724]: "Code:"
+                - generic [ref=e725]:
+                  - generic [ref=e726]: py
+                  - code [ref=e728]: "# Compute the sum of squares from 1 to 10 sum = 0 for i in range(1, 11): sum += i ** 2 print(f\"Sum of squares from 1 to 10: {sum}\") Output:"
+                - paragraph [ref=e729]: "Sum of squares from 1 to 10: 385"
+                - paragraph [ref=e730]: "Final Result:"
+                - generic [ref=e731]:
+                  - generic [ref=e732]: text
+                  - code [ref=e734]: "385"
+            - article [ref=e735]:
+              - generic [ref=e736]:
+                - generic [ref=e737]: Butler
+                - generic [ref=e738]: 10:18 PM
+              - generic [ref=e739]:
+                - paragraph [ref=e740]: 从 1 到 10 的平方和是 385。以下是执行的代码及其输出：
+                - paragraph [ref=e741]:
+                  - strong [ref=e742]: 代码：
+                - generic [ref=e743]:
+                  - generic [ref=e744]: python
+                  - code [ref=e746]: "# Compute the sum of squares from 1 to 10 sum = 0 for i in range(1, 11): sum += i ** 2 print(f\"Sum of squares from 1 to 10: {sum}\")"
+                - paragraph [ref=e747]:
+                  - strong [ref=e748]: 运行输出：
+                - generic [ref=e749]:
+                  - generic [ref=e750]: code
+                  - code [ref=e752]: "Sum of squares from 1 to 10: 385"
+                - paragraph [ref=e753]:
+                  - strong [ref=e754]: 最终结果：
+                - generic [ref=e755]:
+                  - generic [ref=e756]: code
+                  - code [ref=e758]: "385"
+                - paragraph [ref=e759]: 如果你有其他任务需要执行，请随时告诉我！
+          - generic [ref=e761]:
+            - textbox "Message Butler..." [ref=e762]
+            - button [disabled]:
+              - img
+        - generic [ref=e763]:
+          - generic [ref=e764]:
+            - generic [ref=e765]: Runtime Context
+            - generic [ref=e766]:
+              - generic [ref=e767]: Butler stays conversational; execution stays inspectable.
+              - paragraph [ref=e768]: The main canvas focuses on your conversation, while the side rail keeps the active thread readable and ready for runtime execution details.
+          - generic [ref=e769]:
+            - generic [ref=e770]: Workspace Notes
+            - generic [ref=e771]:
+              - paragraph [ref=e772]: Dialogue monitoring now lives in its own sidebar view so this page can stay focused on reading, writing, and delegated execution.
+              - paragraph [ref=e773]: Use the dedicated monitor entry to inspect Butler-to-agent chatter without interrupting the main conversation workspace.

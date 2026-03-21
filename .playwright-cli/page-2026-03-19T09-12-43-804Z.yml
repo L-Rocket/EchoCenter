@@ -1,0 +1,194 @@
+- generic [ref=e29]:
+  - generic [ref=e32]:
+    - list [ref=e34]:
+      - listitem [ref=e35]:
+        - generic [ref=e36]:
+          - img [ref=e38]
+          - generic [ref=e40]:
+            - generic [ref=e41]: EchoCenter
+            - generic [ref=e42]: Intelligence Hub
+    - generic [ref=e44]:
+      - generic [ref=e45]: Navigation
+      - list [ref=e47]:
+        - listitem [ref=e48]:
+          - link "Dashboard" [ref=e49] [cursor=pointer]:
+            - /url: /dashboard
+            - img [ref=e50]
+            - generic [ref=e55]: Dashboard
+        - listitem [ref=e56]:
+          - link "Butler" [ref=e57] [cursor=pointer]:
+            - /url: /butler
+            - img [ref=e58]
+            - generic [ref=e60]: Butler
+        - listitem [ref=e61]:
+          - link "Agents" [ref=e62] [cursor=pointer]:
+            - /url: /agents
+            - img [ref=e63]
+            - generic [ref=e66]: Agents
+        - listitem [ref=e67]:
+          - link "Operations" [active] [ref=e68] [cursor=pointer]:
+            - /url: /operations
+            - img [ref=e69]
+            - generic [ref=e76]: Operations
+        - listitem [ref=e77]:
+          - link "Settings" [ref=e78] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e79]
+            - generic [ref=e82]: Settings
+    - list [ref=e84]:
+      - listitem [ref=e85]:
+        - generic [ref=e86]:
+          - img [ref=e88]
+          - generic [ref=e92]:
+            - generic [ref=e93]: admin
+            - generic [ref=e94]: ADMIN
+      - listitem [ref=e95]:
+        - button "Logout" [ref=e96]:
+          - img [ref=e97]
+          - generic [ref=e100]: Logout
+  - main [ref=e101]:
+    - generic [ref=e102]:
+      - button "Toggle Sidebar" [ref=e103]:
+        - img
+        - generic [ref=e104]: Toggle Sidebar
+      - generic [ref=e106]:
+        - generic [ref=e107]: Autonomous Swarm Monitor
+        - generic [ref=e108]:
+          - combobox [ref=e109]:
+            - generic:
+              - img
+              - generic: English
+            - img
+          - combobox [ref=e110]:
+            - generic:
+              - img
+              - generic: Dark
+            - img
+    - main [ref=e111]:
+      - generic [ref=e1087]:
+        - generic [ref=e1089]:
+          - generic [ref=e1090]:
+            - generic [ref=e1091]: Operations Fabric
+            - generic [ref=e1092]:
+              - heading "Operations Control Center" [level=2] [ref=e1093]
+              - paragraph [ref=e1094]: Operate agents, SSH assets, infrastructure nodes, and OpenHands runtime from one place.
+            - generic [ref=e1095]:
+              - generic [ref=e1096]:
+                - generic [ref=e1097]: Agent Runtimes
+                - generic [ref=e1098]: "5"
+                - generic [ref=e1099]: 1 online
+              - generic [ref=e1100]:
+                - generic [ref=e1101]: SSH Assets
+                - generic [ref=e1102]: "0"
+                - generic [ref=e1103]: Encrypted at rest
+              - generic [ref=e1104]:
+                - generic [ref=e1105]: Reachable Nodes
+                - generic [ref=e1106]: "0"
+                - generic [ref=e1107]: Backed by SSH keys
+              - generic [ref=e1108]:
+                - generic [ref=e1109]: OpenHands Runtime
+                - generic [ref=e1110]: Disabled
+                - generic [ref=e1111]: local_runner
+          - button "Refresh" [ref=e1113]:
+            - img
+            - text: Refresh
+        - generic [ref=e1114]:
+          - complementary [ref=e1115]:
+            - generic [ref=e1116]:
+              - generic [ref=e1117]:
+                - generic [ref=e1118]: Runtime Views
+                - generic [ref=e1119]: Move between the control layers Butler relies on during delegated operations.
+              - generic [ref=e1120]:
+                - button "Overview Runtime pulse, recent activity, and delegation posture. live" [ref=e1121]:
+                  - generic [ref=e1122]:
+                    - generic [ref=e1123]:
+                      - img [ref=e1125]
+                      - generic [ref=e1130]:
+                        - generic [ref=e1131]: Overview
+                        - generic [ref=e1132]: Runtime pulse, recent activity, and delegation posture.
+                    - generic [ref=e1133]: live
+                - button "Executors Track the engines Butler can delegate into. 2" [ref=e1134]:
+                  - generic [ref=e1135]:
+                    - generic [ref=e1136]:
+                      - img [ref=e1138]
+                      - generic [ref=e1141]:
+                        - generic [ref=e1142]: Executors
+                        - generic [ref=e1143]: Track the engines Butler can delegate into.
+                    - generic [ref=e1144]: "2"
+                - button "OpenHands Inspect the managed OpenHands runtime. off" [ref=e1145]:
+                  - generic [ref=e1146]:
+                    - generic [ref=e1147]:
+                      - img [ref=e1149]
+                      - generic [ref=e1155]:
+                        - generic [ref=e1156]: OpenHands
+                        - generic [ref=e1157]: Inspect the managed OpenHands runtime.
+                    - generic [ref=e1158]: "off"
+                - button "Tasks Browse recent delegated operations. 0" [ref=e1159]:
+                  - generic [ref=e1160]:
+                    - generic [ref=e1161]:
+                      - img [ref=e1163]
+                      - generic [ref=e1166]:
+                        - generic [ref=e1167]: Tasks
+                        - generic [ref=e1168]: Browse recent delegated operations.
+                    - generic [ref=e1169]: "0"
+              - generic [ref=e1170]:
+                - generic [ref=e1171]: Executor Pulse
+                - generic [ref=e1174]: Executor attention needed
+                - generic [ref=e1175]: Local runner fallback active.
+          - generic [ref=e1176]:
+            - generic [ref=e1178]:
+              - generic [ref=e1179]:
+                - generic [ref=e1180]: Current View
+                - heading "Overview" [level=3] [ref=e1181]
+                - paragraph [ref=e1182]: Runtime pulse, recent activity, and delegation posture.
+              - generic [ref=e1185]: Butler delegation plane is live.
+            - generic [ref=e1186]:
+              - generic [ref=e1187]:
+                - generic [ref=e1188]:
+                  - generic [ref=e1189]:
+                    - img [ref=e1190]
+                    - text: Runtime Pulse
+                  - paragraph [ref=e1195]: A live overview of runtimes, delegation readiness, and infrastructure reach.
+                - generic [ref=e1196]:
+                  - generic [ref=e1197]:
+                    - generic [ref=e1198]: Agent Runtimes
+                    - generic [ref=e1199]: "5"
+                    - generic [ref=e1200]: 1 online
+                  - generic [ref=e1201]:
+                    - generic [ref=e1202]: SSH Assets
+                    - generic [ref=e1203]: "0"
+                    - generic [ref=e1204]: Encrypted at rest
+                  - generic [ref=e1205]:
+                    - generic [ref=e1206]: Reachable Nodes
+                    - generic [ref=e1207]: "0"
+                    - generic [ref=e1208]: Backed by SSH keys
+                  - generic [ref=e1209]:
+                    - generic [ref=e1210]: OpenHands Runtime
+                    - generic [ref=e1211]: Disabled
+                    - generic [ref=e1212]: local_runner
+              - generic [ref=e1213]:
+                - generic [ref=e1214]:
+                  - generic [ref=e1215]:
+                    - img [ref=e1216]
+                    - text: Executor Snapshot
+                  - paragraph [ref=e1219]: What powers runtime operations right now.
+                - generic [ref=e1220]:
+                  - generic [ref=e1222]:
+                    - generic [ref=e1223]:
+                      - generic [ref=e1224]: OpenHands Worker
+                      - generic [ref=e1225]: local_runner
+                    - generic [ref=e1226]: Disabled
+                  - generic [ref=e1227]:
+                    - generic [ref=e1228]: SSH Transport
+                    - generic [ref=e1229]: Backs non-agent nodes and task delegation targets.
+                  - generic [ref=e1230]:
+                    - generic [ref=e1231]: Approval Gate
+                    - generic [ref=e1232]: Butler-approved actions are routed into the runtime executor plane.
+              - generic [ref=e1233]:
+                - generic [ref=e1234]:
+                  - generic [ref=e1235]:
+                    - img [ref=e1236]
+                    - text: Recent Delegations
+                  - paragraph [ref=e1239]: A condensed trail of the most recent operations Butler pushed into the runtime plane.
+                - generic [ref=e1241]: No delegated operations yet.
+    - paragraph [ref=e1086]: © 2026 EchoCenter • Intelligence Monitoring Hub

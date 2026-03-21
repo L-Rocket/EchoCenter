@@ -1,0 +1,136 @@
+- generic [ref=e29]:
+  - generic [ref=e32]:
+    - list [ref=e34]:
+      - listitem [ref=e35]:
+        - generic [ref=e36]:
+          - img [ref=e38]
+          - generic [ref=e40]:
+            - generic [ref=e41]: EchoCenter
+            - generic [ref=e42]: Intelligence Hub
+    - generic [ref=e44]:
+      - generic [ref=e45]: Navigation
+      - list [ref=e47]:
+        - listitem [ref=e48]:
+          - link "Dashboard" [ref=e49] [cursor=pointer]:
+            - /url: /dashboard
+            - img [ref=e50]
+            - generic [ref=e55]: Dashboard
+        - listitem [ref=e56]:
+          - link "Butler" [ref=e57] [cursor=pointer]:
+            - /url: /butler
+            - img [ref=e58]
+            - generic [ref=e60]: Butler
+        - listitem [ref=e61]:
+          - link "Agents" [ref=e62] [cursor=pointer]:
+            - /url: /agents
+            - img [ref=e63]
+            - generic [ref=e66]: Agents
+        - listitem [ref=e67]:
+          - link "Operations" [ref=e68] [cursor=pointer]:
+            - /url: /operations
+            - img [ref=e69]
+            - generic [ref=e76]: Operations
+        - listitem [ref=e77]:
+          - link "Monitor" [active] [ref=e78] [cursor=pointer]:
+            - /url: /dialogue-monitor
+            - img [ref=e79]
+            - generic [ref=e82]: Monitor
+        - listitem [ref=e83]:
+          - link "Settings" [ref=e84] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e85]
+            - generic [ref=e88]: Settings
+    - list [ref=e90]:
+      - listitem [ref=e91]:
+        - generic [ref=e92]:
+          - img [ref=e94]
+          - generic [ref=e98]:
+            - generic [ref=e99]: admin
+            - generic [ref=e100]: ADMIN
+      - listitem [ref=e101]:
+        - button "Logout" [ref=e102]:
+          - img [ref=e103]
+          - generic [ref=e106]: Logout
+  - main [ref=e107]:
+    - generic [ref=e108]:
+      - button "Toggle Sidebar" [ref=e109]:
+        - img
+        - generic [ref=e110]: Toggle Sidebar
+      - generic [ref=e112]:
+        - generic [ref=e113]: Autonomous Swarm Monitor
+        - generic [ref=e114]:
+          - combobox [ref=e115]:
+            - generic:
+              - img
+              - generic: English
+            - img
+          - combobox [ref=e116]:
+            - generic:
+              - img
+              - generic: Dark
+            - img
+    - main [ref=e117]:
+      - generic [ref=e176]:
+        - generic [ref=e178]:
+          - generic [ref=e179]:
+            - img [ref=e180]
+            - text: Dialogue Monitor
+          - generic [ref=e183]:
+            - heading "Butler-Agent Runtime Sidebar" [level=2] [ref=e184]
+            - paragraph [ref=e185]: Inspect the hidden coordination channel between Butler and downstream agents without crowding the main conversation workspace.
+        - generic [ref=e186]:
+          - generic [ref=e188]:
+            - generic [ref=e189]:
+              - generic [ref=e190]: Agent Dialogue Monitor
+              - paragraph [ref=e191]: Observe Butler to Agent execution conversations.
+            - button "Refresh" [ref=e192]:
+              - img
+              - text: Refresh
+          - generic [ref=e194]:
+            - generic [ref=e195]:
+              - generic [ref=e197]:
+                - img [ref=e198]
+                - textbox "Search agents" [ref=e201]
+              - generic [ref=e205]:
+                - 'button "OpenHands-Ops Online Agent #2" [ref=e206]':
+                  - generic [ref=e207]:
+                    - paragraph [ref=e208]: OpenHands-Ops
+                    - generic [ref=e211]: Online
+                  - paragraph [ref=e212]: "Agent #2"
+                - 'button "Weather-Sentinel Offline Agent #5" [ref=e213]':
+                  - generic [ref=e214]:
+                    - paragraph [ref=e215]: Weather-Sentinel
+                    - generic [ref=e218]: Offline
+                  - paragraph [ref=e219]: "Agent #5"
+                - 'button "Code-Reviewer-AI Offline Agent #6" [ref=e220]':
+                  - generic [ref=e221]:
+                    - paragraph [ref=e222]: Code-Reviewer-AI
+                    - generic [ref=e225]: Offline
+                  - paragraph [ref=e226]: "Agent #6"
+                - 'button "Security-Audit-Bot Offline Agent #7" [ref=e227]':
+                  - generic [ref=e228]:
+                    - paragraph [ref=e229]: Security-Audit-Bot
+                    - generic [ref=e232]: Offline
+                  - paragraph [ref=e233]: "Agent #7"
+                - 'button "Echo-Bot Offline Agent #8" [ref=e234]':
+                  - generic [ref=e235]:
+                    - paragraph [ref=e236]: Echo-Bot
+                    - generic [ref=e239]: Offline
+                  - paragraph [ref=e240]: "Agent #8"
+                - 'button "Storage-Custodian Online Agent #9" [ref=e241]':
+                  - generic [ref=e242]:
+                    - paragraph [ref=e243]: Storage-Custodian
+                    - generic [ref=e246]: Online
+                  - paragraph [ref=e247]: "Agent #9"
+            - generic [ref=e248]:
+              - generic [ref=e249]:
+                - generic [ref=e250]:
+                  - img [ref=e252]
+                  - generic [ref=e255]:
+                    - heading "Butler and OpenHands-Ops" [level=3] [ref=e256]
+                    - generic [ref=e259]: Agent Online
+                - generic [ref=e260]: Backend
+              - paragraph [ref=e264]: No Monitor Messages
+              - generic [ref=e267]:
+                - generic [ref=e268]: Read-Only Monitor Mode
+                - generic [ref=e269]: No Input

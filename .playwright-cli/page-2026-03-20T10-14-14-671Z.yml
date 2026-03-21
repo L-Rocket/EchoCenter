@@ -1,0 +1,89 @@
+- generic [ref=e29]:
+  - generic [ref=e32]:
+    - list [ref=e34]:
+      - listitem [ref=e35]:
+        - generic [ref=e36]:
+          - img [ref=e38]
+          - generic [ref=e40]:
+            - generic [ref=e41]: EchoCenter
+            - generic [ref=e42]: Intelligence Hub
+    - generic [ref=e44]:
+      - generic [ref=e45]: Navigation
+      - list [ref=e47]:
+        - listitem [ref=e48]:
+          - link "Dashboard" [ref=e49] [cursor=pointer]:
+            - /url: /dashboard
+            - img [ref=e50]
+            - generic [ref=e55]: Dashboard
+        - listitem [ref=e56]:
+          - link "Butler" [ref=e57] [cursor=pointer]:
+            - /url: /butler
+            - img [ref=e58]
+            - generic [ref=e60]: Butler
+        - listitem [ref=e61]:
+          - link "Agents" [ref=e62] [cursor=pointer]:
+            - /url: /agents
+            - img [ref=e63]
+            - generic [ref=e66]: Agents
+        - listitem [ref=e67]:
+          - link "Operator" [active] [ref=e68] [cursor=pointer]:
+            - /url: /operator
+            - img [ref=e69]
+            - generic [ref=e71]: Operator
+        - listitem [ref=e72]:
+          - link "Operations" [ref=e73] [cursor=pointer]:
+            - /url: /operations
+            - img [ref=e74]
+            - generic [ref=e81]: Operations
+        - listitem [ref=e82]:
+          - link "Monitor" [ref=e83] [cursor=pointer]:
+            - /url: /dialogue-monitor
+            - img [ref=e84]
+            - generic [ref=e87]: Monitor
+        - listitem [ref=e88]:
+          - link "Settings" [ref=e89] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e90]
+            - generic [ref=e93]: Settings
+    - list [ref=e95]:
+      - listitem [ref=e96]:
+        - generic [ref=e97]:
+          - img [ref=e99]
+          - generic [ref=e103]:
+            - generic [ref=e104]: admin
+            - generic [ref=e105]: ADMIN
+      - listitem [ref=e106]:
+        - button "Logout" [ref=e107]:
+          - img [ref=e108]
+          - generic [ref=e111]: Logout
+  - main [ref=e112]:
+    - generic [ref=e113]:
+      - button "Toggle Sidebar" [ref=e114]:
+        - img
+        - generic [ref=e115]: Toggle Sidebar
+      - generic [ref=e117]:
+        - generic [ref=e118]: Autonomous Swarm Monitor
+        - generic [ref=e119]:
+          - combobox [ref=e120]:
+            - generic:
+              - img
+              - generic: English
+            - img
+          - combobox [ref=e121]:
+            - generic:
+              - img
+              - generic: Dark
+            - img
+    - main [ref=e122]:
+      - generic [ref=e618]:
+        - generic [ref=e619]:
+          - generic [ref=e620]:
+            - button [ref=e622]:
+              - img [ref=e623]
+            - img [ref=e628]
+          - generic [ref=e633]: Empty
+          - button [ref=e635]:
+            - img
+        - generic [ref=e638]:
+          - generic [ref=e639]: Pick an operator thread
+          - paragraph [ref=e640]: Use the left rail to resume an existing operator session or create a new one.

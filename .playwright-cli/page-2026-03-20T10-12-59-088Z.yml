@@ -1,0 +1,14 @@
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - img [ref=e8]
+    - generic [ref=e11]: EchoCenter
+    - generic [ref=e12]: Neural Interface Authentication
+  - generic [ref=e13]:
+    - generic [ref=e14]:
+      - generic [ref=e16]:
+        - img [ref=e17]
+        - textbox "OPERATOR ID" [ref=e20]
+      - generic [ref=e22]:
+        - img [ref=e23]
+        - textbox "ACCESS KEY" [ref=e26]
+    - button "Establish Link" [ref=e28]

@@ -1,0 +1,373 @@
+- generic [ref=e29]:
+  - generic [ref=e32]:
+    - list [ref=e34]:
+      - listitem [ref=e35]:
+        - generic [ref=e36]:
+          - img [ref=e38]
+          - generic [ref=e40]:
+            - generic [ref=e41]: EchoCenter
+            - generic [ref=e42]: Intelligence Hub
+    - generic [ref=e44]:
+      - generic [ref=e45]: Navigation
+      - list [ref=e47]:
+        - listitem [ref=e48]:
+          - link "Dashboard" [ref=e49] [cursor=pointer]:
+            - /url: /dashboard
+            - img [ref=e50]
+            - generic [ref=e55]: Dashboard
+        - listitem [ref=e56]:
+          - link "Butler" [ref=e57] [cursor=pointer]:
+            - /url: /butler
+            - img [ref=e58]
+            - generic [ref=e60]: Butler
+        - listitem [ref=e61]:
+          - link "Agents" [ref=e62] [cursor=pointer]:
+            - /url: /agents
+            - img [ref=e63]
+            - generic [ref=e66]: Agents
+        - listitem [ref=e67]:
+          - link "Operations" [ref=e68] [cursor=pointer]:
+            - /url: /operations
+            - img [ref=e69]
+            - generic [ref=e76]: Operations
+        - listitem [ref=e77]:
+          - link "Monitor" [ref=e78] [cursor=pointer]:
+            - /url: /dialogue-monitor
+            - img [ref=e79]
+            - generic [ref=e82]: Monitor
+        - listitem [ref=e83]:
+          - link "Settings" [ref=e84] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e85]
+            - generic [ref=e88]: Settings
+    - list [ref=e90]:
+      - listitem [ref=e91]:
+        - generic [ref=e92]:
+          - img [ref=e94]
+          - generic [ref=e98]:
+            - generic [ref=e99]: admin
+            - generic [ref=e100]: ADMIN
+      - listitem [ref=e101]:
+        - button "Logout" [ref=e102]:
+          - img [ref=e103]
+          - generic [ref=e106]: Logout
+  - main [ref=e107]:
+    - generic [ref=e108]:
+      - button "Toggle Sidebar" [ref=e109]:
+        - img
+        - generic [ref=e110]: Toggle Sidebar
+      - generic [ref=e112]:
+        - generic [ref=e113]: Autonomous Swarm Monitor
+        - generic [ref=e114]:
+          - combobox [ref=e115]:
+            - generic:
+              - img
+              - generic: English
+            - img
+          - combobox [ref=e116]:
+            - generic:
+              - img
+              - generic: Dark
+            - img
+    - main [ref=e117]:
+      - generic [ref=e118]:
+        - generic [ref=e120]:
+          - generic [ref=e121]:
+            - img [ref=e122]
+            - textbox "Search system logs..." [ref=e125]
+          - generic [ref=e126]:
+            - combobox [ref=e127]:
+              - generic [ref=e128]:
+                - img
+                - generic: ALL UNITS
+              - img
+            - combobox [ref=e129]:
+              - generic [ref=e130]:
+                - img
+                - generic: ALL LEVELS
+              - img
+            - button [disabled]:
+              - img
+        - generic [ref=e131]:
+          - generic [ref=e132]:
+            - heading "System Logs" [level=2] [ref=e133]
+            - paragraph [ref=e134]: Autonomous status feed from the Echo hive.
+          - generic [ref=e135]:
+            - img
+            - text: 25 Records Loaded
+        - generic [ref=e136]:
+          - generic [ref=e142]:
+            - generic [ref=e143]:
+              - generic [ref=e144]:
+                - generic [ref=e145]: Weather-Sentinel
+                - generic [ref=e147]:
+                  - img [ref=e148]
+                  - text: WARNING
+              - generic [ref=e150]:
+                - img [ref=e151]
+                - generic [ref=e154]: 09:53:56 PM
+            - paragraph [ref=e155]: External weather API quota approaching threshold for this window.
+          - generic [ref=e161]:
+            - generic [ref=e162]:
+              - generic [ref=e163]:
+                - generic [ref=e164]: Echo-Bot
+                - generic [ref=e166]:
+                  - img [ref=e167]
+                  - text: INFO
+              - generic [ref=e169]:
+                - img [ref=e170]
+                - generic [ref=e173]: 09:53:56 PM
+            - paragraph [ref=e174]: WebSocket relay stable with no frame loss in last interval.
+          - generic [ref=e180]:
+            - generic [ref=e181]:
+              - generic [ref=e182]:
+                - generic [ref=e183]: Storage-Custodian
+                - generic [ref=e185]:
+                  - img [ref=e186]
+                  - text: INFO
+              - generic [ref=e188]:
+                - img [ref=e189]
+                - generic [ref=e192]: 09:53:56 PM
+            - paragraph [ref=e193]: Recovered orphaned block metadata and reconciled index entries.
+          - generic [ref=e199]:
+            - generic [ref=e200]:
+              - generic [ref=e201]:
+                - generic [ref=e202]: Code-Reviewer-AI
+                - generic [ref=e204]:
+                  - img [ref=e205]
+                  - text: ERROR
+              - generic [ref=e207]:
+                - img [ref=e208]
+                - generic [ref=e211]: 09:53:55 PM
+            - paragraph [ref=e212]: Static analysis pipeline timed out on oversized artifact batch.
+          - generic [ref=e218]:
+            - generic [ref=e219]:
+              - generic [ref=e220]:
+                - generic [ref=e221]: Security-Audit-Bot
+                - generic [ref=e223]:
+                  - img [ref=e224]
+                  - text: ERROR
+              - generic [ref=e226]:
+                - img [ref=e227]
+                - generic [ref=e230]: 09:53:55 PM
+            - paragraph [ref=e231]: Credential rotation check failed for one expired sandbox token.
+          - generic [ref=e237]:
+            - generic [ref=e238]:
+              - generic [ref=e239]:
+                - generic [ref=e240]: Storage-Custodian
+                - generic [ref=e242]:
+                  - img [ref=e243]
+                  - text: INFO
+              - generic [ref=e245]:
+                - img [ref=e246]
+                - generic [ref=e249]: 09:53:55 PM
+            - paragraph [ref=e250]: Storage-Custodian exported latest telemetry snapshot to central archive.
+          - generic [ref=e256]:
+            - generic [ref=e257]:
+              - generic [ref=e258]:
+                - generic [ref=e259]: Storage-Custodian
+                - generic [ref=e261]:
+                  - img [ref=e262]
+                  - text: WARNING
+              - generic [ref=e264]:
+                - img [ref=e265]
+                - generic [ref=e268]: 09:53:55 PM
+            - paragraph [ref=e269]: Storage-Custodian detected minor drift in response latency and applied mitigation.
+          - generic [ref=e275]:
+            - generic [ref=e276]:
+              - generic [ref=e277]:
+                - generic [ref=e278]: Storage-Custodian
+                - generic [ref=e280]:
+                  - img [ref=e281]
+                  - text: INFO
+              - generic [ref=e283]:
+                - img [ref=e284]
+                - generic [ref=e287]: 09:53:55 PM
+            - paragraph [ref=e288]: Storage-Custodian completed scheduled diagnostics pass.
+          - generic [ref=e294]:
+            - generic [ref=e295]:
+              - generic [ref=e296]:
+                - generic [ref=e297]: Storage-Custodian
+                - generic [ref=e299]:
+                  - img [ref=e300]
+                  - text: INFO
+              - generic [ref=e302]:
+                - img [ref=e303]
+                - generic [ref=e306]: 09:53:55 PM
+            - paragraph [ref=e307]: Storage-Custodian heartbeat nominal and ready for dispatch.
+          - generic [ref=e313]:
+            - generic [ref=e314]:
+              - generic [ref=e315]:
+                - generic [ref=e316]: Echo-Bot
+                - generic [ref=e318]:
+                  - img [ref=e319]
+                  - text: INFO
+              - generic [ref=e321]:
+                - img [ref=e322]
+                - generic [ref=e325]: 09:53:55 PM
+            - paragraph [ref=e326]: Echo-Bot exported latest telemetry snapshot to central archive.
+          - generic [ref=e332]:
+            - generic [ref=e333]:
+              - generic [ref=e334]:
+                - generic [ref=e335]: Echo-Bot
+                - generic [ref=e337]:
+                  - img [ref=e338]
+                  - text: WARNING
+              - generic [ref=e340]:
+                - img [ref=e341]
+                - generic [ref=e344]: 09:53:55 PM
+            - paragraph [ref=e345]: Echo-Bot detected minor drift in response latency and applied mitigation.
+          - generic [ref=e351]:
+            - generic [ref=e352]:
+              - generic [ref=e353]:
+                - generic [ref=e354]: Echo-Bot
+                - generic [ref=e356]:
+                  - img [ref=e357]
+                  - text: INFO
+              - generic [ref=e359]:
+                - img [ref=e360]
+                - generic [ref=e363]: 09:53:55 PM
+            - paragraph [ref=e364]: Echo-Bot completed scheduled diagnostics pass.
+          - generic [ref=e370]:
+            - generic [ref=e371]:
+              - generic [ref=e372]:
+                - generic [ref=e373]: Echo-Bot
+                - generic [ref=e375]:
+                  - img [ref=e376]
+                  - text: INFO
+              - generic [ref=e378]:
+                - img [ref=e379]
+                - generic [ref=e382]: 09:53:55 PM
+            - paragraph [ref=e383]: Echo-Bot heartbeat nominal and ready for dispatch.
+          - generic [ref=e389]:
+            - generic [ref=e390]:
+              - generic [ref=e391]:
+                - generic [ref=e392]: Security-Audit-Bot
+                - generic [ref=e394]:
+                  - img [ref=e395]
+                  - text: INFO
+              - generic [ref=e397]:
+                - img [ref=e398]
+                - generic [ref=e401]: 09:53:55 PM
+            - paragraph [ref=e402]: Security-Audit-Bot exported latest telemetry snapshot to central archive.
+          - generic [ref=e408]:
+            - generic [ref=e409]:
+              - generic [ref=e410]:
+                - generic [ref=e411]: Security-Audit-Bot
+                - generic [ref=e413]:
+                  - img [ref=e414]
+                  - text: WARNING
+              - generic [ref=e416]:
+                - img [ref=e417]
+                - generic [ref=e420]: 09:53:55 PM
+            - paragraph [ref=e421]: Security-Audit-Bot detected minor drift in response latency and applied mitigation.
+          - generic [ref=e427]:
+            - generic [ref=e428]:
+              - generic [ref=e429]:
+                - generic [ref=e430]: Security-Audit-Bot
+                - generic [ref=e432]:
+                  - img [ref=e433]
+                  - text: INFO
+              - generic [ref=e435]:
+                - img [ref=e436]
+                - generic [ref=e439]: 09:53:55 PM
+            - paragraph [ref=e440]: Security-Audit-Bot completed scheduled diagnostics pass.
+          - generic [ref=e446]:
+            - generic [ref=e447]:
+              - generic [ref=e448]:
+                - generic [ref=e449]: Security-Audit-Bot
+                - generic [ref=e451]:
+                  - img [ref=e452]
+                  - text: INFO
+              - generic [ref=e454]:
+                - img [ref=e455]
+                - generic [ref=e458]: 09:53:55 PM
+            - paragraph [ref=e459]: Security-Audit-Bot heartbeat nominal and ready for dispatch.
+          - generic [ref=e465]:
+            - generic [ref=e466]:
+              - generic [ref=e467]:
+                - generic [ref=e468]: Code-Reviewer-AI
+                - generic [ref=e470]:
+                  - img [ref=e471]
+                  - text: INFO
+              - generic [ref=e473]:
+                - img [ref=e474]
+                - generic [ref=e477]: 09:53:55 PM
+            - paragraph [ref=e478]: Code-Reviewer-AI exported latest telemetry snapshot to central archive.
+          - generic [ref=e484]:
+            - generic [ref=e485]:
+              - generic [ref=e486]:
+                - generic [ref=e487]: Code-Reviewer-AI
+                - generic [ref=e489]:
+                  - img [ref=e490]
+                  - text: WARNING
+              - generic [ref=e492]:
+                - img [ref=e493]
+                - generic [ref=e496]: 09:53:55 PM
+            - paragraph [ref=e497]: Code-Reviewer-AI detected minor drift in response latency and applied mitigation.
+          - generic [ref=e503]:
+            - generic [ref=e504]:
+              - generic [ref=e505]:
+                - generic [ref=e506]: Code-Reviewer-AI
+                - generic [ref=e508]:
+                  - img [ref=e509]
+                  - text: INFO
+              - generic [ref=e511]:
+                - img [ref=e512]
+                - generic [ref=e515]: 09:53:55 PM
+            - paragraph [ref=e516]: Code-Reviewer-AI completed scheduled diagnostics pass.
+          - generic [ref=e522]:
+            - generic [ref=e523]:
+              - generic [ref=e524]:
+                - generic [ref=e525]: Code-Reviewer-AI
+                - generic [ref=e527]:
+                  - img [ref=e528]
+                  - text: INFO
+              - generic [ref=e530]:
+                - img [ref=e531]
+                - generic [ref=e534]: 09:53:55 PM
+            - paragraph [ref=e535]: Code-Reviewer-AI heartbeat nominal and ready for dispatch.
+          - generic [ref=e541]:
+            - generic [ref=e542]:
+              - generic [ref=e543]:
+                - generic [ref=e544]: Weather-Sentinel
+                - generic [ref=e546]:
+                  - img [ref=e547]
+                  - text: INFO
+              - generic [ref=e549]:
+                - img [ref=e550]
+                - generic [ref=e553]: 09:53:55 PM
+            - paragraph [ref=e554]: Weather-Sentinel exported latest telemetry snapshot to central archive.
+          - generic [ref=e560]:
+            - generic [ref=e561]:
+              - generic [ref=e562]:
+                - generic [ref=e563]: Weather-Sentinel
+                - generic [ref=e565]:
+                  - img [ref=e566]
+                  - text: WARNING
+              - generic [ref=e568]:
+                - img [ref=e569]
+                - generic [ref=e572]: 09:53:55 PM
+            - paragraph [ref=e573]: Weather-Sentinel detected minor drift in response latency and applied mitigation.
+          - generic [ref=e579]:
+            - generic [ref=e580]:
+              - generic [ref=e581]:
+                - generic [ref=e582]: Weather-Sentinel
+                - generic [ref=e584]:
+                  - img [ref=e585]
+                  - text: INFO
+              - generic [ref=e587]:
+                - img [ref=e588]
+                - generic [ref=e591]: 09:53:55 PM
+            - paragraph [ref=e592]: Weather-Sentinel completed scheduled diagnostics pass.
+          - generic [ref=e598]:
+            - generic [ref=e599]:
+              - generic [ref=e600]:
+                - generic [ref=e601]: Weather-Sentinel
+                - generic [ref=e603]:
+                  - img [ref=e604]
+                  - text: INFO
+              - generic [ref=e606]:
+                - img [ref=e607]
+                - generic [ref=e610]: 09:53:55 PM
+            - paragraph [ref=e611]: Weather-Sentinel heartbeat nominal and ready for dispatch.
