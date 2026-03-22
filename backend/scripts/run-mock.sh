@@ -155,10 +155,18 @@ echo "  Waiting backend initialization..."
 sleep 5
 
 echo "  Logging in as admin..."
-LOGIN_RES=$(curl -s -X POST "$API_URL/auth/login" \
-    -H "Content-Type: application/json" \
-    -d "{\"username\":\"$ADMIN_USER\",\"password\":\"$ADMIN_PASS\"}")
-TOKEN=$(echo "$LOGIN_RES" | grep -o '"token":"[^"]*' | cut -d'"' -f4)
+LOGIN_RES=""
+TOKEN=""
+for _ in $(seq 1 40); do
+    LOGIN_RES=$(curl -s -X POST "$API_URL/auth/login" \
+        -H "Content-Type: application/json" \
+        -d "{\"username\":\"$ADMIN_USER\",\"password\":\"$ADMIN_PASS\"}" || true)
+    TOKEN=$(echo "$LOGIN_RES" | grep -o '"token":"[^"]*' | cut -d'"' -f4)
+    if [ -n "$TOKEN" ]; then
+        break
+    fi
+    sleep 0.5
+done
 if [ -z "$TOKEN" ]; then
     echo -e "${RED}Error: admin login failed. Response: $LOGIN_RES${NC}"
     exit 1
