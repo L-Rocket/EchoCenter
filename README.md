@@ -36,6 +36,12 @@
 - **🔒 Secure Architecture**: Mandatory JWT authentication, per-agent API tokens, and token-safe agent listing (`token_hint` only, no raw token exposure).
 - **📂 Flexible Persistence**: Full chat and command history backed by a configurable database layer, with PostgreSQL enabled through `DB_DRIVER` + DSN/PG_* configuration.
 
+## 🖼️ Example Screenshots
+
+![EchoCenter Screenshot 1](docs/.assets/4e9e65a62ccf5a99a677ed292e73b355.png)
+
+![EchoCenter Screenshot 2](docs/.assets/Pasted%20image%2020260322233917.png)
+
 ## 🛠 Tech Stack
 
 | Backend | Frontend | Agents |
