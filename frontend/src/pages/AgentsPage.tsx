@@ -32,17 +32,11 @@ const AgentsPage = () => {
     void loadThreads()
   }, [selectedAgent?.id])
 
-  useEffect(() => {
-    if (threads.length === 0) {
-      setSelectedThreadId(null)
-      return
-    }
-    if (!selectedThreadId || !threads.some((thread) => thread.id === selectedThreadId)) {
-      setSelectedThreadId(threads[0].id)
-    }
-  }, [selectedThreadId, threads])
+  const resolvedSelectedThreadId = selectedThreadId && threads.some((thread) => thread.id === selectedThreadId)
+    ? selectedThreadId
+    : (threads[0]?.id ?? null)
 
-  const selectedThread = threads.find((thread) => thread.id === selectedThreadId) ?? null
+  const selectedThread = threads.find((thread) => thread.id === resolvedSelectedThreadId) ?? null
 
   const createThread = async () => {
     if (!selectedAgent?.id) return

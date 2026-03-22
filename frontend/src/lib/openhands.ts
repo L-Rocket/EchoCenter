@@ -23,7 +23,7 @@ export const parseOpenHandsWorkflow = (task: OpenHandsTaskRecord): TaskWorkflowS
   if (!source) return [];
 
   const steps: TaskWorkflowStep[] = [];
-  const resultSections = extractMarkdownSections(source, /^##\s+(Code|Output|Final Result)\s*\n([\s\S]*?)(?=^##\s+|\Z)/gm);
+  const resultSections = extractMarkdownSections(source, /^##\s+(Code|Output|Final Result)\s*\n([\s\S]*?)(?=^##\s+|(?![\s\S]))/gm);
   resultSections.forEach((section) => {
     const lowered = section.title.toLowerCase();
     steps.push({
@@ -33,7 +33,7 @@ export const parseOpenHandsWorkflow = (task: OpenHandsTaskRecord): TaskWorkflowS
     });
   });
 
-  const commandBlocks = extractMarkdownSections(source, /^##\s+(Command[^\n]*)\s*\n([\s\S]*?)(?=^##\s+|\Z)/gm);
+  const commandBlocks = extractMarkdownSections(source, /^##\s+(Command[^\n]*)\s*\n([\s\S]*?)(?=^##\s+|(?![\s\S]))/gm);
   commandBlocks.forEach((section) => {
     const body = section.body.trim();
     const commandLine = body

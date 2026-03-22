@@ -86,7 +86,6 @@ const OpenHandsExecutionPanel: React.FC<OpenHandsExecutionPanelProps> = ({ messa
     }
 
     let mounted = true;
-    let intervalId: number | undefined;
 
     const fetchTasks = async () => {
       try {
@@ -107,7 +106,7 @@ const OpenHandsExecutionPanel: React.FC<OpenHandsExecutionPanelProps> = ({ messa
     };
 
     void fetchTasks();
-    intervalId = window.setInterval(() => {
+    const intervalId = window.setInterval(() => {
       void fetchTasks();
     }, isPeerPending ? 2500 : 6000);
 

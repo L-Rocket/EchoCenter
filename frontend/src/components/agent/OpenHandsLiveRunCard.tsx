@@ -15,7 +15,6 @@ const OpenHandsLiveRunCard = ({ active = false }: OpenHandsLiveRunCardProps) => 
 
   useEffect(() => {
     let mounted = true;
-    let timer: number | undefined;
 
     const fetchTasks = async () => {
       try {
@@ -35,7 +34,7 @@ const OpenHandsLiveRunCard = ({ active = false }: OpenHandsLiveRunCardProps) => 
     };
 
     void fetchTasks();
-    timer = window.setInterval(() => {
+    const timer = window.setInterval(() => {
       void fetchTasks();
     }, active ? 1200 : 4000);
 
