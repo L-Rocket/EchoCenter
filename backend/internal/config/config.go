@@ -19,6 +19,7 @@ type Config struct {
 	Auth          AuthConfig
 	CORS          CORSConfig
 	FeishuWS      FeishuWSConfig
+	OpenHands     OpenHandsConfig
 	Observability ObservabilityConfig
 }
 
@@ -63,6 +64,19 @@ type FeishuWSConfig struct {
 	Enabled           bool
 	URL               string
 	ReconnectInterval time.Duration
+}
+
+// OpenHandsConfig holds the backend-managed OpenHands ops agent configuration.
+type OpenHandsConfig struct {
+	Enabled             bool
+	ServiceURL          string
+	PythonBin           string
+	RunnerScript        string
+	BaseURL             string
+	APIKey              string
+	Model               string
+	WorkspaceDir        string
+	SSHKeyEncryptionKey string
 }
 
 // ObservabilityConfig holds optional runtime observability integrations.
@@ -110,6 +124,17 @@ func Load() (*Config, error) {
 			Enabled:           getEnvAsBool("FEISHU_WS_ENABLED", false),
 			URL:               getEnv("FEISHU_WS_URL", "wss://open.feishu.cn/open-apis/ws/v2"),
 			ReconnectInterval: getEnvAsDuration("FEISHU_WS_RECONNECT_INTERVAL", 5*time.Second),
+		},
+		OpenHands: OpenHandsConfig{
+			Enabled:             getEnvAsBool("OPENHANDS_ENABLED", false),
+			ServiceURL:          getEnv("OPENHANDS_SERVICE_URL", ""),
+			PythonBin:           getEnv("OPENHANDS_PYTHON_BIN", "python3"),
+			RunnerScript:        getEnv("OPENHANDS_RUNNER_SCRIPT", "./scripts/openhands_ops_runner.py"),
+			BaseURL:             getEnv("OPENHANDS_BASE_URL", getEnv("BUTLER_BASE_URL", "")),
+			APIKey:              getEnv("OPENHANDS_API_KEY", getEnv("BUTLER_API_TOKEN", "")),
+			Model:               getEnv("OPENHANDS_MODEL", getEnv("BUTLER_MODEL", "")),
+			WorkspaceDir:        getEnv("OPENHANDS_WORKSPACE_DIR", "./data/openhands"),
+			SSHKeyEncryptionKey: getEnv("OPENHANDS_SSH_KEY_ENCRYPTION_KEY", getEnv("JWT_SECRET", "")),
 		},
 		Observability: ObservabilityConfig{
 			CozeLoopEnabled: getEnvAsBool("OBSERVABILITY_COZELOOP_ENABLED", false),

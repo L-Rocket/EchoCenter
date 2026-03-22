@@ -9,8 +9,11 @@ import RequireAuth from './components/layout/RequireAuth'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import ButlerPage from './pages/ButlerPage'
+import OpenHandsOpsPage from './pages/OpenHandsOpsPage'
 import AgentsPage from './pages/AgentsPage'
-import TeamPage from './pages/TeamPage'
+import OperationsPage from './pages/OperationsPage'
+import SettingsPage from './pages/SettingsPage'
+import DialogueMonitorPage from './pages/DialogueMonitorPage'
 
 function App() {
   return (
@@ -28,11 +31,18 @@ function App() {
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/butler" element={<ButlerPage />} />
                   <Route path="/agents" element={<AgentsPage />} />
+                  <Route element={<RequireAuth adminOnly />}>
+                    <Route path="/operator" element={<OpenHandsOpsPage />} />
+                  </Route>
+                  <Route element={<RequireAuth adminOnly />}>
+                    <Route path="/dialogue-monitor" element={<DialogueMonitorPage />} />
+                  </Route>
                   
                   {/* Admin Only Routes */}
                   <Route element={<RequireAuth adminOnly />}>
-                    <Route path="/settings" element={<TeamPage />} />
-                    <Route path="/team" element={<Navigate to="/settings" replace />} />
+                    <Route path="/operations" element={<OperationsPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/team" element={<Navigate to="/operations" replace />} />
                   </Route>
 
                   {/* Default Redirect */}

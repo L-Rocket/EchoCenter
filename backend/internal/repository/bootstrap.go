@@ -91,7 +91,7 @@ func (r *sqlRepository) InitializeButler(ctx context.Context) (*models.User, err
 // ResetMockData removes runtime data for local mock bootstrap.
 func (r *sqlRepository) ResetMockData(ctx context.Context) error {
 	if r.driver == driverPostgres {
-		query := `TRUNCATE TABLE feishu_inbound_events, feishu_integration_logs, feishu_connectors, butler_authorizations, chat_messages, machine_credentials, human_credentials, messages, users RESTART IDENTITY CASCADE`
+		query := `TRUNCATE TABLE feishu_inbound_events, feishu_integration_logs, feishu_connectors, butler_authorizations, chat_messages, conversation_threads, machine_credentials, human_credentials, messages, users RESTART IDENTITY CASCADE`
 		if _, err := r.execContext(ctx, query); err != nil {
 			return apperrors.Wrap(apperrors.ErrDatabase, "failed to reset postgres mock data", err)
 		}
@@ -109,11 +109,12 @@ func (r *sqlRepository) ResetMockData(ctx context.Context) error {
 		"DELETE FROM feishu_connectors",
 		"DELETE FROM butler_authorizations",
 		"DELETE FROM chat_messages",
+		"DELETE FROM conversation_threads",
 		"DELETE FROM machine_credentials",
 		"DELETE FROM human_credentials",
 		"DELETE FROM messages",
 		"DELETE FROM users",
-		"DELETE FROM sqlite_sequence WHERE name IN ('users','messages','chat_messages','feishu_connectors','feishu_integration_logs','feishu_inbound_events')",
+		"DELETE FROM sqlite_sequence WHERE name IN ('users','messages','chat_messages','conversation_threads','feishu_connectors','feishu_integration_logs','feishu_inbound_events')",
 	}
 	for _, stmt := range statements {
 		if _, err := tx.Exec(stmt); err != nil {

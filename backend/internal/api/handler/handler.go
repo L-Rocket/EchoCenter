@@ -13,6 +13,7 @@ import (
 	"github.com/lea/echocenter/backend/internal/butler"
 	"github.com/lea/echocenter/backend/internal/config"
 	"github.com/lea/echocenter/backend/internal/models"
+	"github.com/lea/echocenter/backend/internal/ops"
 	"github.com/lea/echocenter/backend/internal/repository"
 	apperrors "github.com/lea/echocenter/backend/pkg/errors"
 )
@@ -93,6 +94,10 @@ func (h *Handler) Login(c *gin.Context) {
 
 	user, err := h.repo.GetUserByUsername(c.Request.Context(), req.Username)
 	if err != nil {
+		h.respondWithError(c, http.StatusUnauthorized, apperrors.ErrInvalidCredentials)
+		return
+	}
+	if user == nil {
 		h.respondWithError(c, http.StatusUnauthorized, apperrors.ErrInvalidCredentials)
 		return
 	}
@@ -323,6 +328,146 @@ func (h *Handler) GetChatHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, messages)
 }
 
+func (h *Handler) ListConversationThreads(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.respondWithError(c, http.StatusUnauthorized, apperrors.ErrUnauthorized)
+		return
+	}
+
+	peerID, _ := strconv.Atoi(strings.TrimSpace(c.Query("peer_id")))
+	channelKind := strings.TrimSpace(c.Query("channel_kind"))
+
+	threads, err := h.repo.ListConversationThreads(c.Request.Context(), userID.(int), peerID, channelKind)
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, threads)
+}
+
+func (h *Handler) CreateConversationThread(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.respondWithError(c, http.StatusUnauthorized, apperrors.ErrUnauthorized)
+		return
+	}
+
+	var req struct {
+		PeerID      int    `json:"peer_id"`
+		ChannelKind string `json:"channel_kind"`
+		Title       string `json:"title"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid request body", err))
+		return
+	}
+	if req.PeerID <= 0 || strings.TrimSpace(req.ChannelKind) == "" {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "peer_id and channel_kind are required"))
+		return
+	}
+
+	thread := &models.ConversationThread{
+		OwnerUserID: userID.(int),
+		PeerUserID:  req.PeerID,
+		ChannelKind: strings.TrimSpace(req.ChannelKind),
+		Title:       strings.TrimSpace(req.Title),
+	}
+	if err := h.repo.CreateConversationThread(c.Request.Context(), thread); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusCreated, thread)
+}
+
+func (h *Handler) UpdateConversationThread(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.respondWithError(c, http.StatusUnauthorized, apperrors.ErrUnauthorized)
+		return
+	}
+	threadID, err := strconv.Atoi(c.Param("thread_id"))
+	if err != nil || threadID <= 0 {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid thread_id"))
+		return
+	}
+
+	thread, err := h.repo.GetConversationThread(c.Request.Context(), threadID)
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	if thread == nil || thread.OwnerUserID != userID.(int) {
+		h.respondWithError(c, http.StatusNotFound, apperrors.New(apperrors.ErrNotFound, "conversation thread not found"))
+		return
+	}
+
+	var req struct {
+		Title      *string `json:"title"`
+		Summary    *string `json:"summary"`
+		IsPinned   *bool   `json:"is_pinned"`
+		IsArchived *bool   `json:"is_archived"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid request body", err))
+		return
+	}
+
+	if req.Title != nil {
+		thread.Title = strings.TrimSpace(*req.Title)
+	}
+	if req.Summary != nil {
+		thread.Summary = strings.TrimSpace(*req.Summary)
+	}
+	if req.IsPinned != nil {
+		thread.IsPinned = *req.IsPinned
+	}
+	if req.IsArchived != nil {
+		if *req.IsArchived {
+			now := time.Now()
+			thread.ArchivedAt = &now
+		} else {
+			thread.ArchivedAt = nil
+		}
+	}
+
+	if err := h.repo.UpdateConversationThread(c.Request.Context(), thread); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, thread)
+}
+
+func (h *Handler) GetConversationMessages(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.respondWithError(c, http.StatusUnauthorized, apperrors.ErrUnauthorized)
+		return
+	}
+	threadID, err := strconv.Atoi(c.Param("thread_id"))
+	if err != nil || threadID <= 0 {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid thread_id"))
+		return
+	}
+
+	thread, err := h.repo.GetConversationThread(c.Request.Context(), threadID)
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	if thread == nil || thread.OwnerUserID != userID.(int) {
+		h.respondWithError(c, http.StatusNotFound, apperrors.New(apperrors.ErrNotFound, "conversation thread not found"))
+		return
+	}
+
+	messages, err := h.repo.GetConversationMessages(c.Request.Context(), threadID, 200)
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, messages)
+}
+
 func (h *Handler) GetButlerAgentConversation(c *gin.Context) {
 	agentIDStr := c.Param("agent_id")
 	agentID, err := strconv.Atoi(agentIDStr)
@@ -409,19 +554,225 @@ func (h *Handler) CreateUser(c *gin.Context) {
 }
 
 func (h *Handler) RegisterAgent(c *gin.Context) {
-	var agent models.User
-	if err := c.ShouldBindJSON(&agent); err != nil {
+	var req struct {
+		Username    string `json:"username"`
+		APIToken    string `json:"api_token"`
+		AgentKind   string `json:"agent_kind"`
+		RuntimeKind string `json:"runtime_kind"`
+		Description string `json:"description"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
 		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid request body", err))
 		return
 	}
 
-	agent.Role = "AGENT"
+	agent := models.User{
+		Username:    strings.TrimSpace(req.Username),
+		APIToken:    strings.TrimSpace(req.APIToken),
+		Role:        "AGENT",
+		AgentKind:   strings.TrimSpace(req.AgentKind),
+		RuntimeKind: strings.TrimSpace(req.RuntimeKind),
+		Description: strings.TrimSpace(req.Description),
+	}
+	if agent.Username == "" {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "username is required"))
+		return
+	}
+	if agent.AgentKind == "" {
+		agent.AgentKind = "generic"
+	}
+	if agent.RuntimeKind == "" {
+		agent.RuntimeKind = "websocket"
+	}
+	if strings.EqualFold(agent.AgentKind, ops.ManagedAgentKind()) || strings.EqualFold(agent.RuntimeKind, ops.ManagedRuntimeKind()) {
+		agent.AgentKind = ops.ManagedAgentKind()
+		agent.RuntimeKind = ops.ManagedRuntimeKind()
+	}
 	if err := h.repo.CreateUser(c.Request.Context(), &agent); err != nil {
 		h.respondWithError(c, http.StatusInternalServerError, err)
 		return
 	}
 
 	c.JSON(http.StatusCreated, agent)
+}
+
+func (h *Handler) ListSSHKeys(c *gin.Context) {
+	keys, err := h.repo.ListSSHKeys(c.Request.Context())
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, keys)
+}
+
+func (h *Handler) GetOpsStatus(c *gin.Context) {
+	executor := ops.GetExecutor()
+	if executor == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"enabled":            false,
+			"worker_reachable":   false,
+			"worker_mode":        "",
+			"service_url":        "",
+			"managed_agent_id":   0,
+			"managed_agent_name": "",
+			"node_count":         0,
+			"ssh_key_count":      0,
+		})
+		return
+	}
+
+	status := executor.StatusSummary(c.Request.Context())
+	c.JSON(http.StatusOK, status)
+}
+
+func (h *Handler) ListOpenHandsTasks(c *gin.Context) {
+	executor := ops.GetExecutor()
+	if executor == nil {
+		c.JSON(http.StatusOK, []models.OpenHandsTaskRecord{})
+		return
+	}
+
+	limit := 10
+	if v := strings.TrimSpace(c.Query("limit")); v != "" {
+		parsed, err := strconv.Atoi(v)
+		if err != nil || parsed <= 0 {
+			h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid limit"))
+			return
+		}
+		if parsed > 20 {
+			parsed = 20
+		}
+		limit = parsed
+	}
+
+	c.JSON(http.StatusOK, executor.RecentTasks(limit))
+}
+
+func (h *Handler) CreateSSHKey(c *gin.Context) {
+	var key models.SSHKey
+	if err := c.ShouldBindJSON(&key); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid request body", err))
+		return
+	}
+	if err := h.repo.CreateSSHKey(c.Request.Context(), &key); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	key.PrivateKey = ""
+	c.JSON(http.StatusCreated, key)
+}
+
+func (h *Handler) UpdateSSHKey(c *gin.Context) {
+	keyID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || keyID <= 0 {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid ssh key id"))
+		return
+	}
+
+	var key models.SSHKey
+	if err := c.ShouldBindJSON(&key); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid request body", err))
+		return
+	}
+	key.ID = keyID
+
+	if err := h.repo.UpdateSSHKey(c.Request.Context(), &key); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	key.PrivateKey = ""
+	c.JSON(http.StatusOK, key)
+}
+
+func (h *Handler) DeleteSSHKey(c *gin.Context) {
+	keyID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || keyID <= 0 {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid ssh key id"))
+		return
+	}
+	if err := h.repo.DeleteSSHKey(c.Request.Context(), keyID); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *Handler) ListInfraNodes(c *gin.Context) {
+	nodes, err := h.repo.ListInfraNodes(c.Request.Context())
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, nodes)
+}
+
+func (h *Handler) CreateInfraNode(c *gin.Context) {
+	var node models.InfraNode
+	if err := c.ShouldBindJSON(&node); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid request body", err))
+		return
+	}
+	if err := h.repo.CreateInfraNode(c.Request.Context(), &node); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusCreated, node)
+}
+
+func (h *Handler) UpdateInfraNode(c *gin.Context) {
+	nodeID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || nodeID <= 0 {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid infra node id"))
+		return
+	}
+
+	var node models.InfraNode
+	if err := c.ShouldBindJSON(&node); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.Wrap(apperrors.ErrInvalidInput, "invalid request body", err))
+		return
+	}
+	node.ID = nodeID
+
+	if err := h.repo.UpdateInfraNode(c.Request.Context(), &node); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, node)
+}
+
+func (h *Handler) DeleteInfraNode(c *gin.Context) {
+	nodeID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || nodeID <= 0 {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid infra node id"))
+		return
+	}
+	if err := h.repo.DeleteInfraNode(c.Request.Context(), nodeID); err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *Handler) TestInfraNode(c *gin.Context) {
+	nodeID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || nodeID <= 0 {
+		h.respondWithError(c, http.StatusBadRequest, apperrors.New(apperrors.ErrInvalidInput, "invalid infra node id"))
+		return
+	}
+
+	executor := ops.GetExecutor()
+	if executor == nil {
+		h.respondWithError(c, http.StatusInternalServerError, apperrors.New(apperrors.ErrInternal, "OpenHands executor is not initialized"))
+		return
+	}
+
+	result, err := executor.TestNodeConnectivity(c.Request.Context(), nodeID)
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
 }
 
 func (h *Handler) TestAgentConnection(c *gin.Context) {
@@ -489,6 +840,19 @@ func (h *Handler) UpdateAgentToken(c *gin.Context) {
 }
 
 func (h *Handler) withPresence(user models.User) models.User {
+	if executor := ops.GetExecutor(); executor != nil && executor.IsManagedAgent(user) {
+		online, report := executor.Status(user)
+		user.Online = online
+		if online {
+			user.Status = "ONLINE"
+			now := time.Now().UTC()
+			user.LastSeenAt = &now
+		} else {
+			user.Status = "OFFLINE"
+		}
+		user.LastReport = report
+		return user
+	}
 	if h.hub == nil {
 		user.Status = "OFFLINE"
 		user.Online = false

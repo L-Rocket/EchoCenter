@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/lea/echocenter/backend/internal/models"
 	"github.com/lea/echocenter/backend/internal/repository"
@@ -23,21 +24,23 @@ type HubInterface interface {
 type Service interface {
 	GetButlerID() int
 	ProcessLog(ctx context.Context, msg models.Message)
-	RequestAuthorization(actionID string, targetID int, command, reasoning string)
+	RequestAuthorization(ctx context.Context, actionID string, targetID int, command, reasoning string)
 	HandleUserMessage(ctx context.Context, senderID int, payload string)
 }
 
 // ButlerService implements the Service interface
 type ButlerService struct {
-	butlerID   int
-	butlerName string
-	baseURL    string
-	apiToken   string
-	model      string
-	mu         sync.RWMutex
-	brain      *EinoBrain
-	hub        HubInterface
-	repo       repository.Repository
+	butlerID            int
+	butlerName          string
+	baseURL             string
+	apiToken            string
+	model               string
+	mu                  sync.RWMutex
+	brain               *EinoBrain
+	router              runtimeRouter
+	hub                 HubInterface
+	repo                repository.Repository
+	runtimeRouterConfig RuntimeRouterConfig
 }
 
 var (
@@ -52,20 +55,23 @@ func InitButler(id int, name string, hub HubInterface, repo repository.Repositor
 		apiToken := os.Getenv("BUTLER_API_TOKEN")
 		model := os.Getenv("BUTLER_MODEL")
 		compactionCfg := loadContextCompactionConfig(baseURL, apiToken, model)
+		runtimeRouterCfg := loadRuntimeRouterConfig(baseURL, apiToken, model)
 
 		if apiToken == "" {
 			log.Println("WARNING: BUTLER_API_TOKEN not found in environment.")
 		}
 
 		instance = &ButlerService{
-			butlerID:   id,
-			butlerName: name,
-			baseURL:    baseURL,
-			apiToken:   apiToken,
-			model:      model,
-			brain:      NewEinoBrain(baseURL, apiToken, model, compactionCfg),
-			hub:        hub,
-			repo:       repo,
+			butlerID:            id,
+			butlerName:          name,
+			baseURL:             baseURL,
+			apiToken:            apiToken,
+			model:               model,
+			brain:               NewEinoBrain(baseURL, apiToken, model, compactionCfg),
+			router:              newRuntimeRouter(runtimeRouterCfg.BaseURL, runtimeRouterCfg.APIToken, runtimeRouterCfg.Model, runtimeRouterCfg),
+			hub:                 hub,
+			repo:                repo,
+			runtimeRouterConfig: runtimeRouterCfg,
 		}
 
 		log.Printf("Butler service initialized for agent: %s (ID: %d)", name, id)
@@ -73,6 +79,31 @@ func InitButler(id int, name string, hub HubInterface, repo repository.Repositor
 			log.Printf("Butler brain connected to: %s", baseURL)
 		}
 	})
+}
+
+func loadRuntimeRouterConfig(baseURL, apiToken, model string) RuntimeRouterConfig {
+	cfg := newRuntimeRouterConfig(baseURL, apiToken, model)
+
+	if raw, ok := os.LookupEnv("BUTLER_RUNTIME_ROUTER_ENABLED"); ok {
+		cfg.Enabled = parseBoolOrDefault(raw, cfg.Enabled)
+	}
+	if raw := strings.TrimSpace(os.Getenv("BUTLER_RUNTIME_ROUTER_BASE_URL")); raw != "" {
+		cfg.BaseURL = raw
+	}
+	if raw := strings.TrimSpace(os.Getenv("BUTLER_RUNTIME_ROUTER_API_TOKEN")); raw != "" {
+		cfg.APIToken = raw
+	}
+	if raw := strings.TrimSpace(os.Getenv("BUTLER_RUNTIME_ROUTER_MODEL")); raw != "" {
+		cfg.Model = raw
+	}
+	if raw, ok := os.LookupEnv("BUTLER_RUNTIME_ROUTER_TIMEOUT"); ok {
+		cfg.Timeout = parseDurationOrDefault(raw, cfg.Timeout)
+	}
+	if raw, ok := os.LookupEnv("BUTLER_RUNTIME_ROUTER_MAX_QUESTIONS"); ok {
+		cfg.MaxQuestions = parseIntOrDefault(raw, cfg.MaxQuestions)
+	}
+
+	return cfg.withDefaults()
 }
 
 func loadContextCompactionConfig(baseURL, apiToken, model string) ContextCompactionConfig {
@@ -119,6 +150,14 @@ func parseIntOrDefault(raw string, fallback int) int {
 	return parsed
 }
 
+func parseDurationOrDefault(raw string, fallback time.Duration) time.Duration {
+	parsed, err := time.ParseDuration(strings.TrimSpace(raw))
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
 // GetButler returns the singleton instance
 func GetButler() *ButlerService {
 	return instance
@@ -152,8 +191,11 @@ func (s *ButlerService) ProcessLog(ctx context.Context, msg models.Message) {
 }
 
 // RequestAuthorization emits an AUTH_REQUEST WebSocket frame
-func (s *ButlerService) RequestAuthorization(actionID string, targetID int, command, reasoning string) {
-	ctx := context.Background()
+func (s *ButlerService) RequestAuthorization(ctx context.Context, actionID string, targetID int, command, reasoning string) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	conversationID := ConversationIDFromContext(ctx)
 
 	targetName := "Unknown Agent"
 	agents, err := s.repo.GetAgents(ctx)
@@ -191,6 +233,7 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
 	}
 
 	chatMsg := &models.ChatMessage{
+		ConversationID: conversationID,
 		SenderID:   s.butlerID,
 		ReceiverID: adminID,
 		Type:       "AUTH_REQUEST",
@@ -209,6 +252,7 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
 			"sender_name": s.butlerName,
 			"sender_role": "BUTLER",
 			"target_id":   adminID,
+			"conversation_id": conversationID,
 			"payload":     payloadMap,
 		}
 		s.hub.BroadcastGeneric(msg)
@@ -217,7 +261,12 @@ func (s *ButlerService) RequestAuthorization(actionID string, targetID int, comm
 
 // HandleUserMessage processes direct instructions to the butler
 func (s *ButlerService) HandleUserMessage(ctx context.Context, senderID int, payload string) {
-	s.handleUserMessageFlow(ctx, senderID, payload)
+	s.handleUserMessageFlow(ctx, senderID, 0, payload)
+}
+
+// HandleUserMessageWithConversation processes a user message scoped to a specific conversation thread.
+func (s *ButlerService) HandleUserMessageWithConversation(ctx context.Context, senderID int, conversationID int, payload string) {
+	s.handleUserMessageFlow(ctx, senderID, conversationID, payload)
 }
 
 // ExecutePendingCommand executes a pending command after user approval

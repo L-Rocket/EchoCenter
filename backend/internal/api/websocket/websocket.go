@@ -51,6 +51,7 @@ const (
 type Message struct {
 	ID         int         `json:"id,omitempty"`
 	LocalID    string      `json:"local_id,omitempty"`
+	ConversationID int     `json:"conversation_id,omitempty"`
 	Type       MessageType `json:"type"`
 	SenderID   int         `json:"sender_id"`
 	SenderName string      `json:"sender_name"`
@@ -273,6 +274,11 @@ func (h *hub) BroadcastGeneric(msg any) {
 			m.TargetID = tid
 		} else if tid, ok := data["target_id"].(float64); ok {
 			m.TargetID = int(tid)
+		}
+		if cid, ok := data["conversation_id"].(int); ok {
+			m.ConversationID = cid
+		} else if cid, ok := data["conversation_id"].(float64); ok {
+			m.ConversationID = int(cid)
 		}
 
 		if sname, ok := data["sender_name"].(string); ok {

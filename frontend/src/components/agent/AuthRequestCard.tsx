@@ -1,28 +1,31 @@
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ShieldAlert, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface AuthRequestCardProps {
   actionId: string;
+  conversationId?: number;
   targetAgentName: string;
   command: string;
   reason: string;
-  onApprove: (id: string) => void;
-  onReject: (id: string) => void;
+  onApprove: (id: string, conversationId?: number) => void;
+  onReject: (id: string, conversationId?: number) => void;
   status?: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 const AuthRequestCard: React.FC<AuthRequestCardProps> = ({ 
-  actionId, targetAgentName, command, reason, onApprove, onReject, status = 'PENDING' 
+  actionId, conversationId, targetAgentName, command, reason, onApprove, onReject, status = 'PENDING' 
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   const handleAction = (type: 'approve' | 'reject') => {
     setIsProcessing(true);
-    if (type === 'approve') onApprove(actionId);
-    else onReject(actionId);
+    setIsExpanded(false);
+    if (type === 'approve') onApprove(actionId, conversationId);
+    else onReject(actionId, conversationId);
     
     setTimeout(() => setIsProcessing(false), 5000);
   };
@@ -50,23 +53,43 @@ const AuthRequestCard: React.FC<AuthRequestCardProps> = ({
       </div>
 
       <div className="p-3 space-y-3">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground font-bold uppercase">
-            <span>Target Agent</span>
-            <span className="text-foreground">{targetAgentName}</span>
-          </div>
-          <div className="mt-1">
-            <code className="text-[11px] bg-foreground text-amber-400 px-2 py-1.5 rounded block font-mono border shadow-inner truncate">
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-md border border-border/60 bg-muted/25 px-2 py-2 text-left"
+          onClick={() => setIsExpanded((prev) => !prev)}
+        >
+          {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              {isPending ? 'Pending Directive' : 'Directive Summary'}
+            </div>
+            <div className="truncate text-[11px] font-medium">
               {command}
-            </code>
+            </div>
           </div>
-        </div>
+        </button>
 
-        <div className="bg-muted/50 p-2 rounded border">
-          <p className="text-[11px] text-muted-foreground leading-snug italic">
-            "{reason}"
-          </p>
-        </div>
+        {isExpanded && (
+          <>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground font-bold uppercase">
+                <span>Target Agent</span>
+                <span className="text-foreground">{targetAgentName}</span>
+              </div>
+              <div className="mt-1">
+                <code className="text-[11px] bg-foreground text-amber-400 px-2 py-1.5 rounded block font-mono border shadow-inner truncate">
+                  {command}
+                </code>
+              </div>
+            </div>
+
+            <div className="bg-muted/50 p-2 rounded border">
+              <p className="text-[11px] text-muted-foreground leading-snug italic">
+                "{reason}"
+              </p>
+            </div>
+          </>
+        )}
 
         <div className="flex gap-2">
           {isPending ? (

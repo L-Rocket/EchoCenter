@@ -23,12 +23,26 @@ type UserRepository interface {
 	GetAgents(ctx context.Context) ([]models.User, error)
 	CreateAgent(ctx context.Context, username, token string) error
 	UpdateAgentToken(ctx context.Context, agentID int, token string) error
+	ListSSHKeys(ctx context.Context) ([]models.SSHKey, error)
+	CreateSSHKey(ctx context.Context, key *models.SSHKey) error
+	UpdateSSHKey(ctx context.Context, key *models.SSHKey) error
+	DeleteSSHKey(ctx context.Context, id int) error
+	GetSSHKeyMaterial(ctx context.Context, id int) (*models.SSHKey, error)
+	ListInfraNodes(ctx context.Context) ([]models.InfraNode, error)
+	CreateInfraNode(ctx context.Context, node *models.InfraNode) error
+	UpdateInfraNode(ctx context.Context, node *models.InfraNode) error
+	DeleteInfraNode(ctx context.Context, id int) error
 }
 
 // ChatRepository manages direct chat persistence.
 type ChatRepository interface {
 	SaveChatMessage(ctx context.Context, msg *models.ChatMessage) error
 	GetChatHistory(ctx context.Context, user1ID, user2ID int, limit int) ([]models.ChatMessage, error)
+	GetConversationThread(ctx context.Context, threadID int) (*models.ConversationThread, error)
+	ListConversationThreads(ctx context.Context, ownerUserID, peerUserID int, channelKind string) ([]models.ConversationThread, error)
+	CreateConversationThread(ctx context.Context, thread *models.ConversationThread) error
+	UpdateConversationThread(ctx context.Context, thread *models.ConversationThread) error
+	GetConversationMessages(ctx context.Context, threadID, limit int) ([]models.ChatMessage, error)
 	UpdateAuthRequestStatus(ctx context.Context, actionID string, status string) error
 	ExpirePendingAuthRequests(ctx context.Context) (int, error)
 }

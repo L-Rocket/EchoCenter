@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/cloudwego/eino/schema"
 	"github.com/google/uuid"
 	"github.com/lea/echocenter/backend/internal/models"
+	"github.com/lea/echocenter/backend/internal/ops"
 	"github.com/lea/echocenter/backend/internal/repository"
 )
 
@@ -37,6 +39,49 @@ type CommandAgentInput struct {
 	Reasoning     string `json:"reasoning"`
 }
 
+// DelegateResearchInput represents the input for delegated runtime research.
+type DelegateResearchInput struct {
+	Question  string `json:"question"`
+	Reasoning string `json:"reasoning"`
+}
+
+// DelegateResearchTool asks relevant online agents for fresh facts without exposing
+// the runtime routing exchange in the user-visible conversation history.
+type DelegateResearchTool struct{}
+
+// Info returns tool information.
+func (t *DelegateResearchTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
+	return &schema.ToolInfo{
+		Name: "delegate_research",
+		Desc: "Asks relevant online agents for fresh operational facts. Parameters: question (string), reasoning (string). Use this when you need live status or recent system facts before answering the user. Do not use this for action execution by the operations execution role (also called 执行官 / op-excutor / OpenHands-Ops).",
+	}, nil
+}
+
+// InvokableRun executes runtime research and returns a briefing for Butler to summarize.
+func (t *DelegateResearchTool) InvokableRun(ctx context.Context, argumentsInJSON string, opts ...tool.Option) (string, error) {
+	var input DelegateResearchInput
+	if err := json.Unmarshal([]byte(argumentsInJSON), &input); err != nil {
+		return "", err
+	}
+
+	question := strings.TrimSpace(input.Question)
+	if question == "" {
+		return "Runtime research skipped because no question was provided.", nil
+	}
+
+	b := GetButler()
+	if b == nil {
+		return "Runtime research unavailable because Butler service is not initialized.", nil
+	}
+
+	briefing := b.buildRuntimeRouterBriefing(ctx, question)
+	if strings.TrimSpace(briefing) == "" {
+		return "No additional live agent findings were needed or available.", nil
+	}
+
+	return briefing, nil
+}
+
 // CommandAgentTool implements the command agent tool
 type CommandAgentTool struct{}
 
@@ -44,7 +89,7 @@ type CommandAgentTool struct{}
 func (t *CommandAgentTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: "command_agent",
-		Desc: "Sends a command to another agent. Parameters: target_agent_id (int), command (string), reasoning (string).",
+		Desc: "Sends a command to another agent. Parameters: target_agent_id (int), command (string), reasoning (string). Use this for real execution work, including tasks for the backend-managed operations execution role also known as 执行官 / op-excutor / OpenHands-Ops.",
 	}, nil
 }
 
@@ -60,7 +105,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 
 	// Early check: if target agent is offline, return immediately without waiting
 	b := GetButler()
-	if b != nil && b.hub != nil && !b.hub.HasClient(input.TargetAgentID) {
+	if !canReachTargetAgent(ctx, input.TargetAgentID, b) {
 		log.Printf("[Butler Tool] Target Agent %d is OFFLINE, skipping approval request and returning immediately", input.TargetAgentID)
 		return fmt.Sprintf("Target agent %d is offline (not connected). Command not sent.", input.TargetAgentID), nil
 	}
@@ -87,7 +132,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 
 	// 3. Notify user via WebSocket
 	if b != nil {
-		b.RequestAuthorization(actionID, input.TargetAgentID, input.Command, input.Reasoning)
+		b.RequestAuthorization(ctx, actionID, input.TargetAgentID, input.Command, input.Reasoning)
 	}
 
 	log.Printf("[Butler Tool] Action %s is now PENDING user approval.", actionID)
@@ -104,7 +149,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 	}
 
 	// Re-check agent is still online after approval
-	if b != nil && b.hub != nil && !b.hub.HasClient(input.TargetAgentID) {
+	if !canReachTargetAgent(ctx, input.TargetAgentID, b) {
 		log.Printf("[Butler Tool] Target Agent %d went OFFLINE after approval, returning immediately without waiting", input.TargetAgentID)
 		return fmt.Sprintf("Target agent %d is now offline. Command not executed.", input.TargetAgentID), nil
 	}
@@ -116,6 +161,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 			"sender_id":   b.butlerID,
 			"sender_name": b.butlerName,
 			"target_id":   1,
+			"conversation_id": ConversationIDFromContext(ctx),
 			"payload":     "\n\n> Execution started... Connecting to target agent.",
 			"stream_id":   "exec_" + actionID,
 		})
@@ -123,6 +169,13 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 
 	// 5. Execute actual command
 	log.Printf("[Butler Tool] Action %s APPROVED. Executing command to Agent %d...", actionID, input.TargetAgentID)
+
+	if managedResult, managed, err := executeManagedAgentCommand(ctx, b, input.TargetAgentID, input.Command, input.Reasoning); managed {
+		if err != nil {
+			return "", err
+		}
+		return managedResult, nil
+	}
 
 	// Prepare to receive response
 	respChan := make(chan string, 1)
@@ -133,6 +186,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 	if b != nil {
 		commandMsg := fmt.Sprintf("[DIRECTIVE] %s", input.Command)
 		chatMsg := &models.ChatMessage{
+			ConversationID: ConversationIDFromContext(ctx),
 			SenderID:   b.butlerID,
 			ReceiverID: input.TargetAgentID,
 			Payload:    commandMsg,
@@ -146,6 +200,7 @@ func (t *CommandAgentTool) InvokableRun(ctx context.Context, argumentsInJSON str
 			"sender_name": b.butlerName,
 			"sender_role": "BUTLER",
 			"target_id":   input.TargetAgentID,
+			"conversation_id": chatMsg.ConversationID,
 			"payload":     commandMsg,
 		}
 		if chatMsg.ID > 0 {
@@ -199,6 +254,11 @@ func NewCommandAgentTool() tool.InvokableTool {
 	return &CommandAgentTool{}
 }
 
+// NewDelegateResearchTool creates a runtime-only research tool.
+func NewDelegateResearchTool() tool.InvokableTool {
+	return &DelegateResearchTool{}
+}
+
 func enqueuePendingResponse(agentID int, ch chan string) {
 	actionsMu.Lock()
 	defer actionsMu.Unlock()
@@ -246,6 +306,82 @@ func removePendingResponse(agentID int, target chan string) {
 		}
 		return
 	}
+}
+
+func canReachTargetAgent(ctx context.Context, agentID int, b *ButlerService) bool {
+	if executor := ops.GetExecutor(); executor != nil && repoInstance != nil {
+		user, err := repoInstance.GetUserByID(ctx, agentID)
+		if err == nil && user != nil && executor.IsManagedAgent(*user) {
+			return executor.IsAvailable()
+		}
+	}
+	return b != nil && b.hub != nil && b.hub.HasClient(agentID)
+}
+
+func executeManagedAgentCommand(ctx context.Context, b *ButlerService, agentID int, command, reasoning string) (string, bool, error) {
+	executor := ops.GetExecutor()
+	if executor == nil || repoInstance == nil {
+		return "", false, nil
+	}
+	user, err := repoInstance.GetUserByID(ctx, agentID)
+	if err != nil || user == nil || !executor.IsManagedAgent(*user) {
+		return "", false, err
+	}
+
+	if b != nil {
+		outbound := &models.ChatMessage{
+			ConversationID: ConversationIDFromContext(ctx),
+			SenderID:   b.butlerID,
+			ReceiverID: agentID,
+			Payload:    fmt.Sprintf("[DIRECTIVE] %s", command),
+		}
+		if repoInstance != nil {
+			_ = repoInstance.SaveChatMessage(ctx, outbound)
+		}
+		b.broadcast(map[string]any{
+			"id":          outbound.ID,
+			"type":        "CHAT",
+			"sender_id":   b.butlerID,
+			"sender_name": b.butlerName,
+			"sender_role": "BUTLER",
+			"target_id":   agentID,
+			"conversation_id": outbound.ConversationID,
+			"payload":     outbound.Payload,
+			"timestamp":   outbound.Timestamp.Format(time.RFC3339Nano),
+		})
+	}
+
+	runCtx, cancel := context.WithTimeout(ctx, ops.RunTimeout())
+	defer cancel()
+	result, err := executor.ExecuteAgentCommand(runCtx, command, reasoning)
+	if err != nil {
+		return "", true, err
+	}
+
+	if b != nil {
+		inbound := &models.ChatMessage{
+			ConversationID: ConversationIDFromContext(ctx),
+			SenderID:   agentID,
+			ReceiverID: b.butlerID,
+			Payload:    result,
+		}
+		if repoInstance != nil {
+			_ = repoInstance.SaveChatMessage(ctx, inbound)
+		}
+		b.broadcast(map[string]any{
+			"id":          inbound.ID,
+			"type":        "CHAT",
+			"sender_id":   agentID,
+			"sender_name": user.Username,
+			"sender_role": "AGENT",
+			"target_id":   b.butlerID,
+			"conversation_id": inbound.ConversationID,
+			"payload":     result,
+			"timestamp":   inbound.Timestamp.Format(time.RFC3339Nano),
+		})
+	}
+
+	return result, true, nil
 }
 
 // ResolveAction resumes a pending tool execution or command

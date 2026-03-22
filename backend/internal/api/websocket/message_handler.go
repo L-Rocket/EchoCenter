@@ -9,6 +9,7 @@ import (
 
 	"github.com/lea/echocenter/backend/internal/butler"
 	"github.com/lea/echocenter/backend/internal/models"
+	"github.com/lea/echocenter/backend/internal/ops"
 	"github.com/lea/echocenter/backend/internal/repository"
 )
 
@@ -140,7 +141,85 @@ func (h *ButlerMessageHandler) HandleMessage(ctx context.Context, msg *Message) 
 	log.Printf("[ButlerMessageHandler] Processing message from %d to Butler: %s", msg.SenderID, payloadStr)
 
 	// Handle the message
-	butlerService.HandleUserMessage(ctx, msg.SenderID, payloadStr)
+	butlerService.HandleUserMessageWithConversation(ctx, msg.SenderID, msg.ConversationID, payloadStr)
+}
+
+// ManagedAgentMessageHandler handles direct user messages sent to backend-managed agents.
+type ManagedAgentMessageHandler struct {
+	repo userLookupRepository
+	emit func(any)
+}
+
+// NewManagedAgentMessageHandler creates a handler for backend-managed agent chat.
+func NewManagedAgentMessageHandler(repo userLookupRepository) *ManagedAgentMessageHandler {
+	return &ManagedAgentMessageHandler{repo: repo}
+}
+
+// SetEmitter wires a broadcast sink for managed-agent replies.
+func (h *ManagedAgentMessageHandler) SetEmitter(emit func(any)) {
+	h.emit = emit
+}
+
+// HandleMessage executes backend-managed agent tasks for direct human chat.
+func (h *ManagedAgentMessageHandler) HandleMessage(ctx context.Context, msg *Message) {
+	if msg == nil || msg.Type != MessageTypeChat || h.repo == nil || h.emit == nil {
+		return
+	}
+	if strings.EqualFold(strings.TrimSpace(msg.SenderRole), "AGENT") || strings.EqualFold(strings.TrimSpace(msg.SenderRole), "BUTLER") {
+		return
+	}
+
+	executor := ops.GetExecutor()
+	if executor == nil || !executor.IsAvailable() {
+		return
+	}
+
+	targetUser, err := h.repo.GetUserByID(ctx, msg.TargetID)
+	if err != nil || targetUser == nil || !executor.IsManagedAgent(*targetUser) {
+		return
+	}
+
+	var payloadStr string
+	switch p := msg.Payload.(type) {
+	case string:
+		payloadStr = p
+	default:
+		bytes, _ := json.Marshal(p)
+		payloadStr = string(bytes)
+	}
+	payloadStr = strings.TrimSpace(payloadStr)
+	if payloadStr == "" {
+		return
+	}
+
+	h.emit(map[string]any{
+		"type":            "CHAT_STREAM",
+		"sender_id":       targetUser.ID,
+		"sender_name":     targetUser.Username,
+		"sender_role":     "AGENT",
+		"target_id":       msg.SenderID,
+		"conversation_id": msg.ConversationID,
+		"payload":         "Execution started... The op-excutor is preparing your task.",
+		"stream_id":       "managed_agent_" + time.Now().UTC().Format("20060102150405.000000000"),
+	})
+
+	runCtx, cancel := context.WithTimeout(ctx, ops.RunTimeout())
+	defer cancel()
+	result, execErr := executor.ExecuteAgentCommand(runCtx, payloadStr, "direct user request to op-excutor")
+	if execErr != nil {
+		result = "Execution failed: " + execErr.Error()
+	}
+
+	h.emit(map[string]any{
+		"type":            "CHAT",
+		"sender_id":       targetUser.ID,
+		"sender_name":     targetUser.Username,
+		"sender_role":     "AGENT",
+		"target_id":       msg.SenderID,
+		"conversation_id": msg.ConversationID,
+		"payload":         result,
+		"timestamp":       time.Now().Format(time.RFC3339Nano),
+	})
 }
 
 // PersistingMessageHandler saves CHAT messages to the database
@@ -161,6 +240,11 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 
 	// Only persist CHAT messages (not SYSTEM_LOG or AUTH_REQUEST)
 	if msg.Type != MessageTypeChat {
+		return
+	}
+
+	if shouldSkipRuntimeOnlyChat(msg.Payload) {
+		log.Printf("[PersistingMessageHandler] Skipping runtime-only Butler message from %d to %d", msg.SenderID, msg.TargetID)
 		return
 	}
 
@@ -190,10 +274,11 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 
 	// Save to database
 	chatMsg := &models.ChatMessage{
-		LocalID:    msg.LocalID,
-		SenderID:   msg.SenderID,
-		ReceiverID: msg.TargetID,
-		Payload:    payloadStr,
+		ConversationID: msg.ConversationID,
+		LocalID:        msg.LocalID,
+		SenderID:       msg.SenderID,
+		ReceiverID:     msg.TargetID,
+		Payload:        payloadStr,
 	}
 
 	if err := h.repo.SaveChatMessage(ctx, chatMsg); err != nil {
@@ -202,6 +287,7 @@ func (h *PersistingMessageHandler) HandleMessage(ctx context.Context, msg *Messa
 		log.Printf("[PersistingMessageHandler] Successfully saved message from %d to %d (ID: %d)", msg.SenderID, msg.TargetID, chatMsg.ID)
 		// CRITICAL: Fill back the database ID and accurate timestamp into the broadcast message
 		msg.ID = chatMsg.ID
+		msg.ConversationID = chatMsg.ConversationID
 		msg.Timestamp = chatMsg.Timestamp.Format(time.RFC3339Nano)
 		// Keep the LocalID in the broadcast so frontend can match it
 		msg.LocalID = chatMsg.LocalID
@@ -232,6 +318,10 @@ func (h *ButlerAgentMonitorHandler) SetEmitter(emit func(any)) {
 // HandleMessage emits BUTLER_AGENT_MESSAGE when Butler and Agent exchange CHAT messages.
 func (h *ButlerAgentMonitorHandler) HandleMessage(ctx context.Context, msg *Message) {
 	if msg == nil || msg.Type != MessageTypeChat || msg.TargetID == 0 || h.repo == nil || h.emit == nil {
+		return
+	}
+
+	if shouldSkipRuntimeOnlyChat(msg.Payload) {
 		return
 	}
 
@@ -332,6 +422,14 @@ func (h *PersistingMessageHandler) shouldPersistMessage(ctx context.Context, msg
 	}
 
 	return shouldPersistChatPair(sender, receiver, msg.SenderRole)
+}
+
+func shouldSkipRuntimeOnlyChat(payload any) bool {
+	content, ok := payload.(string)
+	if !ok {
+		return false
+	}
+	return strings.HasPrefix(strings.TrimSpace(content), butler.RuntimeQuestionPrefix())
 }
 
 func shouldPersistChatPair(sender, receiver *models.User, senderRole string) bool {

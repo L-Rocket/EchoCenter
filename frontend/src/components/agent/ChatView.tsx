@@ -1,55 +1,58 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Loader2, Send, Sparkles, Terminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Bot, Terminal, Shield, Loader2 } from 'lucide-react';
-import { useChatStore } from '@/store/useChatStore';
 import { useAuth } from '@/context/AuthContext';
+import { userService } from '@/services/userService';
+import { buildChatScope, useChatStore } from '@/store/useChatStore';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/hooks/useI18n';
-import type { Agent } from '@/types';
+import type { Agent, ChatMessage, ConversationThread } from '@/types';
 import AuthRequestCard from './AuthRequestCard';
+import OpenHandsLiveRunCard from './OpenHandsLiveRunCard';
 import ProcessMessage from './ProcessMessage';
-import { userService } from '@/services/userService';
-import type { ChatMessage } from '@/types';
+import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 
 interface ChatViewProps {
   agent: Agent;
+  thread?: ConversationThread | null;
+  renderAssistantAsMarkdown?: boolean;
 }
 
 const EMPTY_ARRAY: ChatMessage[] = [];
 
-const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
+const ChatView: React.FC<ChatViewProps> = ({
+  agent,
+  thread = null,
+  renderAssistantAsMarkdown = true,
+}) => {
   const [input, setInput] = useState('');
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
-  
-  const messages = useChatStore((state) => {
-    if (!agent?.id || !state.messages) return EMPTY_ARRAY;
-    const list = state.messages[agent.id];
-    return Array.isArray(list) ? list : EMPTY_ARRAY;
-  });
-
-  const setHistory = useChatStore((state) => state.setHistory);
-  
   const { user, sendMessage, sendAuthResponse } = useAuth();
   const { tx } = useI18n();
-  const isPeerPending = useChatStore((state) =>
-    agent?.id ? Boolean(state.pendingByPeer[agent.id]) : false
-  );
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isOpenHandsOperator = agent.agent_kind === 'openhands_ops' || agent.runtime_kind === 'openhands';
+
+  const scope = buildChatScope(agent.id, thread?.id);
+  const messages = useChatStore((state) => state.messagesByScope[scope] || EMPTY_ARRAY);
+  const setHistory = useChatStore((state) => state.setHistory);
+  const isPending = useChatStore((state) => Boolean(state.pendingByScope[scope]));
 
   useEffect(() => {
     const fetchHistory = async () => {
       if (!agent?.id) return;
-      
+
       setIsHistoryLoading(true);
       try {
-        const historyData = await userService.getChatHistory(agent.id);
-        const history = (Array.isArray(historyData) ? historyData : []).map((m) => ({
-          ...m,
-          type: m.type || 'CHAT',
-          sender_name: m.sender_id === agent.id ? agent.username : (user?.username || tx('Me', '我'))
+        const historyData = thread?.id
+          ? await userService.getConversationMessages(thread.id)
+          : await userService.getChatHistory(agent.id);
+        const history = (Array.isArray(historyData) ? historyData : []).map((message) => ({
+          ...message,
+          type: message.type || 'CHAT',
+          sender_name: message.sender_id === agent.id ? agent.username : (user?.username || tx('Me', '我')),
         }));
-        setHistory(agent.id, history);
+        setHistory(scope, history);
       } catch (err) {
         console.error('Failed to load chat history:', err);
       } finally {
@@ -57,191 +60,174 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
       }
     };
 
-    fetchHistory();
-  }, [agent.id, agent.username, setHistory, user?.username, tx]);
+    void fetchHistory();
+  }, [agent.id, agent.username, scope, setHistory, thread?.id, tx, user?.username]);
 
   useEffect(() => {
-    if (scrollRef.current && messages.length > 0) {
-      const timer = setTimeout(() => {
-        scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (scrollRef.current) {
+      const timer = window.setTimeout(() => {
+        scrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
       }, 50);
-      return () => clearTimeout(timer);
+      return () => window.clearTimeout(timer);
     }
-  }, [messages.length]);
+    return undefined;
+  }, [messages.length, isPending]);
 
-  const handleSend = (_e: React.FormEvent) => {
-    _e.preventDefault();
-    if (!input.trim() || !user || !agent?.id || isPeerPending) return;
-    sendMessage(agent.id, input);
+  const handleSend = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!input.trim() || !user || !agent?.id || isPending) return;
+    sendMessage(agent.id, input.trim(), thread?.id);
     setInput('');
   };
 
-  if (!agent) {
-    return (
-      <div className="flex items-center justify-center h-full text-muted-foreground text-sm italic">
-        {tx('Transmission channel lost.', '传输通道已断开。')}
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col h-full bg-card animate-in fade-in duration-500">
-      <header className="h-16 border-b flex items-center justify-between px-6 backdrop-blur-sm shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="bg-primary/10 p-2 rounded-xl text-primary border border-primary/20 shadow-sm">
-            <Bot className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold tracking-tight">{agent.username}</h3>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] animate-pulse" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{tx('Autonomous Unit', '自治单元')}</span>
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 pb-8 pt-8">
+          {thread && (
+            <div className="space-y-3 border-b border-border/50 pb-5">
+              <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/20 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">
+                <Sparkles className="h-3 w-3" />
+                {thread.channel_kind === 'butler_direct' ? tx('Butler Thread', 'Butler 会话') : tx('Agent Thread', 'Agent 会话')}
+              </div>
+              <h1 className="text-2xl font-black tracking-tight">{thread.title || tx('Untitled Conversation', '未命名会话')}</h1>
+              {thread.summary && (
+                <p className="max-w-3xl text-[13px] leading-6 text-muted-foreground">{thread.summary}</p>
+              )}
             </div>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-md bg-muted border text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
-            <Shield className="h-3 w-3" />
-            {tx('Encrypted Link', '加密链路')}
-          </div>
-        </div>
-      </header>
+          )}
 
-      <div className="flex-grow overflow-y-auto bg-muted/20 p-4">
-        <div className="flex flex-col space-y-4">
           {isHistoryLoading && messages.length === 0 && (
-            <div className="flex justify-center py-10">
-              <div className="flex flex-col items-center gap-2">
-                <div className="h-5 w-5 border-2 border-primary border-t-transparent animate-spin rounded-full" />
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{tx('Hydrating History...', '加载历史中...')}</span>
-              </div>
+            <div className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card/60 px-4 py-4 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              {tx('Loading conversation history...', '正在加载会话历史...')}
             </div>
           )}
 
-          {!isHistoryLoading && messages.length === 0 && !isPeerPending && (
-            <div className="flex flex-col items-center justify-center py-20 text-center opacity-40">
-              <div className="p-4 bg-muted rounded-full mb-4">
-                <Terminal className="h-8 w-8 text-muted-foreground" />
+          {!isHistoryLoading && messages.length === 0 && !isPending && (
+            <div className="rounded-[28px] border border-dashed border-border/70 bg-muted/10 px-8 py-14 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border bg-background text-muted-foreground">
+                <Terminal className="h-7 w-7" />
               </div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">{tx('Awaiting Transmission', '等待消息')}</p>
+              <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
+                {tx('Fresh Session', '全新会话')}
+              </div>
+              <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
+                {tx('Start typing to turn this empty workspace into a new conversation.', '开始输入，把这个空白工作区变成新的对话。')}
+              </p>
             </div>
           )}
 
-          {!isHistoryLoading && messages.length === 0 && isPeerPending && (
-            <div className="flex justify-start pt-4 animate-in fade-in slide-in-from-bottom-3 duration-500">
-              <div className="flex flex-col gap-2 w-full max-w-[260px]">
-                <div className="flex items-center gap-2 px-1">
-                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
-                    {tx('Waiting Reply', '等待回复')}
-                  </span>
-                </div>
-                <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-primary w-1/3 animate-[progress_2s_ease-in-out_infinite] rounded-full shadow-[0_0_8px_rgba(79,70,229,0.4)]" />
-                </div>
-              </div>
-            </div>
+          {isOpenHandsOperator && (
+            <OpenHandsLiveRunCard active={isPending} />
           )}
 
-          {messages.map((msg, i) => {
-            const isMe = msg.sender_id === user?.id;
-            const isSystem = msg.type === 'SYSTEM';
-            const isAuthRequest = msg.type === 'AUTH_REQUEST';
-            const isAuthResponse = msg.type === 'AUTH_RESPONSE';
-            
-            let payload = msg.payload;
+          {messages.map((message, index) => {
+            const isMe = message.sender_id === user?.id;
+            const isSystem = message.type === 'SYSTEM';
+            const isAuthRequest = message.type === 'AUTH_REQUEST';
+            const isAuthResponse = message.type === 'AUTH_RESPONSE';
+
+            let payload = message.payload;
             if ((isSystem || isAuthRequest || isAuthResponse) && typeof payload === 'string') {
               try {
                 payload = JSON.parse(payload);
               } catch (_e) {
-                console.error("Failed to parse message payload", _e);
+                console.error('Failed to parse message payload', _e);
               }
             }
 
             if (isAuthRequest && typeof payload === 'object' && payload !== null && 'action_id' in payload) {
-              const p = payload as Record<string, unknown>;
-              const normalizedStatus = String(p.status || 'PENDING').toUpperCase();
-              
+              const parsed = payload as Record<string, unknown>;
+              const normalizedStatus = String(parsed.status || 'PENDING').toUpperCase();
               if (normalizedStatus === 'APPROVED' || normalizedStatus === 'REJECTED') {
                 return (
                   <ProcessMessage
-                    key={msg.id || i}
-                    type={msg.type}
-                    payload={p}
-                    timestamp={msg.timestamp}
+                    key={message.id || index}
+                    type={message.type}
+                    payload={parsed}
+                    timestamp={message.timestamp}
                     status={normalizedStatus}
                   />
                 );
               }
               return (
-                <div key={msg.id || i} className="flex justify-start">
-                  <div className="my-1">
-                    <AuthRequestCard
-                      actionId={p.action_id as string}
-                      targetAgentName={p.target_agent_name as string}
-                      command={p.command as string}
-                      reason={p.reason as string}
-                      onApprove={(id) => sendAuthResponse(id, true)}
-                      onReject={(id) => sendAuthResponse(id, false)}
-                      status={normalizedStatus as 'PENDING' | 'APPROVED' | 'REJECTED'}
-                    />
-                  </div>
+                <div key={message.id || index} className="flex justify-start">
+                  <AuthRequestCard
+                    actionId={parsed.action_id as string}
+                    conversationId={message.conversation_id}
+                    targetAgentName={parsed.target_agent_name as string}
+                    command={parsed.command as string}
+                    reason={parsed.reason as string}
+                    onApprove={(actionId, conversationId) => sendAuthResponse(actionId, true, conversationId)}
+                    onReject={(actionId, conversationId) => sendAuthResponse(actionId, false, conversationId)}
+                    status={normalizedStatus as 'PENDING' | 'APPROVED' | 'REJECTED'}
+                  />
                 </div>
               );
             }
 
             if (isAuthResponse || isSystem) {
-              const p = payload as Record<string, unknown>;
               return (
                 <ProcessMessage
-                  key={msg.id || i}
-                  type={msg.type}
-                  payload={p}
-                  timestamp={msg.timestamp}
-                  status={p?.status as string}
+                  key={message.id || index}
+                  type={message.type}
+                  payload={payload as Record<string, unknown>}
+                  timestamp={message.timestamp}
+                  status={(payload as Record<string, unknown>)?.status as string}
                 />
               );
             }
 
-            // Skip rendering completely empty messages or empty objects
             const renderContent = typeof payload === 'string' ? payload : JSON.stringify(payload);
             if (!renderContent || renderContent.trim() === '' || renderContent === '{}') {
               return null;
             }
 
+            if (isMe) {
+              return (
+                <div key={message.id || index} className="flex justify-end">
+                  <div className="max-w-2xl rounded-2xl bg-primary/10 px-4 py-3 text-sm text-foreground shadow-sm ring-1 ring-primary/10">
+                    <div className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-primary/80">
+                      {tx('You', '你')}
+                    </div>
+                    <div className="whitespace-pre-wrap break-words">{renderContent}</div>
+                  </div>
+                </div>
+              );
+            }
+
             return (
-              <div key={msg.id || i} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
-                <div className={cn(
-                  "flex flex-col max-w-[85%] md:max-w-[80%]",
-                  isMe ? "items-end" : "items-start"
-                )}>
-                  <div className={cn(
-                    "rounded-2xl px-4 py-2.5 text-sm shadow-sm border whitespace-pre-wrap break-words",
-                    isMe 
-                      ? "bg-indigo-600 text-white border-indigo-500 rounded-tr-none" 
-                      : "bg-card text-card-foreground border rounded-tl-none"
-                  )}>
+              <article key={message.id || index} className="space-y-3 border-b border-border/40 pb-7">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">
+                    {message.sender_name || agent.username}
+                  </div>
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                    {message.timestamp ? new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : tx('Pending', '待发送')}
+                  </div>
+                </div>
+                {renderAssistantAsMarkdown ? (
+                  <MarkdownRenderer content={renderContent} />
+                ) : (
+                  <div className={cn('whitespace-pre-wrap break-words text-[15px] leading-8 text-foreground/92')}>
                     {renderContent}
                   </div>
-                  <span className="text-[9px] text-muted-foreground mt-1 px-1 font-bold uppercase tracking-tighter">
-                    {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : tx('Pending', '待发送')}
-                  </span>
-                </div>
-              </div>
+                )}
+              </article>
             );
           })}
 
-          {isPeerPending && messages.length > 0 && (
-            <div className="flex justify-start pt-2 animate-in fade-in slide-in-from-bottom-3 duration-500">
-              <div className="flex flex-col gap-2 w-full max-w-[240px]">
-                <div className="flex items-center gap-2 px-1">
-                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">{tx('Waiting Reply', '等待回复')}</span>
+          {isPending && (
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-4">
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <div className="text-[11px] font-black uppercase tracking-[0.22em] text-primary">
+                  {tx('Assistant is working', '助手正在处理')}
                 </div>
-                <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-primary w-1/3 animate-[progress_2s_ease-in-out_infinite] rounded-full shadow-[0_0_8px_rgba(79,70,229,0.4)]" />
-                </div>
+              </div>
+              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div className="h-full w-1/3 animate-[progress_2s_ease-in-out_infinite] rounded-full bg-primary shadow-[0_0_8px_rgba(79,70,229,0.4)]" />
               </div>
             </div>
           )}
@@ -250,31 +236,26 @@ const ChatView: React.FC<ChatViewProps> = ({ agent }) => {
         </div>
       </div>
 
-      <footer className="p-4 border-t bg-card shrink-0">
-        <form onSubmit={handleSend} className="max-w-3xl mx-auto flex items-center gap-3">
-          <div className="relative flex-grow">
-            <Input
-              placeholder={isPeerPending
-                ? tx('Wait for the current reply to finish...', '请等待当前回复完成...')
-                : tx(`Send instruction to ${agent.username}...`, `向 ${agent.username} 发送指令...`)}
-              className="h-12 bg-muted/50 border focus:bg-background focus:ring-primary transition-all pr-12 rounded-xl"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-            />
-            <div className="absolute right-3 top-3.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest hidden sm:block">
-              {tx('ENTER', '回车')}
-            </div>
-          </div>
-          <Button 
-            type="submit" 
-            size="icon" 
-            className="h-12 w-12 shrink-0 shadow-lg rounded-xl transition-all active:scale-95 bg-indigo-600 hover:bg-indigo-700 text-white"
-            disabled={isPeerPending || !input.trim()}
+      <div className="border-t bg-background/95 backdrop-blur">
+        <form onSubmit={handleSend} className="mx-auto flex w-full max-w-5xl items-center gap-3 px-6 py-4">
+          <Input
+            placeholder={isPending
+              ? tx('Wait for the current reply to finish...', '请等待当前回复完成...')
+              : tx(`Message ${agent.username}...`, `向 ${agent.username} 发送消息...`)}
+            className="h-12 rounded-2xl border bg-muted/40 px-4 text-sm focus:bg-background"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+          />
+          <Button
+            type="submit"
+            size="icon"
+            className="h-12 w-12 shrink-0 rounded-2xl bg-primary text-primary-foreground shadow-lg"
+            disabled={isPending || !input.trim()}
           >
             <Send className="h-5 w-5" />
           </Button>
         </form>
-      </footer>
+      </div>
     </div>
   );
 };

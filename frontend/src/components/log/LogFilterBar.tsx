@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import type { LogFilterState } from '@/pages/DashboardPage'
-import type { User } from '@/types'
+import type { Agent } from '@/types'
 import { userService } from '@/services/userService'
 import { useI18n } from '@/hooks/useI18n'
 import { cn } from '@/lib/utils'
@@ -23,14 +23,14 @@ interface LogFilterBarProps {
 
 const LogFilterBar: React.FC<LogFilterBarProps> = ({ filters, onFilterChange }) => {
   const { tx } = useI18n()
-  const [agents, setAgents] = useState<User[]>([])
+  const [agents, setAgents] = useState<Agent[]>([])
   const [isLoadingAgents, setIsLoadingAgents] = useState(false)
 
   useEffect(() => {
     const fetchAgents = async () => {
       try {
         setIsLoadingAgents(true)
-        const data = await userService.getUsers()
+        const data = await userService.getAgents()
         setAgents(Array.isArray(data) ? data : [])
       } catch (_err) {
         console.error("Failed to fetch agents for filter:", _err)

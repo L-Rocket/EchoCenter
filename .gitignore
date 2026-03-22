@@ -38,9 +38,17 @@ build/
 # Documentation & AI
 GEMINI.md
 docs/.vitepress/cache/
+third_party/openhands/.runtime/
+third_party/openhands/__pycache__/
+third_party/openhands/vendor/extracted/
+test/.tmp/
 
 # Universal
 Thumbs.db
 *.tmp
 *.swp
-\n# Test Artifacts\nlogin.json
+
+# Test Artifacts
+login.json
+
+interview/

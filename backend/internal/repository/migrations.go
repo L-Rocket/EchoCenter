@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -52,6 +53,10 @@ func (r *sqlRepository) migrate() error {
 		if err := tx.Commit(); err != nil {
 			return apperrors.Wrap(apperrors.ErrDatabase, "failed to commit migration transaction", err)
 		}
+	}
+
+	if err := r.backfillConversationThreads(context.Background()); err != nil {
+		return err
 	}
 
 	return nil
@@ -201,6 +206,60 @@ func (r *sqlRepository) getMigrations() []schemaMigration {
 					)`,
 					`CREATE INDEX IF NOT EXISTS idx_feishu_logs_connector_time ON feishu_integration_logs (connector_id, id DESC)`,
 					`CREATE INDEX IF NOT EXISTS idx_feishu_events_connector_time ON feishu_inbound_events (connector_id, id DESC)`,
+				},
+			},
+			{
+				name: "009_add_agent_runtime_columns",
+				statements: []string{
+					`ALTER TABLE users ADD COLUMN IF NOT EXISTS agent_kind TEXT NOT NULL DEFAULT 'generic'`,
+					`ALTER TABLE users ADD COLUMN IF NOT EXISTS runtime_kind TEXT NOT NULL DEFAULT 'websocket'`,
+					`ALTER TABLE users ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''`,
+				},
+			},
+			{
+				name: "010_create_ops_tables",
+				statements: []string{
+					`CREATE TABLE IF NOT EXISTS ssh_keys (
+						id BIGSERIAL PRIMARY KEY,
+						name TEXT NOT NULL UNIQUE,
+						public_key TEXT NOT NULL DEFAULT '',
+						encrypted_private_key TEXT NOT NULL,
+						created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+						updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+					)`,
+					`CREATE TABLE IF NOT EXISTS infra_nodes (
+						id BIGSERIAL PRIMARY KEY,
+						name TEXT NOT NULL UNIQUE,
+						host TEXT NOT NULL,
+						port INTEGER NOT NULL DEFAULT 22,
+						ssh_user TEXT NOT NULL,
+						ssh_key_id BIGINT NOT NULL REFERENCES ssh_keys(id) ON DELETE RESTRICT,
+						description TEXT NOT NULL DEFAULT '',
+						created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+						updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+					)`,
+				},
+			},
+			{
+				name: "011_create_conversation_threads",
+				statements: []string{
+					`CREATE TABLE IF NOT EXISTS conversation_threads (
+						id BIGSERIAL PRIMARY KEY,
+						owner_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+						peer_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+						channel_kind TEXT NOT NULL,
+						title TEXT NOT NULL DEFAULT '',
+						summary TEXT NOT NULL DEFAULT '',
+						is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
+						is_default BOOLEAN NOT NULL DEFAULT FALSE,
+						archived_at TIMESTAMPTZ,
+						last_message_at TIMESTAMPTZ,
+						created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+						updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+					)`,
+					`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS conversation_id BIGINT REFERENCES conversation_threads(id) ON DELETE SET NULL`,
+					`CREATE INDEX IF NOT EXISTS idx_conversation_threads_owner_peer ON conversation_threads (owner_user_id, peer_user_id, channel_kind, last_message_at DESC, id DESC)`,
+					`CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation_time ON chat_messages (conversation_id, timestamp ASC, id ASC)`,
 				},
 			},
 		}
@@ -353,6 +412,63 @@ func (r *sqlRepository) getMigrations() []schemaMigration {
 				)`,
 				`CREATE INDEX IF NOT EXISTS idx_feishu_logs_connector_time ON feishu_integration_logs (connector_id, id DESC)`,
 				`CREATE INDEX IF NOT EXISTS idx_feishu_events_connector_time ON feishu_inbound_events (connector_id, id DESC)`,
+			},
+		},
+		{
+			name: "009_add_agent_runtime_columns",
+			statements: []string{
+				`ALTER TABLE users ADD COLUMN agent_kind TEXT NOT NULL DEFAULT 'generic'`,
+				`ALTER TABLE users ADD COLUMN runtime_kind TEXT NOT NULL DEFAULT 'websocket'`,
+				`ALTER TABLE users ADD COLUMN description TEXT NOT NULL DEFAULT ''`,
+			},
+		},
+		{
+			name: "010_create_ops_tables",
+			statements: []string{
+				`CREATE TABLE IF NOT EXISTS ssh_keys (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					name TEXT NOT NULL UNIQUE,
+					public_key TEXT NOT NULL DEFAULT '',
+					encrypted_private_key TEXT NOT NULL,
+					created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+					updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+				)`,
+				`CREATE TABLE IF NOT EXISTS infra_nodes (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					name TEXT NOT NULL UNIQUE,
+					host TEXT NOT NULL,
+					port INTEGER NOT NULL DEFAULT 22,
+					ssh_user TEXT NOT NULL,
+					ssh_key_id INTEGER NOT NULL,
+					description TEXT NOT NULL DEFAULT '',
+					created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+					updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+					FOREIGN KEY(ssh_key_id) REFERENCES ssh_keys(id)
+				)`,
+			},
+		},
+		{
+			name: "011_create_conversation_threads",
+			statements: []string{
+				`CREATE TABLE IF NOT EXISTS conversation_threads (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					owner_user_id INTEGER NOT NULL,
+					peer_user_id INTEGER NOT NULL,
+					channel_kind TEXT NOT NULL,
+					title TEXT NOT NULL DEFAULT '',
+					summary TEXT NOT NULL DEFAULT '',
+					is_pinned INTEGER NOT NULL DEFAULT 0,
+					is_default INTEGER NOT NULL DEFAULT 0,
+					archived_at DATETIME,
+					last_message_at DATETIME,
+					created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+					updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+					FOREIGN KEY(owner_user_id) REFERENCES users(id) ON DELETE CASCADE,
+					FOREIGN KEY(peer_user_id) REFERENCES users(id) ON DELETE CASCADE
+				)`,
+				`ALTER TABLE chat_messages ADD COLUMN conversation_id INTEGER REFERENCES conversation_threads(id)`,
+				`CREATE INDEX IF NOT EXISTS idx_conversation_threads_owner_peer ON conversation_threads (owner_user_id, peer_user_id, channel_kind, last_message_at DESC, id DESC)`,
+				`CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation_time ON chat_messages (conversation_id, timestamp ASC, id ASC)`,
 			},
 		},
 	}

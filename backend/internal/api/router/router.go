@@ -32,6 +32,10 @@ func Setup(r *gin.Engine, h *handler.Handler, authSvc auth.Service) {
 
 		// Chat
 		protected.GET("/chat/history/:peer_id", h.GetChatHistory)
+		protected.GET("/chat/threads", h.ListConversationThreads)
+		protected.POST("/chat/threads", h.CreateConversationThread)
+		protected.PATCH("/chat/threads/:thread_id", h.UpdateConversationThread)
+		protected.GET("/chat/threads/:thread_id/messages", h.GetConversationMessages)
 		protected.GET("/chat/butler-agent/:agent_id", h.GetButlerAgentConversation)
 		protected.POST("/chat/auth/response", h.AuthResponse)
 
@@ -43,6 +47,17 @@ func Setup(r *gin.Engine, h *handler.Handler, authSvc auth.Service) {
 			admin.POST("/agents", h.RegisterAgent)
 			admin.POST("/agents/test-connection", h.TestAgentConnection)
 			admin.PATCH("/agents/:id/token", h.UpdateAgentToken)
+			admin.GET("/ops/status", h.GetOpsStatus)
+			admin.GET("/ops/tasks", h.ListOpenHandsTasks)
+			admin.GET("/ops/ssh-keys", h.ListSSHKeys)
+			admin.POST("/ops/ssh-keys", h.CreateSSHKey)
+			admin.PATCH("/ops/ssh-keys/:id", h.UpdateSSHKey)
+			admin.DELETE("/ops/ssh-keys/:id", h.DeleteSSHKey)
+			admin.GET("/ops/nodes", h.ListInfraNodes)
+			admin.POST("/ops/nodes", h.CreateInfraNode)
+			admin.PATCH("/ops/nodes/:id", h.UpdateInfraNode)
+			admin.DELETE("/ops/nodes/:id", h.DeleteInfraNode)
+			admin.POST("/ops/nodes/:id/test", h.TestInfraNode)
 		}
 
 		integrations := protected.Group("/integrations")
@@ -63,6 +78,8 @@ func Setup(r *gin.Engine, h *handler.Handler, authSvc auth.Service) {
 		{
 			dev.POST("/reset", h.DevMockReset)
 			dev.POST("/chat", h.DevMockInsertChat)
+			dev.POST("/ops-task", h.DevMockSeedOpenHandsTask)
+			dev.POST("/feishu-log", h.DevMockAppendFeishuLog)
 			dev.GET("/agent-token/:username", h.DevGetAgentToken)
 		}
 	}

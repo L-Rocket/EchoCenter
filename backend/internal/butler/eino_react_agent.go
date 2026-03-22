@@ -26,6 +26,7 @@ func newReActAgentOrchestrator(chatModel *openai.ChatModel) assistantOrchestrato
 
 	// Register Butler tools
 	tools := []tool.BaseTool{
+		NewDelegateResearchTool(),
 		NewCommandAgentTool(),
 	}
 

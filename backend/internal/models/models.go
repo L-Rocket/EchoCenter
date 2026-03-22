@@ -17,6 +17,9 @@ type User struct {
 	APIToken       string     `json:"api_token,omitempty" db:"api_token"`
 	Role           string     `json:"role" db:"role"`
 	ActorType      string     `json:"actor_type" db:"actor_type"`
+	AgentKind      string     `json:"agent_kind,omitempty" db:"agent_kind"`
+	RuntimeKind    string     `json:"runtime_kind,omitempty" db:"runtime_kind"`
+	Description    string     `json:"description,omitempty" db:"description"`
 	TokenHint      string     `json:"token_hint,omitempty"`
 	TokenUpdatedAt *time.Time `json:"token_updated_at,omitempty"`
 	Status         string     `json:"status,omitempty"`
@@ -37,13 +40,29 @@ type LoginResponse struct {
 }
 
 type ChatMessage struct {
-	ID         int       `json:"id" db:"id"`
-	LocalID    string    `json:"local_id" db:"local_id"`
-	SenderID   int       `json:"sender_id" db:"sender_id"`
-	ReceiverID int       `json:"receiver_id" db:"receiver_id"`
-	Type       string    `json:"type" db:"type"` // CHAT, AUTH_REQUEST, AUTH_RESPONSE
-	Payload    string    `json:"payload" db:"content"`
-	Timestamp  time.Time `json:"timestamp" db:"timestamp"`
+	ID             int       `json:"id" db:"id"`
+	LocalID        string    `json:"local_id" db:"local_id"`
+	ConversationID int       `json:"conversation_id,omitempty" db:"conversation_id"`
+	SenderID       int       `json:"sender_id" db:"sender_id"`
+	ReceiverID     int       `json:"receiver_id" db:"receiver_id"`
+	Type           string    `json:"type" db:"type"` // CHAT, AUTH_REQUEST, AUTH_RESPONSE
+	Payload        string    `json:"payload" db:"content"`
+	Timestamp      time.Time `json:"timestamp" db:"timestamp"`
+}
+
+type ConversationThread struct {
+	ID            int        `json:"id" db:"id"`
+	OwnerUserID   int        `json:"owner_user_id" db:"owner_user_id"`
+	PeerUserID    int        `json:"peer_user_id" db:"peer_user_id"`
+	ChannelKind   string     `json:"channel_kind" db:"channel_kind"`
+	Title         string     `json:"title" db:"title"`
+	Summary       string     `json:"summary,omitempty" db:"summary"`
+	IsPinned      bool       `json:"is_pinned" db:"is_pinned"`
+	IsDefault     bool       `json:"is_default" db:"is_default"`
+	ArchivedAt    *time.Time `json:"archived_at,omitempty" db:"archived_at"`
+	LastMessageAt *time.Time `json:"last_message_at,omitempty" db:"last_message_at"`
+	CreatedAt     time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 type ButlerAuthorization struct {
@@ -54,6 +73,53 @@ type ButlerAuthorization struct {
 	Status          string     `json:"status" db:"status"`
 	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
 	RespondedAt     *time.Time `json:"responded_at,omitempty" db:"responded_at"`
+}
+
+type SSHKey struct {
+	ID            int       `json:"id" db:"id"`
+	Name          string    `json:"name" db:"name"`
+	PublicKey     string    `json:"public_key,omitempty" db:"public_key"`
+	PrivateKey    string    `json:"private_key,omitempty"`
+	HasPrivateKey bool      `json:"has_private_key"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+}
+
+type InfraNode struct {
+	ID          int       `json:"id" db:"id"`
+	Name        string    `json:"name" db:"name"`
+	Host        string    `json:"host" db:"host"`
+	Port        int       `json:"port" db:"port"`
+	SSHUser     string    `json:"ssh_user" db:"ssh_user"`
+	SSHKeyID    int       `json:"ssh_key_id" db:"ssh_key_id"`
+	Description string    `json:"description,omitempty" db:"description"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+}
+
+type InfraNodeTestResult struct {
+	NodeID       int       `json:"node_id"`
+	OK           bool      `json:"ok"`
+	Message      string    `json:"message"`
+	RoundTripMS  int64     `json:"round_trip_ms"`
+	CheckedAtUTC time.Time `json:"checked_at_utc"`
+}
+
+type OpenHandsTaskRecord struct {
+	ID          string    `json:"id"`
+	Task        string    `json:"task"`
+	Reasoning   string    `json:"reasoning,omitempty"`
+	Status      string    `json:"status,omitempty"`
+	CurrentStep string    `json:"current_step,omitempty"`
+	LiveOutput  string    `json:"live_output,omitempty"`
+	Success     bool      `json:"success"`
+	Summary     string    `json:"summary,omitempty"`
+	Error       string    `json:"error,omitempty"`
+	WorkerMode  string    `json:"worker_mode,omitempty"`
+	StartedAt   time.Time `json:"started_at"`
+	FinishedAt  time.Time `json:"finished_at"`
+	DurationMS  int64     `json:"duration_ms"`
+	UpdatedAt   time.Time `json:"updated_at,omitempty"`
 }
 
 type FeishuConnector struct {
