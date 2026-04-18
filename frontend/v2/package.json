@@ -1,0 +1,13 @@
+{
+  "name": "echocenter-frontend-v2",
+  "private": true,
+  "version": "0.0.0",
+  "description": "EchoCenter v2 UI — Linear/Vercel-style redesign (zero-build HTML + React via Babel standalone CDN).",
+  "scripts": {
+    "dev": "python3 -m http.server 5173",
+    "build": "rm -rf dist && mkdir dist && cp -R index.html styles.css src dist/",
+    "preview": "python3 -m http.server 5173 --directory dist",
+    "lint": "echo 'v2 prototype — no lint configured' && exit 0",
+    "test": "echo 'v2 prototype — no tests configured' && exit 0"
+  }
+}
