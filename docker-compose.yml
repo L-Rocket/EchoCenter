@@ -24,6 +24,9 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      args:
+        # Override with:  FRONTEND_VERSION=v3 docker compose build frontend
+        FRONTEND_VERSION: ${FRONTEND_VERSION:-v1}
     depends_on:
       - backend
     ports:
