@@ -181,8 +181,15 @@ go build -o bin/server ./cmd/server
 ### 1. Clone Repository
 
 ```bash
-cd ../frontend
+cd ../frontend/v1          # or v2 / v3 — see `make help` for the selector
 ```
+
+> The `frontend/` directory now contains three parallel versions:
+> - `v1/` — original React/Vite app (this setup guide targets v1)
+> - `v2/` — zero-build HTML prototype wired to the backend
+> - `v3/` — v1 codebase restyled in v2's design language
+>
+> Use `make dev FRONTEND_VERSION=v1|v2|v3` to pick which one to run.
 
 ### 2. Install Dependencies
 
@@ -296,7 +303,7 @@ If you prefer to start services manually:
 cd backend && go run cmd/server/main.go
 
 # Terminal 2: Frontend
-cd frontend && npm run dev
+cd frontend/v1 && npm run dev   # or v3
 
 # Terminal 3: Agent (optional)
 cd backend && python3 mock_agents/storage_custodian.py
@@ -324,10 +331,11 @@ COPY backend/requirements.txt ./
 RUN pip install -r requirements.txt
 
 FROM node:18-alpine AS frontend
+ARG FRONTEND_VERSION=v1
 WORKDIR /app
-COPY frontend/package*.json ./
+COPY frontend/${FRONTEND_VERSION}/package*.json ./
 RUN npm install
-COPY frontend/ ./
+COPY frontend/${FRONTEND_VERSION}/ ./
 RUN npm run build
 
 FROM nginx:alpine

@@ -1,126 +1,135 @@
-import { useMemo, useState } from 'react'
-import { Bot, MessageSquareShare, Server, ShieldEllipsis } from 'lucide-react'
-import FeishuIntegrationSettings from '@/components/admin/FeishuIntegrationSettings'
-import UserManagement from '@/components/admin/UserManagement'
-import { useI18n } from '@/hooks/useI18n'
-import { cn } from '@/lib/utils'
+import { useMemo, useState } from 'react';
+import { Bot, MessageSquareShare, Server, ShieldEllipsis, ChevronRight } from 'lucide-react';
+import FeishuIntegrationSettings from '@/components/admin/FeishuIntegrationSettings';
+import UserManagement from '@/components/admin/UserManagement';
 
-type SettingsPanel = 'agents' | 'integrations' | 'nodes' | 'ssh'
+type SettingsPanel = 'agents' | 'integrations' | 'nodes' | 'ssh';
 
 const SettingsPage = () => {
-  const { tx } = useI18n()
-  const [panel, setPanel] = useState<SettingsPanel>('agents')
+  const [panel, setPanel] = useState<SettingsPanel>('agents');
 
-  const panels = useMemo(() => ([
-    {
-      key: 'agents' as const,
-      label: tx('Agent Config', 'Agent 配置'),
-      desc: tx('Create and tune registered runtimes.', '创建并调整已注册运行时。'),
-      icon: Bot,
-    },
-    {
-      key: 'integrations' as const,
-      label: tx('Feishu', '飞书'),
-      desc: tx('Configure inbound channel routing.', '配置外部渠道接入与路由。'),
-      icon: MessageSquareShare,
-    },
-    {
-      key: 'nodes' as const,
-      label: tx('Nodes', '节点'),
-      desc: tx('Attach infrastructure targets for runtime use.', '添加供运行时使用的基础设施目标。'),
-      icon: Server,
-    },
-    {
-      key: 'ssh' as const,
-      label: tx('SSH Vault', 'SSH 密钥'),
-      desc: tx('Manage encrypted SSH credentials.', '管理加密 SSH 凭据。'),
-      icon: ShieldEllipsis,
-    },
-  ]), [tx])
+  const panels = useMemo(
+    () =>
+      [
+        {
+          key: 'agents' as const,
+          label: 'Agent Config',
+          desc: 'Create and tune registered runtimes.',
+          icon: Bot,
+        },
+        {
+          key: 'integrations' as const,
+          label: 'Feishu',
+          desc: 'Configure inbound channel routing.',
+          icon: MessageSquareShare,
+        },
+        {
+          key: 'nodes' as const,
+          label: 'Nodes',
+          desc: 'Attach infrastructure targets for runtime use.',
+          icon: Server,
+        },
+        {
+          key: 'ssh' as const,
+          label: 'SSH Vault',
+          desc: 'Manage encrypted SSH credentials.',
+          icon: ShieldEllipsis,
+        },
+      ] as const,
+    []
+  );
 
-  const activePanel = panels.find((item) => item.key === panel) ?? panels[0]
+  const activePanel = panels.find((p) => p.key === panel) ?? panels[0];
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-[28px] border border-border/70 bg-gradient-to-br from-muted/25 via-background to-background p-5 shadow-[0_24px_80px_-48px_rgba(0,0,0,0.75)]">
-        <div className="space-y-3">
-          <div className="text-[11px] font-black uppercase tracking-[0.3em] text-primary/80">
-            {tx('Configuration Matrix', '配置矩阵')}
-          </div>
-          <div className="space-y-1">
-            <h2 className="text-2xl font-black tracking-tight lg:text-[2rem]">
-              {tx('Settings Control Center', '设置控制中心')}
-            </h2>
-            <p className="max-w-3xl text-[13px] text-muted-foreground">
-              {tx(
-                'Keep runtime creation and infrastructure onboarding in configuration space, while Operations stays focused on visibility and execution health.',
-                '将运行时创建和基础设施接入保留在配置空间中，让运维页专注于可观测性和执行健康。'
-              )}
-            </p>
-          </div>
+    <div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, marginBottom: 24 }}>
+        <div style={{ maxWidth: 720 }}>
+          <div className="eyebrow">Admin · Settings</div>
+          <h1 className="h1-display" style={{ margin: '10px 0 8px' }}>Configuration matrix.</h1>
+          <p style={{ margin: 0, color: 'var(--fg-muted)', fontSize: 14 }}>
+            Runtime creation, credentials, and connector wiring live here. Operations keeps the visibility view.
+          </p>
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[252px_minmax(0,1fr)]">
-        <aside className="xl:sticky xl:top-24 h-fit">
-          <div className="rounded-[28px] border border-border/70 bg-card/60 p-3 shadow-[0_24px_80px_-48px_rgba(0,0,0,0.75)] backdrop-blur-sm">
-            <div className="px-3 pb-3 pt-2">
-              <div className="text-[10px] font-black uppercase tracking-[0.28em] text-primary/80">
-                {tx('Settings Views', '设置视图')}
-              </div>
-              <div className="mt-2 text-[13px] text-muted-foreground">
-                {tx('Use configuration views for onboarding, credentials, and connector setup.', '用配置视图处理接入、凭据与渠道配置。')}
+      <div style={{ display: 'grid', gridTemplateColumns: '252px minmax(0, 1fr)', gap: 20 }}>
+        <aside style={{ position: 'sticky', top: 20, alignSelf: 'start' }}>
+          <div className="v3-card" style={{ padding: 8 }}>
+            <div style={{ padding: '8px 10px 6px' }}>
+              <div className="eyebrow">Settings Views</div>
+              <div style={{ fontSize: 12, color: 'var(--fg-muted)', marginTop: 6, lineHeight: 1.5 }}>
+                Onboarding, credentials, and connector setup.
               </div>
             </div>
-            <div className="space-y-2">
-              {panels.map((item) => (
+            {panels.map((item) => {
+              const active = panel === item.key;
+              return (
                 <button
                   key={item.key}
-                  type="button"
                   onClick={() => setPanel(item.key)}
-                  className={cn(
-                    'w-full rounded-2xl border px-3 py-3 text-left transition-all',
-                    panel === item.key
-                      ? 'border-primary bg-primary/10 shadow-[0_18px_50px_-35px_rgba(255,255,255,0.55)]'
-                      : 'border-border/70 bg-background/50 hover:border-border'
-                  )}
+                  style={{
+                    width: '100%',
+                    border: 'none',
+                    background: active ? 'var(--bg-sunken)' : 'transparent',
+                    boxShadow: active ? 'inset 0 0 0 1px var(--border-base)' : undefined,
+                    borderRadius: 10,
+                    padding: 12,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    marginTop: 4,
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 10,
+                    color: 'var(--fg)',
+                    transition: 'all 220ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+                  }}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className={cn(
-                      'mt-0.5 rounded-xl border p-2',
-                      panel === item.key ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border/70 text-muted-foreground'
-                    )}>
-                      <item.icon className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-black uppercase tracking-[0.22em]">{item.label}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">{item.desc}</div>
+                  <div
+                    style={{
+                      marginTop: 2,
+                      width: 30,
+                      height: 30,
+                      borderRadius: 8,
+                      display: 'grid',
+                      placeItems: 'center',
+                      background: active ? 'var(--accent-soft)' : 'var(--bg-sunken)',
+                      color: active ? 'var(--accent-hue)' : 'var(--fg-muted)',
+                      border: '1px solid var(--border-faint)',
+                    }}
+                  >
+                    <item.icon size={14} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="eyebrow" style={{ fontSize: 10 }}>{item.label}</div>
+                    <div style={{ fontSize: 12, color: 'var(--fg-muted)', marginTop: 4, lineHeight: 1.5 }}>
+                      {item.desc}
                     </div>
                   </div>
+                  <ChevronRight size={14} style={{ color: active ? 'var(--accent-hue)' : 'var(--fg-faint)', alignSelf: 'center' }} />
                 </button>
-              ))}
-            </div>
+              );
+            })}
           </div>
         </aside>
 
-        <section className="space-y-6">
-          <div className="rounded-[28px] border border-border/70 bg-card/40 p-5 backdrop-blur-sm">
-            <div className="text-[10px] font-black uppercase tracking-[0.28em] text-primary/80">
-              {tx('Current View', '当前视图')}
-            </div>
-            <h3 className="mt-2 text-xl font-black tracking-tight lg:text-2xl">{activePanel.label}</h3>
-            <p className="mt-1 max-w-2xl text-[13px] text-muted-foreground">{activePanel.desc}</p>
+        <section style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="v3-card" style={{ padding: '18px 20px' }}>
+            <div className="eyebrow">Current view</div>
+            <h2 className="h2-display" style={{ margin: '8px 0 6px' }}>{activePanel.label}</h2>
+            <p style={{ fontSize: 13, color: 'var(--fg-muted)', margin: 0 }}>{activePanel.desc}</p>
           </div>
-
-          {panel === 'integrations' ? (
-            <FeishuIntegrationSettings />
-          ) : (
-            <UserManagement mode="settings" forcedPanel={panel === 'agents' ? 'agents' : panel === 'nodes' ? 'nodes' : 'ssh'} />
-          )}
+          <div className="v3-card" style={{ padding: 0, overflow: 'hidden' }}>
+            {panel === 'integrations' ? (
+              <FeishuIntegrationSettings />
+            ) : (
+              <UserManagement mode="settings" forcedPanel={panel === 'agents' ? 'agents' : panel === 'nodes' ? 'nodes' : 'ssh'} />
+            )}
+          </div>
         </section>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default SettingsPage
+export default SettingsPage;

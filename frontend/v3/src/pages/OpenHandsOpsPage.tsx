@@ -1,222 +1,378 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Bot, ChevronLeft, ChevronRight, Loader2, Plus, ShieldAlert, Wrench } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, RefreshCw, ShieldAlert, Terminal } from 'lucide-react';
 import ChatView from '@/components/agent/ChatView';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { useI18n } from '@/hooks/useI18n';
-import { cn } from '@/lib/utils';
+import { Pill } from '@/components/v3/Pill';
+import { PulseDot } from '@/components/v3/PulseDot';
+import { ThinkingChip } from '@/components/v3/ThinkingChip';
 import { userService } from '@/services/userService';
-import type { Agent, ConversationThread } from '@/types';
+import type { Agent, ConversationThread, OpenHandsStatus, OpenHandsTaskRecord } from '@/types';
+
+function formatDuration(r: OpenHandsTaskRecord): string {
+  if (r.duration_ms && r.duration_ms > 0) {
+    const s = Math.round(r.duration_ms / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    return `${m}m ${s % 60}s`;
+  }
+  if (r.started_at) {
+    const d = new Date(r.started_at);
+    const diff = Date.now() - d.getTime();
+    if (diff > 0) {
+      const s = Math.round(diff / 1000);
+      if (s < 60) return `${s}s elapsed`;
+      const m = Math.floor(s / 60);
+      return `${m}m ${s % 60}s elapsed`;
+    }
+  }
+  return '—';
+}
 
 const OpenHandsOpsPage = () => {
-  const { tx } = useI18n();
   const [agent, setAgent] = useState<Agent | null>(null);
   const [threads, setThreads] = useState<ConversationThread[]>([]);
   const [selectedThreadId, setSelectedThreadId] = useState<number | null>(null);
+  const [tasks, setTasks] = useState<OpenHandsTaskRecord[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [status, setStatus] = useState<OpenHandsStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const runningRef = useRef(false);
+  const liveRef = useRef<HTMLPreElement>(null);
 
   const fetchAgent = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
     try {
       const data = await userService.getAgents();
-      const agentList = Array.isArray(data) ? data : [];
+      const list = Array.isArray(data) ? data : [];
       const opsAgent =
-        agentList.find((item) => item.agent_kind === 'openhands_ops') ||
-        agentList.find((item) => (item.username || '').toLowerCase() === 'openhands-ops');
-
-      setAgent(opsAgent ?? null);
+        list.find((a) => a.agent_kind === 'openhands_ops') ||
+        list.find((a) => (a.username || '').toLowerCase() === 'openhands-ops') ||
+        null;
+      setAgent(opsAgent);
       if (opsAgent?.id) {
-        const nextThreads = await userService.listConversationThreads(opsAgent.id, 'agent_direct');
-        setThreads(Array.isArray(nextThreads) ? nextThreads : []);
+        const next = await userService.listConversationThreads(opsAgent.id, 'agent_direct');
+        const arr = Array.isArray(next) ? next : [];
+        setThreads(arr);
+        setSelectedThreadId((curr) => curr ?? arr[0]?.id ?? null);
       } else {
         setThreads([]);
+        setError('Operator is not available yet.');
       }
-      if (!opsAgent) {
-        setError(tx('op-excutor is not available yet.', '执行官暂不可用。'));
-      }
-    } catch (_err) {
-      setError(tx('Failed to load op-excutor workspace.', '加载执行官工作区失败。'));
-      setAgent(null);
+    } catch {
+      setError('Failed to load operator workspace.');
     } finally {
       setLoading(false);
     }
-  }, [tx]);
+  }, []);
+
+  const pollOps = useCallback(async () => {
+    try {
+      const [st, ts] = await Promise.all([
+        userService.getOpenHandsStatus().catch(() => null),
+        userService.listOpenHandsTasks(10).catch(() => [] as OpenHandsTaskRecord[]),
+      ]);
+      setStatus(st);
+      setTasks(ts);
+      runningRef.current = ts.some((t) => String(t.status || '').toLowerCase() === 'running');
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   useEffect(() => {
-    fetchAgent();
+    void fetchAgent();
   }, [fetchAgent]);
 
   useEffect(() => {
-    if (threads.length === 0) {
-      setSelectedThreadId(null);
-      return;
-    }
-    if (!selectedThreadId || !threads.some((thread) => thread.id === selectedThreadId)) {
-      setSelectedThreadId(threads[0].id);
-    }
-  }, [selectedThreadId, threads]);
+    void pollOps();
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = () => {
+      if (cancelled) return;
+      const delay = runningRef.current ? 1500 : 4000;
+      timer = setTimeout(async () => {
+        await pollOps();
+        schedule();
+      }, delay);
+    };
+    schedule();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [pollOps]);
 
-  const selectedThread = threads.find((thread) => thread.id === selectedThreadId) ?? null;
+  const selectedThread = threads.find((t) => t.id === selectedThreadId) ?? null;
+
+  const selectedTask = useMemo(() => {
+    if (!tasks.length) return null;
+    if (selectedTaskId) {
+      const found = tasks.find((t) => t.id === selectedTaskId);
+      if (found) return found;
+    }
+    return tasks.find((t) => String(t.status || '').toLowerCase() === 'running') || tasks[0];
+  }, [tasks, selectedTaskId]);
+
+  useEffect(() => {
+    if (liveRef.current) liveRef.current.scrollTop = liveRef.current.scrollHeight;
+  }, [selectedTask?.live_output]);
 
   const createThread = async () => {
     if (!agent?.id) return;
     const created = await userService.createConversationThread({
       peer_id: agent.id,
       channel_kind: 'agent_direct',
-      title: tx('New op-excutor Conversation', '新的执行官会话'),
+      title: 'New Operator Session',
     });
-    const nextThreads = await userService.listConversationThreads(agent.id, 'agent_direct');
-    setThreads(Array.isArray(nextThreads) ? nextThreads : []);
+    const next = await userService.listConversationThreads(agent.id, 'agent_direct');
+    setThreads(Array.isArray(next) ? next : []);
     setSelectedThreadId(created.id);
   };
 
+  const runningCount = tasks.filter((t) => String(t.status || '').toLowerCase() === 'running').length;
+
+  if (loading) {
+    return (
+      <div style={{ display: 'grid', placeItems: 'center', height: '60vh' }}>
+        <ThinkingChip label="Loading operator" />
+      </div>
+    );
+  }
+
+  if (!agent || error) {
+    return (
+      <div style={{ display: 'grid', placeItems: 'center', height: '60vh' }}>
+        <div className="v3-card" style={{ padding: 28, maxWidth: 380, textAlign: 'center' }}>
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              margin: '0 auto 14px',
+              borderRadius: 14,
+              background: 'var(--bg-sunken)',
+              display: 'grid',
+              placeItems: 'center',
+              color: 'var(--fg-muted)',
+            }}
+          >
+            <ShieldAlert size={22} />
+          </div>
+          <h2 className="h2-display" style={{ margin: 0 }}>Operator Unavailable</h2>
+          <p style={{ margin: '10px 0 18px', color: 'var(--fg-muted)', fontSize: 13 }}>
+            {error || 'No operator runtime was found in current agents.'}
+          </p>
+          <button onClick={fetchAgent} style={ghostBtn}>
+            <RefreshCw size={13} /> Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-[calc(100dvh-110px)] min-h-[680px]">
-      {loading ? (
-        <Card className="flex h-full items-center justify-center">
-          <div className="flex flex-col items-center gap-3 text-center">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              {tx('Loading op-excutor Workspace...', '加载执行官工作区中...')}
-            </span>
-          </div>
-        </Card>
-      ) : !agent || error ? (
-        <Card className="flex h-full items-center justify-center p-8">
-          <div className="max-w-sm text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border bg-muted text-muted-foreground">
-              <ShieldAlert className="h-7 w-7" />
-            </div>
-            <h2 className="text-lg font-bold">{tx('op-excutor Unavailable', '执行官不可用')}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {error || tx('No op-excutor runtime was found in current agents.', '当前 agent 列表中未找到执行官运行时。')}
-            </p>
-            <Button onClick={fetchAgent} variant="outline" className="mt-6">
-              {tx('Retry', '重试')}
-            </Button>
-          </div>
-        </Card>
-      ) : (
-        <div className={`grid h-full min-h-0 gap-4 ${sidebarCollapsed ? 'xl:grid-cols-[82px_minmax(0,1fr)]' : 'xl:grid-cols-[280px_minmax(0,1fr)]'}`}>
-          <Card className="flex min-h-0 flex-col overflow-hidden border-border/70 bg-card/60">
-            <div className="border-b px-5 py-4">
-              <div className="flex items-center justify-between gap-3">
-                {!sidebarCollapsed && (
-                  <div className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-primary/85">
-                    <Wrench className="h-3 w-3" />
-                    {tx('op-excutor Workspace', '执行官工作区')}
-                  </div>
+    <div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, marginBottom: 24 }}>
+        <div style={{ maxWidth: 720 }}>
+          <div className="eyebrow">Admin · Operator</div>
+          <h1 className="h1-display" style={{ margin: '10px 0 8px' }}>OpenHands operator console.</h1>
+          <p style={{ margin: 0, color: 'var(--fg-muted)', fontSize: 14 }}>
+            {status
+              ? `${status.worker_reachable ? 'Worker reachable' : 'Worker unreachable'} · mode ${status.worker_mode || '—'} · ${runningCount} running / ${tasks.length} recent`
+              : 'Loading status…'}
+          </p>
+        </div>
+        <button onClick={pollOps} style={ghostBtn}>
+          <RefreshCw size={13} /> Refresh
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 14, marginBottom: 24 }}>
+        <div className="v3-card" style={{ padding: 0 }}>
+          <PanelHeader
+            title="Recent Runs"
+            right={
+              <Pill kind={runningCount ? 'green' : 'default'}>
+                {runningCount ? (
+                  <>
+                    <PulseDot size={5} /> {runningCount} running
+                  </>
+                ) : (
+                  `${tasks.length} total`
                 )}
-                <button
-                  type="button"
-                  className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-xl border bg-background text-muted-foreground transition-colors hover:text-foreground"
-                  onClick={() => setSidebarCollapsed((value) => !value)}
-                >
-                  {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+              </Pill>
+            }
+          />
+          <div style={{ padding: 16, maxHeight: 420, overflowY: 'auto' }}>
+            {tasks.length === 0 ? (
+              <div style={{ padding: 20, color: 'var(--fg-dim)', fontSize: 13 }}>No OpenHands tasks recorded.</div>
+            ) : (
+              tasks.map((r) => {
+                const st = String(r.status || '').toLowerCase();
+                const isRunning = st === 'running';
+                const isFailed = st === 'failed' || r.success === false;
+                const pillKind = isRunning ? 'green' : isFailed ? 'red' : 'blue';
+                const active = selectedTask && selectedTask.id === r.id;
+                return (
+                  <div
+                    key={r.id}
+                    onClick={() => setSelectedTaskId(r.id)}
+                    className="v3-card"
+                    style={{
+                      padding: 14,
+                      marginBottom: 10,
+                      cursor: 'pointer',
+                      borderColor: active ? 'var(--accent-hue)' : 'var(--border-base)',
+                      boxShadow: active ? '0 0 0 1px var(--accent-glow)' : undefined,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                      <Terminal size={14} style={{ color: 'var(--accent-hue)' }} />
+                      <div
+                        style={{
+                          fontWeight: 500,
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          flex: 1,
+                        }}
+                        title={r.task}
+                      >
+                        {r.task || '(untitled task)'}
+                      </div>
+                      <Pill kind={pillKind}>
+                        {isRunning ? <PulseDot size={5} /> : null}
+                        {r.status || 'unknown'}
+                      </Pill>
+                    </div>
+                    <div
+                      className="v3-mono"
+                      style={{ fontSize: 11, display: 'flex', gap: 14, flexWrap: 'wrap', color: 'var(--fg-dim)' }}
+                    >
+                      <span>{r.id}</span>
+                      <span>{r.worker_mode || '—'}</span>
+                      <span>{formatDuration(r)}</span>
+                      {r.current_step ? <span>step: {r.current_step}</span> : null}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+        <div className="v3-card" style={{ padding: 0 }}>
+          <PanelHeader
+            title="Live Output"
+            right={
+              <>
+                <Pill kind="accent">{selectedTask ? selectedTask.id : '—'}</Pill>
+                {selectedTask ? (
+                  <span className="v3-mono" style={{ fontSize: 10, color: 'var(--fg-dim)' }}>
+                    {String(selectedTask.status || '').toLowerCase() === 'running'
+                      ? 'streaming · 1.5s poll'
+                      : 'final · 4s poll'}
+                  </span>
+                ) : null}
+              </>
+            }
+          />
+          <pre
+            ref={liveRef}
+            style={{
+              padding: 20,
+              margin: 0,
+              fontFamily: 'var(--font-mono)',
+              fontSize: 12,
+              lineHeight: 1.6,
+              color: 'var(--fg-muted)',
+              maxHeight: 420,
+              minHeight: 240,
+              overflow: 'auto',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}
+          >
+            {selectedTask
+              ? selectedTask.live_output || selectedTask.summary || selectedTask.error || '(no output yet)'
+              : '(select a run on the left)'}
+          </pre>
+        </div>
+      </div>
+
+      <div className="v3-card" style={{ padding: 0, overflow: 'hidden', minHeight: 420 }}>
+        <PanelHeader
+          title="Operator Chat"
+          right={
+            <button onClick={createThread} style={{ ...accentBtn, padding: '5px 10px' }}>
+              <Plus size={12} /> New session
+            </button>
+          }
+        />
+        <div style={{ minHeight: 360, height: 'calc(100dvh - 720px)' }}>
+          {selectedThread ? (
+            <ChatView agent={agent} thread={selectedThread} />
+          ) : (
+            <div style={{ display: 'grid', placeItems: 'center', height: '100%', color: 'var(--fg-dim)', padding: 24, textAlign: 'center' }}>
+              <div>
+                <div className="h2-display">Start an operator session</div>
+                <p style={{ fontSize: 13, color: 'var(--fg-muted)', marginTop: 8 }}>
+                  Create a new thread to send instructions to the OpenHands worker.
+                </p>
+                <button onClick={createThread} style={{ ...accentBtn, marginTop: 14 }}>
+                  <Plus size={13} /> New session
                 </button>
               </div>
-              <div className={`mt-4 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} gap-3`}>
-                <div className="flex items-center gap-3">
-                  <div className="rounded-2xl border bg-primary/10 p-2 text-primary">
-                    <Bot className="h-4 w-4" />
-                  </div>
-                  {!sidebarCollapsed && (
-                    <div>
-                      <div className="text-sm font-bold">{tx('op-excutor', '执行官')}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                        {agent.username}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {!sidebarCollapsed && (
-                  <Button onClick={createThread} size="sm" className="h-9 rounded-xl text-[10px] uppercase tracking-[0.18em]">
-                    <Plus className="mr-1 h-3.5 w-3.5" />
-                    {tx('New', '新建')}
-                  </Button>
-                )}
-              </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-3">
-              <div className="space-y-2">
-                {threads.map((thread) => (
-                  <button
-                    key={thread.id}
-                    type="button"
-                    className={cn(
-                      `w-full rounded-2xl border ${sidebarCollapsed ? 'px-3 py-3 text-center' : 'px-4 py-3 text-left'} transition-all`,
-                      selectedThreadId === thread.id
-                        ? 'border-primary/40 bg-primary/5 shadow-[0_18px_50px_-42px_rgba(255,255,255,0.4)]'
-                        : 'border-border/70 bg-background/50 hover:border-border hover:bg-background/70'
-                    )}
-                    onClick={() => setSelectedThreadId(thread.id)}
-                  >
-                    {sidebarCollapsed ? (
-                      <div className="space-y-2">
-                        <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl border bg-background text-xs font-black text-foreground">
-                          {(thread.title || 'T').slice(0, 1).toUpperCase()}
-                        </div>
-                        <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                          #{thread.id}
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="line-clamp-1 text-sm font-semibold">{thread.title}</div>
-                        <div className="mt-1 line-clamp-2 text-[11px] leading-5 text-muted-foreground">
-                          {thread.summary || tx('Direct workstream with the op-excutor.', '与执行官的直接工作流。')}
-                        </div>
-                        <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                          {thread.last_message_at ? new Date(thread.last_message_at).toLocaleString() : tx('Fresh thread', '新会话')}
-                        </div>
-                      </>
-                    )}
-                  </button>
-                ))}
-                {threads.length === 0 && (
-                  sidebarCollapsed ? (
-                    <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-2 py-6 text-center text-[10px] text-muted-foreground">
-                      {tx('Empty', '空')}
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
-                      {tx('No op-excutor conversation yet. Create one to get started.', '还没有执行官会话，先创建一个开始吧。')}
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-            {sidebarCollapsed && (
-              <div className="border-t p-3">
-                <Button onClick={createThread} size="icon" className="h-10 w-full rounded-2xl">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </Card>
-
-          <Card className="min-h-0 overflow-hidden border-border/70 bg-background">
-            {selectedThread ? (
-              <ChatView agent={agent} thread={selectedThread} renderAssistantAsMarkdown />
-            ) : (
-              <div className="flex h-full items-center justify-center text-center">
-                <div className="max-w-sm space-y-3 px-8">
-                  <div className="text-lg font-bold">{tx('Pick an op-excutor thread', '选择一个执行官会话')}</div>
-                  <p className="text-sm text-muted-foreground">
-                    {tx('Use the left rail to resume an existing op-excutor session or create a new one.', '使用左侧会话栏恢复已有执行官会话，或创建一个新的会话。')}
-                  </p>
-                </div>
-              </div>
-            )}
-          </Card>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
+};
+
+function PanelHeader({ title, right }: { title: string; right?: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '16px 20px',
+        borderBottom: '1px solid var(--border-faint)',
+      }}
+    >
+      <h3 className="h3-display" style={{ margin: 0 }}>{title}</h3>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{right}</div>
+    </div>
+  );
+}
+
+const ghostBtn: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 7,
+  padding: '7px 12px',
+  borderRadius: 8,
+  fontSize: 13,
+  fontWeight: 500,
+  background: 'var(--bg-sunken)',
+  color: 'var(--fg)',
+  border: '1px solid var(--border-faint)',
+  cursor: 'pointer',
+};
+
+const accentBtn: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 7,
+  padding: '7px 12px',
+  borderRadius: 8,
+  fontSize: 12,
+  fontWeight: 500,
+  background: 'var(--accent-hue)',
+  color: 'var(--accent-ink)',
+  border: 0,
+  cursor: 'pointer',
+  boxShadow: '0 0 0 1px var(--accent-glow), 0 8px 28px -10px var(--accent-glow)',
 };
 
 export default OpenHandsOpsPage;
