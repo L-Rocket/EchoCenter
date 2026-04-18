@@ -8,5 +8,7 @@ backend/data
 backend/tmp
 frontend/node_modules
 frontend/dist
+frontend/*/node_modules
+frontend/*/dist
 docs/node_modules
 **/.DS_Store

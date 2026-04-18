@@ -181,8 +181,15 @@ go build -o bin/server ./cmd/server
 ### 1. 克隆仓库
 
 ```bash
-cd ../frontend
+cd ../frontend/v1          # 或 v2 / v3 — 参见 `make help` 里的版本选择器
 ```
+
+> `frontend/` 目录下现在并存三个版本:
+> - `v1/` — 原始 React/Vite 应用(本指南以 v1 为例)
+> - `v2/` — 接入真实后端的零构建 HTML 设计原型
+> - `v3/` — 用 v2 设计语言重构后的 v1 代码库
+>
+> 通过 `make dev FRONTEND_VERSION=v1|v2|v3` 切换要跑哪一版。
 
 ### 2. 安装依赖
 
@@ -296,7 +303,7 @@ make run-mock-postgre
 cd backend && go run cmd/server/main.go
 
 # 终端 2: 前端
-cd frontend && npm run dev
+cd frontend/v1 && npm run dev   # 或 v3
 
 # 终端 3: 代理 (可选)
 cd backend && python3 mock_agents/storage_custodian.py
@@ -325,10 +332,11 @@ COPY backend/requirements.txt ./
 RUN pip install -r requirements.txt
 
 FROM node:18-alpine AS frontend
+ARG FRONTEND_VERSION=v1
 WORKDIR /app
-COPY frontend/package*.json ./
+COPY frontend/${FRONTEND_VERSION}/package*.json ./
 RUN npm install
-COPY frontend/ ./
+COPY frontend/${FRONTEND_VERSION}/ ./
 RUN npm run build
 
 FROM nginx:alpine
