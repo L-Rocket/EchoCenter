@@ -1,288 +1,364 @@
-import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, MessageSquare, PanelLeftClose, PanelLeftOpen, Plus, Search } from 'lucide-react'
-import AgentList from '@/components/agent/AgentList'
-import ChatView from '@/components/agent/ChatView'
-import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { useI18n } from '@/hooks/useI18n'
-import { userService } from '@/services/userService'
-import type { Agent, ConversationThread } from '@/types'
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Plus, Search, LayoutGrid, RefreshCw } from 'lucide-react';
+import ChatView from '@/components/agent/ChatView';
+import { PulseDot } from '@/components/v3/PulseDot';
+import { Pill } from '@/components/v3/Pill';
+import { AgentAvatar } from '@/components/v3/AgentAvatar';
+import { userService } from '@/services/userService';
+import type { Agent, ConversationThread } from '@/types';
 
-const AgentsPage = () => {
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
-  const [threads, setThreads] = useState<ConversationThread[]>([])
-  const [selectedThreadId, setSelectedThreadId] = useState<number | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [agentRailCollapsed, setAgentRailCollapsed] = useState(false)
-  const [threadRailCollapsed, setThreadRailCollapsed] = useState(false)
-  const [contextRailCollapsed, setContextRailCollapsed] = useState(true)
-  const { tx } = useI18n()
+type View = 'split' | 'grid';
+type AgentStatus = 'online' | 'busy' | 'offline';
 
-  useEffect(() => {
-    const loadThreads = async () => {
-      if (!selectedAgent?.id) {
-        setThreads([])
-        setSelectedThreadId(null)
-        return
-      }
-      const nextThreads = await userService.listConversationThreads(selectedAgent.id, 'agent_direct')
-      setThreads(Array.isArray(nextThreads) ? nextThreads : [])
-    }
-    void loadThreads()
-  }, [selectedAgent?.id])
-
-  const resolvedSelectedThreadId = selectedThreadId && threads.some((thread) => thread.id === selectedThreadId)
-    ? selectedThreadId
-    : (threads[0]?.id ?? null)
-
-  const selectedThread = threads.find((thread) => thread.id === resolvedSelectedThreadId) ?? null
-
-  const createThread = async () => {
-    if (!selectedAgent?.id) return
-    const created = await userService.createConversationThread({
-      peer_id: selectedAgent.id,
-      channel_kind: 'agent_direct',
-      title: tx('New Agent Conversation', '新的 Agent 会话'),
-    })
-    const nextThreads = await userService.listConversationThreads(selectedAgent.id, 'agent_direct')
-    setThreads(Array.isArray(nextThreads) ? nextThreads : [])
-    setSelectedThreadId(created.id)
-  }
-
-  return (
-    <div className="h-[calc(100dvh-110px)] min-h-[680px]">
-      <div
-        className="relative grid h-full min-h-0 gap-4"
-        style={{
-          gridTemplateColumns: [
-            agentRailCollapsed ? '88px' : '280px',
-            threadRailCollapsed ? '88px' : '260px',
-            'minmax(0, 1fr)',
-            contextRailCollapsed ? '0px' : '300px',
-          ].join(' '),
-        }}
-      >
-        <Card className="flex min-h-0 flex-col overflow-hidden">
-          <div className="border-b p-4">
-            <div className="flex items-center justify-between">
-              {!agentRailCollapsed && (
-                <h3 className="text-sm font-bold uppercase tracking-wider">{tx('Agents', 'agent')}</h3>
-              )}
-              <div className="ml-auto flex items-center gap-2">
-                {!agentRailCollapsed && <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />}
-                <button
-                  type="button"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border bg-background text-muted-foreground transition-colors hover:text-foreground"
-                  onClick={() => setAgentRailCollapsed((value) => !value)}
-                >
-                  {agentRailCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-          </div>
-          {!agentRailCollapsed && (
-            <div className="border-b p-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={tx('Search agents', '搜索 agent')}
-                  className="h-9 pl-9 text-xs"
-                />
-              </div>
-            </div>
-          )}
-          <AgentList 
-            onSelectAgent={setSelectedAgent} 
-            selectedAgentId={selectedAgent?.id} 
-            excludeRoles={['BUTLER']}
-            excludeAgentKinds={['openhands_ops']}
-            searchQuery={searchQuery}
-            compact={agentRailCollapsed}
-          />
-        </Card>
-
-        <Card className="flex min-h-0 flex-col overflow-hidden">
-          <div className="border-b px-4 py-4">
-            <div className="flex items-center justify-between gap-3">
-              {!threadRailCollapsed && (
-                <div>
-                  <div className="text-sm font-bold">{tx('Conversations', '会话记录')}</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {selectedAgent ? selectedAgent.username : tx('Pick an agent first', '先选择一个 Agent')}
-                  </div>
-                </div>
-              )}
-              <div className="ml-auto flex items-center gap-2">
-                {!threadRailCollapsed && (
-                  <Button
-                    size="sm"
-                    className="h-9 rounded-xl text-[10px] uppercase tracking-[0.18em]"
-                    onClick={createThread}
-                    disabled={!selectedAgent}
-                  >
-                    <Plus className="mr-1 h-3.5 w-3.5" />
-                    {tx('New', '新建')}
-                  </Button>
-                )}
-                <button
-                  type="button"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border bg-background text-muted-foreground transition-colors hover:text-foreground"
-                  onClick={() => setThreadRailCollapsed((value) => !value)}
-                >
-                  {threadRailCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-3">
-            <div className="space-y-2">
-              {threads.map((thread) => (
-                <button
-                  key={thread.id}
-                  type="button"
-                  className={`w-full rounded-2xl border ${threadRailCollapsed ? 'px-3 py-3 text-center' : 'px-4 py-3 text-left'} transition-all ${
-                    selectedThreadId === thread.id
-                      ? 'border-primary bg-primary/10 shadow-[0_18px_50px_-38px_rgba(255,255,255,0.55)]'
-                      : 'border-border/70 bg-background/60 hover:border-border'
-                  }`}
-                  onClick={() => setSelectedThreadId(thread.id)}
-                >
-                  {threadRailCollapsed ? (
-                    <div className="space-y-2">
-                      <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl border bg-background text-xs font-black text-foreground">
-                        {(thread.title || 'T').slice(0, 1).toUpperCase()}
-                      </div>
-                      <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                        #{thread.id}
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="text-sm font-semibold">{thread.title}</div>
-                      <div className="mt-1 text-[11px] text-muted-foreground">
-                        {thread.summary || tx('A focused workspace for this agent.', '围绕这个 Agent 的专属工作区。')}
-                      </div>
-                      <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                        {thread.last_message_at ? new Date(thread.last_message_at).toLocaleString() : tx('Fresh thread', '新会话')}
-                      </div>
-                    </>
-                  )}
-                </button>
-              ))}
-              {selectedAgent && threads.length === 0 && (
-                threadRailCollapsed ? (
-                  <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-2 py-6 text-center text-[10px] text-muted-foreground">
-                    {tx('Empty', '空')}
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
-                    {tx('No conversation with this agent yet.', '你和这个 Agent 还没有会话。')}
-                  </div>
-                )
-              )}
-            </div>
-          </div>
-          {threadRailCollapsed && (
-            <div className="border-t p-3">
-              <Button
-                size="icon"
-                className="h-10 w-full rounded-2xl"
-                onClick={createThread}
-                disabled={!selectedAgent}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-        </Card>
-
-        <Card className="min-h-0 overflow-hidden">
-          {selectedAgent && selectedThread ? (
-            <ChatView agent={selectedAgent} thread={selectedThread} renderAssistantAsMarkdown />
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center text-center p-8">
-              <div className="w-16 h-16 rounded-2xl shadow-sm border flex items-center justify-center mb-6 text-muted-foreground">
-                <MessageSquare className="h-8 w-8" />
-              </div>
-              <h3 className="text-lg font-bold mb-2">
-                {selectedAgent
-                  ? tx('Select a Conversation', '请选择一个会话')
-                  : tx('Select an Agent', '请选择 agent')}
-              </h3>
-              <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                {selectedAgent
-                  ? tx('Pick a thread on the left or create a new one for this agent.', '从左侧选择一个会话，或为这个 Agent 创建新会话。')
-                  : tx(
-                    'Select an autonomous entity from the hive to begin a secure bi-directional transmission.',
-                    '从左侧选择一个 agent，开始安全的双向对话。'
-                  )}
-              </p>
-            </div>
-          )}
-        </Card>
-
-        {!contextRailCollapsed && (
-          <Card className="flex min-h-0 flex-col overflow-hidden border-border/70 bg-card/60">
-            <div className="border-b px-4 py-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-primary/80">
-                    {tx('Agent Context', 'Agent 上下文')}
-                  </div>
-                  <div className="mt-2 text-base font-black">
-                    {selectedAgent?.username || tx('No agent selected', '未选择 Agent')}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border bg-background text-muted-foreground transition-colors hover:text-foreground"
-                  onClick={() => setContextRailCollapsed(true)}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 space-y-4 overflow-y-auto p-4">
-              {selectedAgent ? (
-                <>
-                  <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
-                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{tx('Role', '角色')}</div>
-                    <div className="mt-2 text-sm font-semibold">{selectedAgent.role}</div>
-                    <div className="mt-1 text-[11px] text-muted-foreground">{selectedAgent.description || tx('No description available.', '暂时没有描述。')}</div>
-                  </div>
-                  <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
-                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{tx('Runtime', '运行时')}</div>
-                    <div className="mt-2 text-sm font-semibold">{selectedAgent.runtime_kind || tx('websocket', 'websocket')}</div>
-                    <div className="mt-1 text-[11px] text-muted-foreground">
-                      {selectedAgent.online ? tx('Connected and ready to receive messages.', '当前在线，可直接接收消息。') : tx('Runtime state will appear here while the agent is connected.', 'Agent 连接后，运行态会显示在这里。')}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
-                  {tx('Select an agent to inspect its runtime context.', '选择一个 Agent 以查看它的运行时上下文。')}
-                </div>
-              )}
-            </div>
-          </Card>
-        )}
-        {contextRailCollapsed && (
-          <div className="pointer-events-none absolute right-10 top-28 z-10 hidden xl:block">
-            <button
-              type="button"
-              className="pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-2xl border bg-background/90 text-muted-foreground shadow-lg backdrop-blur transition-colors hover:text-foreground"
-              onClick={() => setContextRailCollapsed(false)}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  )
+function agentStatus(a: Agent): AgentStatus {
+  if (a.online === true) return 'online';
+  if ((a.status || '').toUpperCase() === 'BUSY') return 'busy';
+  if ((a.status || '').toUpperCase() === 'ONLINE') return 'online';
+  return 'offline';
 }
 
-export default AgentsPage
+function timeAgo(iso?: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const ms = Date.now() - d.getTime();
+  if (isNaN(ms) || ms < 0) return '—';
+  const s = Math.floor(ms / 1000);
+  if (s < 5) return 'now';
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+const AgentsPage = () => {
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [selected, setSelected] = useState<Agent | null>(null);
+  const [threads, setThreads] = useState<ConversationThread[]>([]);
+  const [selectedThreadId, setSelectedThreadId] = useState<number | null>(null);
+  const [query, setQuery] = useState('');
+  const [view, setView] = useState<View>('split');
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    try {
+      const data = await userService.getAgents();
+      const list = (Array.isArray(data) ? data : []).filter(
+        (a) => (a.role || '').toUpperCase() !== 'BUTLER' && a.agent_kind !== 'openhands_ops'
+      );
+      setAgents(list);
+      setSelected((prev) => prev && list.find((a) => a.id === prev.id) ? prev : list[0] ?? null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!selected?.id) {
+      setThreads([]);
+      setSelectedThreadId(null);
+      return;
+    }
+    let cancelled = false;
+    userService
+      .listConversationThreads(selected.id, 'agent_direct')
+      .then((list) => {
+        if (cancelled) return;
+        const arr = Array.isArray(list) ? list : [];
+        setThreads(arr);
+        setSelectedThreadId(arr[0]?.id ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setThreads([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selected?.id]);
+
+  const selectedThread = threads.find((t) => t.id === selectedThreadId) ?? null;
+
+  const filtered = useMemo(
+    () =>
+      agents.filter(
+        (a) =>
+          !query ||
+          (a.username + (a.role || '') + (a.description || '') + (a.agent_kind || ''))
+            .toLowerCase()
+            .includes(query.toLowerCase())
+      ),
+    [agents, query]
+  );
+
+  const createThread = async () => {
+    if (!selected?.id) return;
+    const created = await userService.createConversationThread({
+      peer_id: selected.id,
+      channel_kind: 'agent_direct',
+      title: 'New Agent Conversation',
+    });
+    const next = await userService.listConversationThreads(selected.id, 'agent_direct');
+    setThreads(Array.isArray(next) ? next : []);
+    setSelectedThreadId(created.id);
+  };
+
+  const onlineCount = agents.filter((a) => agentStatus(a) === 'online').length;
+  const offlineCount = agents.filter((a) => agentStatus(a) === 'offline').length;
+
+  if (view === 'grid') {
+    return (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, marginBottom: 28 }}>
+          <div style={{ maxWidth: 720 }}>
+            <div className="eyebrow">Workspace · Agents</div>
+            <h1 className="h1-display" style={{ margin: '10px 0 8px' }}>Your agent fleet.</h1>
+            <p style={{ margin: 0, color: 'var(--fg-muted)', fontSize: 14 }}>
+              {loading ? 'Loading…' : `${onlineCount} online, ${offlineCount} offline.`}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setView('split')} style={ghostBtn}>
+              <LayoutGrid size={13} /> Split view
+            </button>
+            <button onClick={refresh} style={ghostBtn}>
+              <RefreshCw size={13} /> Refresh
+            </button>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+          {filtered.map((a) => {
+            const st = agentStatus(a);
+            return (
+              <div
+                key={a.id}
+                className="v3-card hoverable"
+                style={{ padding: 18, cursor: 'pointer' }}
+                onClick={() => {
+                  setSelected(a);
+                  setView('split');
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                  <AgentAvatar name={a.username || ''} status={st} size={42} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em' }}>{a.username}</div>
+                    <div className="eyebrow" style={{ fontSize: 10 }}>{a.id}</div>
+                  </div>
+                  <Pill kind={st === 'online' ? 'green' : st === 'busy' ? 'amber' : 'default'}>{st}</Pill>
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--fg-muted)', lineHeight: 1.55, minHeight: 38 }}>
+                  {a.description || 'No description provided.'}
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    marginTop: 14,
+                    paddingTop: 12,
+                    borderTop: '1px solid var(--border-faint)',
+                    fontSize: 12,
+                    color: 'var(--fg-dim)',
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <Pill>{a.role || 'AGENT'}</Pill>
+                    <Pill>{a.runtime_kind || a.agent_kind || 'generic'}</Pill>
+                  </div>
+                  <span className="v3-mono" style={{ marginLeft: 'auto' }}>
+                    {timeAgo(a.last_seen_at)}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Split view
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '300px minmax(0, 1fr)', height: '100%' }}>
+      {/* Left rail */}
+      <div style={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border-faint)', minHeight: 0 }}>
+        <div style={{ padding: '18px 18px 14px', borderBottom: '1px solid var(--border-faint)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div>
+              <div className="eyebrow">Agent Fleet</div>
+              <div style={{ fontSize: 15, fontWeight: 600, marginTop: 4 }}>{agents.length} agents</div>
+            </div>
+            <button onClick={() => setView('grid')} title="Grid view" style={iconBtn}>
+              <LayoutGrid size={14} />
+            </button>
+          </div>
+          <div style={{ position: 'relative' }}>
+            <Search size={12} style={{ position: 'absolute', left: 10, top: 11, color: 'var(--fg-dim)' }} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search agents"
+              style={{
+                width: '100%',
+                height: 32,
+                padding: '0 12px 0 28px',
+                background: 'var(--bg-sunken)',
+                border: '1px solid var(--border-faint)',
+                color: 'var(--fg)',
+                borderRadius: 8,
+                fontSize: 13,
+                outline: 'none',
+              }}
+            />
+          </div>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: 10 }}>
+          {loading && agents.length === 0 ? (
+            <div style={{ padding: 20, color: 'var(--fg-dim)', fontSize: 13 }}>Loading…</div>
+          ) : filtered.length === 0 ? (
+            <div style={{ padding: 20, color: 'var(--fg-dim)', fontSize: 13 }}>No agents match.</div>
+          ) : (
+            filtered.map((a) => {
+              const st = agentStatus(a);
+              const active = selected?.id === a.id;
+              return (
+                <div
+                  key={a.id}
+                  onClick={() => setSelected(a)}
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: 10,
+                    cursor: 'pointer',
+                    background: active ? 'var(--bg-sunken)' : 'transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    marginBottom: 2,
+                  }}
+                >
+                  <AgentAvatar name={a.username || ''} status={st} size={32} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{a.username}</div>
+                    <div className="eyebrow" style={{ fontSize: 10 }}>
+                      {(a.role || 'AGENT')} · {a.runtime_kind || a.agent_kind || 'generic'}
+                    </div>
+                  </div>
+                  <div className="v3-mono" style={{ fontSize: 10, color: 'var(--fg-dim)' }}>
+                    {timeAgo(a.last_seen_at)}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* Detail */}
+      {selected ? (
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div
+            style={{
+              padding: '24px 28px 20px',
+              borderBottom: '1px solid var(--border-faint)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 18,
+            }}
+          >
+            <AgentAvatar name={selected.username || ''} status={agentStatus(selected)} size={56} />
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
+                <h2 className="h2-display" style={{ margin: 0 }}>{selected.username}</h2>
+                <Pill kind={agentStatus(selected) === 'online' ? 'green' : agentStatus(selected) === 'busy' ? 'amber' : 'default'}>
+                  <PulseDot size={5} tone={agentStatus(selected) === 'online' ? 'green' : 'amber'} />
+                  {agentStatus(selected)}
+                </Pill>
+                <Pill>{selected.role || 'AGENT'}</Pill>
+                <Pill>{selected.runtime_kind || selected.agent_kind || 'generic'}</Pill>
+              </div>
+              <div style={{ color: 'var(--fg-muted)', fontSize: 13 }}>{selected.description || 'No description provided.'}</div>
+              <div
+                className="v3-mono"
+                style={{ fontSize: 11, marginTop: 6, display: 'flex', gap: 18, flexWrap: 'wrap', color: 'var(--fg-dim)' }}
+              >
+                <span>id: {selected.id}</span>
+                <span>last seen: {timeAgo(selected.last_seen_at)}</span>
+                <span>token: {selected.token_hint || '—'}</span>
+              </div>
+            </div>
+            <button onClick={createThread} disabled={!selected} style={accentBtn}>
+              <Plus size={13} /> New thread
+            </button>
+          </div>
+          <div style={{ flex: 1, minHeight: 0 }}>
+            {selectedThread ? (
+              <ChatView agent={selected} thread={selectedThread} />
+            ) : (
+              <div style={{ display: 'grid', placeItems: 'center', height: '100%', padding: 40 }}>
+                <div style={{ textAlign: 'center', maxWidth: 360 }}>
+                  <div className="h2-display">Start a conversation</div>
+                  <p style={{ fontSize: 13, color: 'var(--fg-muted)', marginTop: 8 }}>
+                    {threads.length === 0 ? `No threads yet with ${selected.username}.` : 'Pick a thread on the left or create a new one.'}
+                  </p>
+                  <button onClick={createThread} style={{ ...accentBtn, marginTop: 14 }}>
+                    <Plus size={13} /> New thread
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', placeItems: 'center', color: 'var(--fg-dim)', fontSize: 13 }}>Select an agent from the list.</div>
+      )}
+    </div>
+  );
+};
+
+const ghostBtn: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 7,
+  padding: '7px 12px',
+  borderRadius: 8,
+  fontSize: 13,
+  fontWeight: 500,
+  background: 'var(--bg-sunken)',
+  color: 'var(--fg)',
+  border: '1px solid var(--border-faint)',
+  cursor: 'pointer',
+};
+
+const accentBtn: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 7,
+  padding: '5px 12px',
+  borderRadius: 8,
+  fontSize: 12,
+  fontWeight: 500,
+  background: 'var(--accent-hue)',
+  color: 'var(--accent-ink)',
+  border: 0,
+  cursor: 'pointer',
+  boxShadow: '0 0 0 1px var(--accent-glow), 0 8px 28px -10px var(--accent-glow)',
+};
+
+const iconBtn: React.CSSProperties = {
+  width: 30,
+  height: 30,
+  display: 'grid',
+  placeItems: 'center',
+  border: '1px solid transparent',
+  background: 'transparent',
+  color: 'var(--fg-muted)',
+  cursor: 'pointer',
+  borderRadius: 6,
+};
+
+export default AgentsPage;
