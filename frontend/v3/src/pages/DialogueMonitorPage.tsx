@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, ShieldAlert, SplitSquareVertical } from 'lucide-react';
+import { RefreshCw, ShieldAlert } from 'lucide-react';
 import ButlerDialogueMonitor from '@/components/butler/ButlerDialogueMonitor';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { useI18n } from '@/hooks/useI18n';
+import { Pill } from '@/components/v3/Pill';
+import { PulseDot } from '@/components/v3/PulseDot';
+import { ThinkingChip } from '@/components/v3/ThinkingChip';
 import { userService } from '@/services/userService';
 import type { Agent } from '@/types';
 
 const DialogueMonitorPage = () => {
-  const { tx } = useI18n();
   const [butler, setButler] = useState<Agent | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,28 +16,23 @@ const DialogueMonitorPage = () => {
   const fetchAgents = useCallback(async () => {
     setLoading(true);
     setError(null);
-
     try {
       const data = await userService.getAgents();
       const agentList = Array.isArray(data) ? data : [];
       const butlerAgent =
-        agentList.find((agent) => (agent.role || '').toUpperCase() === 'BUTLER') ||
-        agentList.find((agent) => (agent.username || '').toLowerCase() === 'butler');
-
+        agentList.find((a) => (a.role || '').toUpperCase() === 'BUTLER') ||
+        agentList.find((a) => (a.username || '').toLowerCase() === 'butler');
       setAgents(agentList);
       setButler(butlerAgent ?? null);
-
-      if (!butlerAgent) {
-        setError(tx('Butler is not available yet.', 'Butler 暂不可用。'));
-      }
-    } catch (_err) {
-      setError(tx('Failed to load monitor resources.', '加载监控资源失败。'));
+      if (!butlerAgent) setError('Butler is not available yet.');
+    } catch {
+      setError('Failed to load monitor resources.');
       setAgents([]);
       setButler(null);
     } finally {
       setLoading(false);
     }
-  }, [tx]);
+  }, []);
 
   useEffect(() => {
     void fetchAgents();
@@ -46,61 +40,95 @@ const DialogueMonitorPage = () => {
 
   if (loading) {
     return (
-      <Card className="flex h-[calc(100dvh-110px)] min-h-[680px] items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            {tx('Loading Dialogue Monitor...', '加载对话监控中...')}
-          </span>
-        </div>
-      </Card>
+      <div style={{ display: 'grid', placeItems: 'center', height: '60vh' }}>
+        <ThinkingChip label="Loading dialogue monitor" />
+      </div>
     );
   }
 
   if (!butler || error) {
     return (
-      <Card className="flex h-[calc(100dvh-110px)] min-h-[680px] items-center justify-center p-8">
-        <div className="max-w-sm text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border bg-muted text-muted-foreground">
-            <ShieldAlert className="h-7 w-7" />
+      <div style={{ display: 'grid', placeItems: 'center', height: '60vh' }}>
+        <div className="v3-card" style={{ padding: 28, maxWidth: 380, textAlign: 'center' }}>
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              margin: '0 auto 14px',
+              borderRadius: 14,
+              background: 'var(--bg-sunken)',
+              display: 'grid',
+              placeItems: 'center',
+              color: 'var(--fg-muted)',
+            }}
+          >
+            <ShieldAlert size={22} />
           </div>
-          <h2 className="text-lg font-bold">{tx('Monitor Unavailable', '监控不可用')}</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {error || tx('No Butler instance was found in current agents.', '当前 agent 列表中未找到 Butler 实例。')}
+          <h2 className="h2-display" style={{ margin: 0 }}>Monitor Unavailable</h2>
+          <p style={{ margin: '10px 0 18px', color: 'var(--fg-muted)', fontSize: 13 }}>
+            {error || 'No Butler instance was found in current agents.'}
           </p>
-          <Button onClick={fetchAgents} variant="outline" className="mt-6">
-            {tx('Retry', '重试')}
-          </Button>
+          <button
+            onClick={fetchAgents}
+            style={{
+              padding: '7px 14px',
+              borderRadius: 8,
+              background: 'var(--bg-sunken)',
+              border: '1px solid var(--border-faint)',
+              color: 'var(--fg)',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 7,
+              fontSize: 13,
+            }}
+          >
+            <RefreshCw size={13} /> Retry
+          </button>
         </div>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-[28px] border border-border/70 bg-gradient-to-br from-muted/25 via-background to-background p-5 shadow-[0_24px_80px_-48px_rgba(0,0,0,0.75)]">
-        <div className="space-y-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-primary/80">
-            <SplitSquareVertical className="h-3 w-3" />
-            {tx('Dialogue Monitor', '对话监控')}
-          </div>
-          <div className="space-y-1">
-            <h2 className="text-2xl font-black tracking-tight lg:text-[2rem]">
-              {tx('Butler-Agent Runtime Sidebar', 'Butler-Agent 运行时侧边栏')}
-            </h2>
-            <p className="max-w-3xl text-[13px] text-muted-foreground">
-              {tx(
-                'Inspect the hidden coordination channel between Butler and downstream agents without crowding the main conversation workspace.',
-                '把 Butler 与下游 Agent 的隐藏协作通道单独拿出来看，不再挤占主对话工作区。'
-              )}
-            </p>
-          </div>
+    <div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, marginBottom: 24 }}>
+        <div style={{ maxWidth: 720 }}>
+          <div className="eyebrow">Admin · Monitor</div>
+          <h1 className="h1-display" style={{ margin: '10px 0 8px' }}>Butler ↔ agent dialogue.</h1>
+          <p style={{ margin: 0, color: 'var(--fg-muted)', fontSize: 14 }}>
+            Inspect the hidden coordination channel between Butler and downstream agents in real time.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Pill kind="green">
+            <PulseDot size={5} /> Streaming
+          </Pill>
+          <button onClick={fetchAgents} style={ghostBtn}>
+            <RefreshCw size={13} /> Refresh
+          </button>
         </div>
       </div>
 
-      <ButlerDialogueMonitor butler={butler} agents={agents} className="h-[calc(100dvh-260px)] min-h-[560px]" />
+      <div className="v3-card" style={{ padding: 0, overflow: 'hidden', height: 'calc(100dvh - 260px)', minHeight: 560 }}>
+        <ButlerDialogueMonitor butler={butler} agents={agents} className="h-full" />
+      </div>
     </div>
   );
+};
+
+const ghostBtn: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 7,
+  padding: '7px 12px',
+  borderRadius: 8,
+  fontSize: 13,
+  fontWeight: 500,
+  background: 'var(--bg-sunken)',
+  color: 'var(--fg)',
+  border: '1px solid var(--border-faint)',
+  cursor: 'pointer',
 };
 
 export default DialogueMonitorPage;
