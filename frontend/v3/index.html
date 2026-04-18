@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EchoCenter</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      (function () {
+        const root = window.document.documentElement;
+        const theme = localStorage.getItem("ec-v3-theme") || "dark";
+        root.classList.remove("light", "dark");
+        if (theme === "system") {
+          const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          root.classList.add(prefersDark ? "dark" : "light");
+        } else {
+          root.classList.add(theme);
+        }
+        const accent = localStorage.getItem("ec-v3-accent") || "violet";
+        ["accent-violet", "accent-cyan", "accent-lime", "accent-orange"].forEach((c) => root.classList.remove(c));
+        root.classList.add("accent-" + accent);
+        if (localStorage.getItem("ec-v3-density") === "compact") root.classList.add("density-compact");
+        if (localStorage.getItem("ec-v3-motion") === "off") root.classList.add("no-motion");
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
