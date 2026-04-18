@@ -17,7 +17,8 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_DIR="$(dirname "$BACKEND_DIR")"
-FRONTEND_DIR="$PROJECT_DIR/frontend"
+FRONTEND_VERSION="${FRONTEND_VERSION:-v1}"
+FRONTEND_DIR="$PROJECT_DIR/frontend/$FRONTEND_VERSION"
 LOG_DIR="$BACKEND_DIR/logs"
 BACKEND_LOG_FILE="$LOG_DIR/run-mock-backend.log"
 OPENHANDS_LOG_FILE="$LOG_DIR/run-mock-openhands.log"
@@ -209,7 +210,11 @@ fi
 
 sleep 2
 
-echo -e "${YELLOW}[5/5] Starting frontend...${NC}"
+echo -e "${YELLOW}[5/5] Starting frontend ($FRONTEND_VERSION)...${NC}"
+if [ ! -d "$FRONTEND_DIR" ]; then
+    echo -e "${RED}  Frontend directory not found: $FRONTEND_DIR${NC}"
+    exit 1
+fi
 cd "$FRONTEND_DIR"
 npm run dev &
 FRONTEND_PID=$!

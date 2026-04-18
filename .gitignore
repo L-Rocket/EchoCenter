@@ -13,6 +13,10 @@ backend/bin/
 *.test
 *.out
 vendor/
+# frontend/v2 intentionally vendors React/ReactDOM/Babel so the zero-build
+# prototype runs offline and in sandboxed browsers — don't ignore those.
+!frontend/v2/vendor/
+!frontend/v2/vendor/**
 echocenter.db
 echocenter.db-journal
 backend/data/*
