@@ -17,21 +17,33 @@
   the iteration process.
 -->
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: [Go 1.22+, React 19/TypeScript, Python 3.9+, Node 20+, or NEEDS CLARIFICATION]  
+**Primary Dependencies**: [Gin, Gorilla WebSocket, Eino, React, Vite, Zustand, Shadcn/ui, Feishu SDK/API, or NEEDS CLARIFICATION]  
+**Storage**: [SQLite default, PostgreSQL via DB_DRIVER/DSN/PG_*, browser state, files, or N/A]  
+**Testing**: [go test ./..., npm test/lint for selected frontend, Python checks, manual verification, or NEEDS CLARIFICATION]  
+**Target Platform**: [EchoCenter backend/frontend local stack, Docker deployment, Feishu long-connection runtime, or NEEDS CLARIFICATION]
+**Project Type**: [backend service, frontend workspace, agent integration, docs, cross-stack feature, or NEEDS CLARIFICATION]  
+**Performance Goals**: [WebSocket latency/capacity, Butler workflow latency, UI responsiveness, DB query bounds, or NEEDS CLARIFICATION]  
+**Constraints**: [JWT/agent-token auth, token-safe output, bounded concurrency, bilingual UI, no raw secret exposure, or NEEDS CLARIFICATION]  
+**Scale/Scope**: [affected users, agents, WebSocket clients, integrations, admin workflows, or NEEDS CLARIFICATION]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- **Agent Contracts**: Does the plan document changed API, WebSocket, Butler,
+  Feishu, or agent message contracts, including compatibility and failure
+  responses?
+- **Secure Boundaries**: Are authentication, authorization, credential handling,
+  token-safe display, and abuse cases explicit for every affected boundary?
+- **Real-Time Reliability**: For chat, status, timeline, Feishu, or routing
+  changes, are ordering, idempotency, retry/reconnect, timeout, and capacity
+  impacts addressed?
+- **Observability & Fail-Fast**: Are validation, error propagation, operator logs,
+  traces/metrics, and frontend error/loading/disconnected states defined?
+- **Pragmatic Verification**: Is the solution scoped to the current need, using
+  existing structure and dependencies, with tests or manual verification for
+  critical paths and external boundaries?
 
 ## Project Structure
 
@@ -56,39 +68,23 @@ specs/[###-feature]/
 -->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
-
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
 backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
+├── cmd/                 # binaries and tools
+├── internal/            # API, auth, Butler, config, models, observability, ops, repository
+├── mock_agents/         # Python mock agents and fixtures
+├── pkg/                 # shared backend packages
+└── scripts/             # local development and mock-stack scripts
 
 frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
+├── v1/                  # original React/Vite app
+├── v2/                  # zero-build HTML prototype
+└── v3/                  # current React/Vite design direction
 
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+docs/
+├── agents/
+├── api/
+├── architecture/
+└── development/
 ```
 
 **Structure Decision**: [Document the selected structure and reference the real

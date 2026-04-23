@@ -1,0 +1,373 @@
+openapi: 3.0.3
+info:
+  title: EchoCenter VPN Admin API
+  version: 0.1.0
+  description: Admin-only control-plane API for the Phase 1 VPN MVP.
+servers:
+  - url: /api
+security:
+  - bearerAuth: []
+paths:
+  /vpn/status:
+    get:
+      summary: Get VPN control-plane status
+      operationId: getVPNStatus
+      tags: [vpn]
+      responses:
+        "200":
+          description: VPN status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VPNStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /vpn/peers:
+    get:
+      summary: List VPN peers
+      operationId: listVPNPeers
+      tags: [vpn]
+      responses:
+        "200":
+          description: Peer list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VPNPeer"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      summary: Create a VPN peer
+      operationId: createVPNPeer
+      tags: [vpn]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVPNPeerRequest"
+      responses:
+        "201":
+          description: Peer created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VPNPeer"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /vpn/peers/{id}:
+    get:
+      summary: Get VPN peer details
+      operationId: getVPNPeer
+      tags: [vpn]
+      parameters:
+        - $ref: "#/components/parameters/PeerID"
+      responses:
+        "200":
+          description: Peer details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VPNPeer"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      summary: Update VPN peer metadata or enabled state
+      operationId: updateVPNPeer
+      tags: [vpn]
+      parameters:
+        - $ref: "#/components/parameters/PeerID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVPNPeerRequest"
+      responses:
+        "200":
+          description: Updated peer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VPNPeer"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      summary: Delete VPN peer
+      operationId: deleteVPNPeer
+      tags: [vpn]
+      parameters:
+        - $ref: "#/components/parameters/PeerID"
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /vpn/peers/{id}/config:
+    get:
+      summary: Generate VPN peer connection material
+      operationId: getVPNPeerConfig
+      tags: [vpn]
+      parameters:
+        - $ref: "#/components/parameters/PeerID"
+      responses:
+        "200":
+          description: Peer connection material
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VPNPeerConfig"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    PeerID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Missing or invalid token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: Admin access required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Duplicate name, public key, or virtual IP
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    VPNStatus:
+      type: object
+      required:
+        - enabled
+        - network
+        - server_public_key
+        - peer_count
+      properties:
+        enabled:
+          type: boolean
+        network:
+          $ref: "#/components/schemas/VPNNetwork"
+        server_public_key:
+          type: string
+        peer_count:
+          type: integer
+          minimum: 0
+        peers:
+          type: array
+          items:
+            $ref: "#/components/schemas/VPNPeerStatus"
+    VPNNetwork:
+      type: object
+      required:
+        - id
+        - name
+        - interface_name
+        - network_cidr
+        - server_vpn_ip
+        - listen_port
+        - domain
+        - enabled
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          example: EchoCenter VPN
+        interface_name:
+          type: string
+          example: wg-echo
+        network_cidr:
+          type: string
+          example: 10.88.0.0/16
+        server_vpn_ip:
+          type: string
+          example: 10.88.0.1
+        listen_port:
+          type: integer
+          example: 51820
+        domain:
+          type: string
+          example: echocenter.vpn
+        enabled:
+          type: boolean
+    VPNPeer:
+      type: object
+      required:
+        - id
+        - network_id
+        - name
+        - public_key
+        - virtual_ip
+        - address_cidr
+        - allowed_ips
+        - persistent_keepalive
+        - enabled
+        - private_key_available
+        - runtime
+      properties:
+        id:
+          type: integer
+        network_id:
+          type: integer
+        name:
+          type: string
+        agent_id:
+          type: integer
+          nullable: true
+        user_id:
+          type: integer
+          nullable: true
+        public_key:
+          type: string
+        virtual_ip:
+          type: string
+          example: 10.88.1.10
+        address_cidr:
+          type: string
+          example: 10.88.1.10/32
+        allowed_ips:
+          type: string
+          example: 10.88.0.1/32
+        persistent_keepalive:
+          type: integer
+          example: 25
+        enabled:
+          type: boolean
+        private_key_available:
+          type: boolean
+        runtime:
+          $ref: "#/components/schemas/VPNPeerRuntimeStatus"
+    VPNPeerStatus:
+      allOf:
+        - $ref: "#/components/schemas/VPNPeer"
+    VPNPeerRuntimeStatus:
+      type: object
+      required: [last_handshake, rx_bytes, tx_bytes, source]
+      properties:
+        last_handshake:
+          type: string
+          nullable: true
+          description: Null in Phase 1 when runtime data is unavailable.
+        rx_bytes:
+          type: integer
+          nullable: true
+          description: Null in Phase 1 when runtime data is unavailable.
+        tx_bytes:
+          type: integer
+          nullable: true
+          description: Null in Phase 1 when runtime data is unavailable.
+        source:
+          type: string
+          enum: [unknown, runtime]
+          example: unknown
+    CreateVPNPeerRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        agent_id:
+          type: integer
+          nullable: true
+        user_id:
+          type: integer
+          nullable: true
+        public_key:
+          type: string
+          nullable: true
+          description: Omit to let EchoCenter generate the peer keypair.
+        enabled:
+          type: boolean
+          default: true
+    UpdateVPNPeerRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        agent_id:
+          type: integer
+          nullable: true
+        user_id:
+          type: integer
+          nullable: true
+        enabled:
+          type: boolean
+    VPNPeerConfig:
+      type: object
+      required:
+        - peer_id
+        - mode
+        - wireguard_config
+        - agent_websocket_url
+        - hosts_entry
+        - warnings
+      properties:
+        peer_id:
+          type: integer
+        mode:
+          type: string
+          enum: [full_client_config, server_fragment]
+        wireguard_config:
+          type: string
+        agent_websocket_url:
+          type: string
+          example: ws://echocenter.vpn:8080/api/ws
+        hosts_entry:
+          type: string
+          example: 10.88.0.1 echocenter.vpn
+        warnings:
+          type: array
+          items:
+            type: string

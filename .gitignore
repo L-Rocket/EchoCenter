@@ -46,6 +46,7 @@ third_party/openhands/.runtime/
 third_party/openhands/__pycache__/
 third_party/openhands/vendor/extracted/
 test/.tmp/
+.runtime
 
 # Universal
 Thumbs.db

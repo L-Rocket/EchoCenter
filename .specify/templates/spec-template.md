@@ -74,6 +74,10 @@
 
 - What happens when [boundary condition]?
 - How does system handle [error scenario]?
+- How does the workflow behave when WebSocket or Feishu long-connection state is
+  disconnected, duplicated, delayed, or reordered?
+- What happens when the caller lacks JWT or agent-token authorization, or when a
+  credential is invalid, expired, or missing?
 
 ## Requirements *(mandatory)*
 
@@ -89,11 +93,30 @@
 - **FR-003**: Users MUST be able to [key interaction, e.g., "reset their password"]
 - **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
 - **FR-005**: System MUST [behavior, e.g., "log all security events"]
+- **FR-006**: System MUST define authorization behavior for each affected user,
+  agent, Butler, or integration action
+- **FR-007**: System MUST avoid exposing raw secrets in API responses, logs,
+  frontend state, documentation examples, and generated fixtures
+- **FR-008**: System MUST define observable failure behavior for affected
+  external boundaries, including operator logs/traces/metrics or user-visible
+  error states
 
 *Example of marking unclear requirements:*
 
-- **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
-- **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
+- **FR-009**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
+- **FR-010**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
+
+### Contract & Reliability Requirements *(include when feature touches agents, Butler, WebSocket, Feishu, APIs, or persistence)*
+
+- **CR-001**: [Actor/message/API contract affected, including request/response or event shape]
+- **CR-002**: [Ordering, idempotency, retry/reconnect, timeout, or backpressure behavior]
+- **CR-003**: [Backward compatibility expectation or explicit versioned breaking change]
+
+### Security & Observability Requirements *(mandatory for backend, integration, agent, admin, and command-execution changes)*
+
+- **SO-001**: [Authorization and abuse case requirement]
+- **SO-002**: [Input validation and fail-fast behavior]
+- **SO-003**: [Logs, traces, metrics, audit events, or user-visible failure states]
 
 ### Key Entities *(include if feature involves data)*
 
@@ -113,3 +136,16 @@
 - **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
 - **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
 - **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
+
+## Assumptions
+
+<!--
+  ACTION REQUIRED: The content in this section represents placeholders.
+  Fill them out with the right assumptions based on reasonable defaults
+  chosen when the feature description did not specify certain details.
+-->
+
+- [Assumption about target users, e.g., "Users have stable internet connectivity"]
+- [Assumption about scope boundaries, e.g., "Mobile support is out of scope for v1"]
+- [Assumption about data/environment, e.g., "Existing authentication system will be reused"]
+- [Dependency on existing system/service, e.g., "Requires access to the existing user profile API"]

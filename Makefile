@@ -11,7 +11,7 @@ OPENHANDS_LOCAL_PYTHON ?= $(CURDIR)/third_party/openhands/.runtime/python-$(OPEN
 #   v1 = original React/Vite app
 #   v2 = zero-build HTML design prototype wired to backend
 #   v3 = v1 codebase restyled with v2's design language
-FRONTEND_VERSION ?= v2
+FRONTEND_VERSION ?= v3
 FRONTEND_DIR := frontend/$(FRONTEND_VERSION)
 
 help: ## Show this help message
