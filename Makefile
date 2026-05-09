@@ -1,4 +1,4 @@
-.PHONY: help install run run-mock dev dev-backend dev-frontend build lint test clean mock-start run-mock-sqllite run-mock-postgre
+.PHONY: help install run run-mock dev dev-backend dev-frontend docs-dev build lint test clean mock-start run-mock-sqllite run-mock-postgre
 
 # Default goal
 .DEFAULT_GOAL := help
@@ -37,6 +37,9 @@ install: ## Install all dependencies (Go, Node, Python)
 	@OPENHANDS_PYTHON_BIN="$$(OPENHANDS_PYTHON_VERSION=$(OPENHANDS_PYTHON_VERSION) bash third_party/openhands/ensure_python.sh)" && \
 		"$$OPENHANDS_PYTHON_BIN" -m pip install -r third_party/openhands/requirements.txt && \
 		PYTHON_BIN="$$OPENHANDS_PYTHON_BIN" bash third_party/openhands/install_sdk.sh
+docs-dev: ## Start VitePress docs dev server
+	cd docs && npm install && npm run docs:dev
+
 dev-backend: ## Run backend in development mode
 	cd backend && go run cmd/server/main.go
 
