@@ -53,7 +53,19 @@ type DelegateResearchTool struct{}
 func (t *DelegateResearchTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: "delegate_research",
-		Desc: "Asks relevant online agents for fresh operational facts. Parameters: question (string), reasoning (string). Use this when you need live status or recent system facts before answering the user. Do not use this for action execution by the operations execution role (also called 执行官 / op-excutor / OpenHands-Ops).",
+		Desc: "Asks relevant online agents for fresh operational facts. Use this when you need live status or recent system facts before answering the user. Do not use this for action execution by the operations execution role (also called 执行官 / op-excutor / OpenHands-Ops).",
+		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
+			"question": {
+				Type:     schema.String,
+				Desc:     "The question to ask the online agents.",
+				Required: true,
+			},
+			"reasoning": {
+				Type:     schema.String,
+				Desc:     "Why this research is needed before answering the user.",
+				Required: true,
+			},
+		}),
 	}, nil
 }
 
@@ -89,7 +101,24 @@ type CommandAgentTool struct{}
 func (t *CommandAgentTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: "command_agent",
-		Desc: "Sends a command to another agent. Parameters: target_agent_id (int), command (string), reasoning (string). Use this for real execution work, including tasks for the backend-managed operations execution role also known as 执行官 / op-excutor / OpenHands-Ops.",
+		Desc: "Sends a command to another agent. Use this for real execution work, including tasks for the backend-managed operations execution role also known as 执行官 / op-excutor / OpenHands-Ops.",
+		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
+			"target_agent_id": {
+				Type:     schema.Integer,
+				Desc:     "The ID of the target agent to send the command to.",
+				Required: true,
+			},
+			"command": {
+				Type:     schema.String,
+				Desc:     "The command or instruction to send to the agent.",
+				Required: true,
+			},
+			"reasoning": {
+				Type:     schema.String,
+				Desc:     "Why this command is being issued.",
+				Required: true,
+			},
+		}),
 	}, nil
 }
 
