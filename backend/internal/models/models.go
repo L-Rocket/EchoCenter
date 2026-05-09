@@ -155,3 +155,13 @@ type IntegrationLog struct {
 	Detail    string    `json:"detail"`
 	Timestamp time.Time `json:"timestamp"`
 }
+
+// ButlerRuntimeConfig stores the Admin-configured Butler model parameters,
+// taking priority over environment variables.
+type ButlerRuntimeConfig struct {
+	ModelName   string    `json:"model_name" db:"model_name"`
+	BaseURL     string    `json:"base_url" db:"base_url"`
+	APIToken    string    `json:"api_token" db:"api_token"`
+	UpdatedByID int       `json:"updated_by_id" db:"updated_by_id"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+}
