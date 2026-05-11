@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Bot, MessageSquareShare, Server, ShieldEllipsis, ChevronRight } from 'lucide-react';
+import { Bot, BrainCircuit, MessageSquareShare, Server, ShieldEllipsis, ChevronRight } from 'lucide-react';
+import ButlerConfigSettings from '@/components/admin/ButlerConfigSettings';
 import FeishuIntegrationSettings from '@/components/admin/FeishuIntegrationSettings';
 import UserManagement from '@/components/admin/UserManagement';
 
-type SettingsPanel = 'agents' | 'integrations' | 'nodes' | 'ssh';
+type SettingsPanel = 'agents' | 'butler' | 'integrations' | 'nodes' | 'ssh';
 
 const SettingsPage = () => {
   const [panel, setPanel] = useState<SettingsPanel>('agents');
@@ -16,6 +17,12 @@ const SettingsPage = () => {
           label: 'Agent Config',
           desc: 'Create and tune registered runtimes.',
           icon: Bot,
+        },
+        {
+          key: 'butler' as const,
+          label: 'Butler Model',
+          desc: 'Switch LLM provider at runtime.',
+          icon: BrainCircuit,
         },
         {
           key: 'integrations' as const,
@@ -120,7 +127,9 @@ const SettingsPage = () => {
             <p style={{ fontSize: 13, color: 'var(--fg-muted)', margin: 0 }}>{activePanel.desc}</p>
           </div>
           <div className="v3-card" style={{ padding: 0, overflow: 'hidden' }}>
-            {panel === 'integrations' ? (
+            {panel === 'butler' ? (
+              <ButlerConfigSettings />
+            ) : panel === 'integrations' ? (
               <FeishuIntegrationSettings />
             ) : (
               <UserManagement mode="settings" forcedPanel={panel === 'agents' ? 'agents' : panel === 'nodes' ? 'nodes' : 'ssh'} />

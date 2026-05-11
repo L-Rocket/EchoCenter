@@ -54,6 +54,15 @@ func InitButler(id int, name string, hub HubInterface, repo repository.Repositor
 		baseURL := os.Getenv("BUTLER_BASE_URL")
 		apiToken := os.Getenv("BUTLER_API_TOKEN")
 		model := os.Getenv("BUTLER_MODEL")
+
+		// DB config takes priority over env vars.
+		if cfg, err := repo.GetButlerRuntimeConfig(context.Background()); err == nil && cfg != nil {
+			baseURL = cfg.BaseURL
+			apiToken = cfg.APIToken
+			model = cfg.ModelName
+			log.Printf("[Butler] Loaded model config from DB: model=%s", model)
+		}
+
 		compactionCfg := loadContextCompactionConfig(baseURL, apiToken, model)
 		runtimeRouterCfg := loadRuntimeRouterConfig(baseURL, apiToken, model)
 
@@ -173,6 +182,22 @@ func (s *ButlerService) SetHub(hub HubInterface) {
 // GetButlerID returns the butler's user ID
 func (s *ButlerService) GetButlerID() int {
 	return s.butlerID
+}
+
+// UpdateModelConfig hot-swaps the Butler's LLM configuration at runtime.
+// It holds the write lock for the duration of the rebuild to ensure
+// in-flight reads see either the old or the new state, never a partial update.
+func (s *ButlerService) UpdateModelConfig(baseURL, apiToken, model string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.baseURL = baseURL
+	s.apiToken = apiToken
+	s.model = model
+	compactionCfg := loadContextCompactionConfig(baseURL, apiToken, model)
+	routerCfg := loadRuntimeRouterConfig(baseURL, apiToken, model)
+	s.brain = NewEinoBrain(baseURL, apiToken, model, compactionCfg)
+	s.router = newRuntimeRouter(routerCfg.BaseURL, routerCfg.APIToken, routerCfg.Model, routerCfg)
+	log.Printf("[Butler] Model config updated: baseURL=%s model=%s", baseURL, model)
 }
 
 // ProcessLog processes log messages for situational awareness

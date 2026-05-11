@@ -60,6 +60,15 @@ func Setup(r *gin.Engine, h *handler.Handler, authSvc auth.Service) {
 			admin.POST("/ops/nodes/:id/test", h.TestInfraNode)
 		}
 
+		butlerAdmin := protected.Group("/butler")
+		butlerAdmin.Use(middleware.AdminOnly(authSvc))
+		{
+			butlerAdmin.GET("/config", h.GetButlerConfig)
+			butlerAdmin.PUT("/config", h.UpdateButlerConfig)
+			butlerAdmin.DELETE("/config", h.ResetButlerConfig)
+			butlerAdmin.POST("/config/test", h.TestButlerConnectivity)
+		}
+
 		integrations := protected.Group("/integrations")
 		integrations.Use(middleware.AdminOnly(authSvc))
 		{

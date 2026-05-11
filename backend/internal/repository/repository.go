@@ -67,6 +67,13 @@ type IntegrationRepository interface {
 	GetLatestFeishuInboundTarget(ctx context.Context, connectorID int) (chatID string, feishuUserID string, err error)
 }
 
+// ButlerConfigRepository manages the runtime model configuration for the Butler service.
+type ButlerConfigRepository interface {
+	GetButlerRuntimeConfig(ctx context.Context) (*models.ButlerRuntimeConfig, error)
+	UpsertButlerRuntimeConfig(ctx context.Context, cfg *models.ButlerRuntimeConfig) error
+	DeleteButlerRuntimeConfig(ctx context.Context) error
+}
+
 // BootstrapRepository manages startup/bootstrap data preparation.
 type BootstrapRepository interface {
 	InitializeAdmin(ctx context.Context, username, password string, bcryptCost int) error
@@ -85,6 +92,7 @@ type Repository interface {
 	UserRepository
 	ChatRepository
 	ButlerRepository
+	ButlerConfigRepository
 	IntegrationRepository
 	BootstrapRepository
 	MaintenanceRepository

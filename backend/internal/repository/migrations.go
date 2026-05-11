@@ -262,6 +262,19 @@ func (r *sqlRepository) getMigrations() []schemaMigration {
 					`CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation_time ON chat_messages (conversation_id, timestamp ASC, id ASC)`,
 				},
 			},
+			{
+				name: "012_create_butler_runtime_config",
+				statements: []string{
+					`CREATE TABLE IF NOT EXISTS butler_runtime_config (
+						id INTEGER PRIMARY KEY DEFAULT 1 CHECK(id = 1),
+						model_name TEXT NOT NULL DEFAULT '',
+						base_url TEXT NOT NULL DEFAULT '',
+						api_token TEXT NOT NULL DEFAULT '',
+						updated_by_id BIGINT REFERENCES users(id),
+						updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+					)`,
+				},
+			},
 		}
 	}
 
@@ -469,6 +482,20 @@ func (r *sqlRepository) getMigrations() []schemaMigration {
 				`ALTER TABLE chat_messages ADD COLUMN conversation_id INTEGER REFERENCES conversation_threads(id)`,
 				`CREATE INDEX IF NOT EXISTS idx_conversation_threads_owner_peer ON conversation_threads (owner_user_id, peer_user_id, channel_kind, last_message_at DESC, id DESC)`,
 				`CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation_time ON chat_messages (conversation_id, timestamp ASC, id ASC)`,
+			},
+		},
+		{
+			name: "012_create_butler_runtime_config",
+			statements: []string{
+				`CREATE TABLE IF NOT EXISTS butler_runtime_config (
+					id INTEGER PRIMARY KEY DEFAULT 1 CHECK(id = 1),
+					model_name TEXT NOT NULL DEFAULT '',
+					base_url TEXT NOT NULL DEFAULT '',
+					api_token TEXT NOT NULL DEFAULT '',
+					updated_by_id INTEGER,
+					updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+					FOREIGN KEY(updated_by_id) REFERENCES users(id)
+				)`,
 			},
 		},
 	}
